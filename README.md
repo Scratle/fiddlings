@@ -2,10 +2,10 @@
 ..and 10 other nice things.
 
 ### Before
-<img src="https://i.stack.imgur.com/BTa7G.png" width="500"> <img src="https://i.stack.imgur.com/VOj7O.png" width="500">
+<img src="https://i.stack.imgur.com/BTa7G.png" width="300"> <img src="https://i.stack.imgur.com/VOj7O.png" width="300">
 
 ### After
-<img src="https://i.stack.imgur.com/BPRch.png" width="500"> <img src="https://i.stack.imgur.com/h8QOJ.png" width="500">
+<img src="https://i.stack.imgur.com/BPRch.png" width="300"> <img src="https://i.stack.imgur.com/h8QOJ.png" width="300">
 
 
 ### How it works
@@ -18,6 +18,6 @@ To change the settings click on this icon on the top right:
 
 ..and a user interface<sup>1</sup> to change the settings will appear:
 
-<img src="https://i.stack.imgur.com/AtvCw.png" width="500">
+<img src="https://i.stack.imgur.com/AtvCw.png" width="300">
 
 <sub>[1] Uses [Stacks](https://stackoverflow.design/)</sub>
