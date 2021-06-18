@@ -5,7 +5,7 @@
 - Replace the radios with real buttons, like they used to be.
 - Rework the title to not repeat information.
 - Move the post type (Question / Answer / Tag Wiki) to the title bar.
-- Move the post-diff choices up next to the Filter-button.
+- Move the post-diff choices (Inline/Side-by-side/Side-by-side Markdown) up next to the Filter-button.
 - Move the daily review progress to the "Review task"-button
 - Add back the user cards of both the author and previous editor.
 - Get the statistics of the editor.
