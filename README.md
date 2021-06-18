@@ -1,5 +1,18 @@
 ### Make "Suggested Edits" reviews wider
-..and 10 other nice things.
+..and choices for 10 other nice things:
+
+- Remove the "Big Box" on the right 1/3 of the screen.
+- Replace the radios with real buttons, like they used to be.
+- Rework the title to not repeat information.
+- Move the post type (Question / Answer / Tag Wiki) to the title bar.
+- Move the post-diff choices up next to the Filter-button.
+- Move the daily review progress to the "Review task"-button
+- Add back the user cards of both the author and previous editor.
+- Get the statistics of the editor.
+- Change the size and colour of the edit "comment", which is renamed to "summary".
+- Make notifications more prominent.
+- Remove the line trough on deleted content.
+
 
 ### Before
 <img src="https://i.stack.imgur.com/BTa7G.png" width="300"> <img src="https://i.stack.imgur.com/VOj7O.png" width="300">
