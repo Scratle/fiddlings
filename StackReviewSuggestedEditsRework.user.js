@@ -7,7 +7,9 @@
 // @contributor  Oleg Valter
 // @include      /^https://stackoverflow.com/review/suggested-edits.*/
 // @exclude      /^https://stackoverflow.com/review/suggested-edits/(stats|history)/
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
 // ==/UserScript==
 
 (function() {
@@ -70,14 +72,14 @@
 
     /* OPTION 1:
        Required for the GUI to work.
-       Makes use of localStorage.
+       Makes use of the userscript manager's storage or localStorage if the user doesn't use a userscript manager.
        Manual changes to defaultUserConfig will only apply using the GUI (Restore button). */
     const userConfig = getUserConfig();           // <-- OPTION 1
 
     /* OPTION 2:
        If you don't want the GUI.
        NOTE: If using this, the GUI will have NO effect on the applied settings.
-       Avoids localStorage.
+       Avoids the userscript manager's storage and localStorage.
        Manual changes to defaultUserConfig will apply directly to the script. */
     // const userConfig = defaultUserConfig;         // <-- OPTION 2
 
@@ -86,23 +88,31 @@
     // ---- Local Storage  ------------- Needed with GUI ------------------------------------------
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+    // NOTE: these are from ViolentMonkey's docs, but TamperMonkey works in a similar way
+    // https://violentmonkey.github.io/api/gm/#gm_getvalue
+    // https://violentmonkey.github.io/api/gm/#gm_setvalue
+    // https://violentmonkey.github.io/api/gm/#gm_deletevalue
 
     function getUserConfig() {
-        let config = JSON.parse(localStorage.getItem(PREFIX));
-        if (config === null) {
-            updateLocalStorage(defaultUserConfig);
-            config = JSON.parse(localStorage.getItem(PREFIX));
-        }
-        return config;
+        let userConfig = getValueFromCache(PREFIX);
+        if (!userConfig) updateValueFromCache(PREFIX, defaultUserConfig);
+        userConfig = getValueFromCache(PREFIX);
+
+        return userConfig;
     }
 
-    function removeFromLocalStorage() {
-        localStorage.removeItem(PREFIX);
+    function getValueFromCache(cacheKey) {
+        return window.GM_getValue ? window.GM_getValue(cacheKey) : JSON.parse(localStorage.getItem(cacheKey));
     }
 
-    function updateLocalStorage(config) {
-        localStorage.setItem(PREFIX, JSON.stringify(config));
-        console.log("updateLocalStorage - config", config);
+    function removeValueFromCache(cacheKey) {
+        window.GM_deleteValue ? window.GM_deleteValue(cacheKey) : localStorage.removeItem(cacheKey);
+    }
+
+    function updateValueFromCache(cacheKey, cacheValue) {
+        // GM_setValue accepts an object as the second parameter, so we don't need to stringify it
+        window.GM_setValue ? window.GM_setValue(cacheKey, cacheValue) : localStorage.setItem(cacheKey, JSON.stringify(cacheValue));
+        console.log("updateValueFromCache - config", cacheValue);
     }
 
 
@@ -2129,7 +2139,7 @@
         // ---- Just insert the icon --------------------------------------------------------------
 
         let tempUserConfig;
-        // removeFromLocalStorage()  // For testing purposes
+        // removeValueFromCache(PREFIX)  // For testing purposes
 
         // Just add the icon. Then wait until it's clicked.
         // insertIcon();                    // No Svg..
@@ -2274,7 +2284,7 @@
             const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
             const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
 
-            saveButton.addEventListener("click", (event) => updateLocalStorage(tempUserConfig));
+            saveButton.addEventListener("click", (event) => updateValueFromCache(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
