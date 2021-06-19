@@ -1390,7 +1390,7 @@
         // -------    makeCells    --------------------
         const makeCells = (cells, isHead = false) => {
             return cells.map((content, idx) => {
-                var cell = document.createElement(isHead ? "th" : "td");
+                const cell = document.createElement(isHead ? "th" : "td");
                 if (isHead) {
                     cell.colSpan = 4;
                     const bold = document.createElement("b");
