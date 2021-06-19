@@ -2185,22 +2185,14 @@
             topBar.append(settingsItem);
 
             // loads the GUI for the settings
-            settingsItem.addEventListener("click", (event) => {
-                const sleep = (milliseconds) => {
-                    return new Promise(resolve => setTimeout(resolve, milliseconds));
+            settingsItem.addEventListener("click", () => {
+                let modalElement = document.querySelector(`#${modalConfig.ids.aside}`);
+                if (!modalElement) { // check if the modal has been appended to the DOM
+                    modalElement = createModalAside(loadIt());
+                    document.body.appendChild(modalElement);
                 }
-
-                const aside = createModalAside(loadIt());
-                settingsItem.append(aside);
-                settingsLink.dataset.action = show;
-                settingsItem.dataset.controller = modal;
-
-                // The GUI needs to load first..
-                sleep(50).then(() => {
-                    settingsLink.click();
-                    // Stacks.showModal(settingsItem);
-                })
-            }, { once: true });
+                setTimeout(() => Stacks.showModal(modalElement), 0);
+            });
 
         }
 
@@ -2215,6 +2207,7 @@
             modalAside.classList.add(modal);
             modalAside.id = asideId;
             modalAside.dataset.target = `${modal}.modal`;
+            modalAside.dataset.controller = modal;
             modalAside.append(linkToModal);
 
             return modalAside;
@@ -2348,7 +2341,7 @@
             const modalBody = document.createElement("div");
             modalBody.classList.add(body); //, "js-user-panel-content");
             modalBody.id = bodyId;
-            modalBody.style.marginTop = "20px";
+            modalBody.style.paddingTop = "20px";
 
             // Make the body scroll without effecting on the tabs nor the buttons
             modalBody.style.maxHeight = (window.innerHeight - 275) + "px";
