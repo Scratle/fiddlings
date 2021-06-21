@@ -692,7 +692,7 @@
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
 
         // -------    originalPostUserCards    --------------------
-        function originalPostUserCards(userCardsContainerAll) {
+        async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
             const { selectors: {content: {originalPost} },
                     classes: {grid: {cell}, answers, userCards: {signature} },
@@ -711,66 +711,45 @@
             userCardsContainerAll.style.justifyContent = "space-between";
 
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-            fetch(postlink)
-                .then((response) => {
-                     // https://chat.stackoverflow.com/transcript/message/52286535#52286535
-                     const { status } = response;
+            try {
+                const userCardRequest = await fetch(postlink);
+                const userCardResponse = await userCardRequest.text();
+                // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+                if (userCardRequest.status === 200) {
+                    const userCards =
+                        [...new DOMParser()
+                            .parseFromString(userCardResponse, "text/html")
+                            // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
+                            .querySelectorAll(`${thePost} .${signature}.${cell}`)
+                            // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
+                            // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
+                        ];
 
-                     const responseMap = {
-                         200: (response) =>  // Status: OK
-                                  response
-                                      .text()
-                                      .then((data) => {
-                                           // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
-                                           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-                                           const userCards =
-                                               [...new DOMParser()
-                                                   .parseFromString(data, "text/html")
-                                                   // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
-                                                   .querySelectorAll(`${thePost} .${signature}.${cell}`)
-                                                   // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
-                                                   // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
-                                               ];
+                    const postUserCardContainer = createNewDiv();
+                    // userCards.forEach(node => userCardDiv.appendChild(node));
+                    postUserCardContainer.append(...userCards);
 
-                                           const postUserCardContainer = createNewDiv();
-                                           // userCards.forEach(node => userCardDiv.appendChild(node));
-                                           postUserCardContainer.append(...userCards);
+                    userCardsContainerAll.appendChild(postUserCardContainer);
+                } else if (userCardRequest.status === 404) { // not found
+                    const messages = ["The original post is unavailable.", "User cards cannot be retrieved."]
+                    userCardsContainerAll.appendChild(missingCards(messages));
+                } else if (!userCardRequest.ok) {
+                    const status = userCardRequest.status;
+                    const messages = ["Tried to fetch usercards, but", `Stack responsed with status: ${status}`]
+                    userCardsContainerAll.appendChild(missingCards(messages));
+                }
+            } catch (error) {
+                const messages = [
+                    "Something is blocking fetching user cards",
+                    "Could be your ad-blocker or your network connection. Check the console."
+                ];
+                console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
+                userCardsContainerAll.appendChild(missingCards(messages));
+            }
+            if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
+                userCardsContainerAll.style.width = adjustUserCardsWidth();
 
-                                           userCardsContainerAll.appendChild(postUserCardContainer);
-                                       }),
-
-                         404: () => {  // Status: Not Found
-                                  const messages = [
-                                                    "The original post is unavailable.",
-                                                    "User cards cannot be retrieved."
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              },
-
-                         default : () => {  // Status: Don't know
-                                  const messages = [
-                                                    "Tried to fetch usercards, but",
-                                                    `Stack responsed with status: ${status}`
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              }
-                     };
-
-                     (responseMap[status.toString()] || responseMap.default)(response);
-
-                     // Only necessary when keeping the Radio Button Box
-                     if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
-                         userCardsContainerAll.style.width = adjustUserCardsWidth();
-                 })
-                .catch((error) => {
-                     // console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
-                     const messages = [
-                                       "Something is blocking fetching user cards",
-                                       "Could be your ad-blocker. Check the console."
-                                      ];
-
-                     userCardsContainerAll.appendChild(missingCards(messages));
-              });
 
             // -------    adjustUserCardsWidth    --------------------
             function adjustUserCardsWidth() { // Only when NOT moving the radioButtonBox
