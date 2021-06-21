@@ -827,8 +827,15 @@
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector(config.selectors.userCards.minimal);
-            if (!editProposedTime || !minimalUserCard) // !(editProposedTime && minimalUserCard)
+            if (!editProposedTime)
                 return;
+
+            // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
+            if (!minimalUserCard) {
+                const editorUserCard = createStacksUserCard(null, editProposedTime);
+                editProposedTime.replaceWith(editorUserCard);
+                return;
+            }
 
             minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue
             // Getting the editor userid
@@ -872,6 +879,27 @@
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
                 // https://stackoverflow.design/product/components/user-cards/
 
+                const deletedUserUrl = 'https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9';
+                const proposedText = editProposedTime.firstElementChild.innerText; // e.g. 4 hours ago
+                const proposedISO = editProposedTime.firstElementChild.title; // YYYY-MM-DD HH:MM:SSZ
+
+                if (!editorReviewStats) {
+                    const anonymousUserHtml = `
+<div class="${config.classes.userCards.base} ${config.classes.userCards.deleted}">
+    <time class="${config.classes.userCards.time}">proposed ${proposedText}</time>
+    <div href="${deletedUserUrl}"
+       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
+        <img class="${config.classes.avatars.avatarImage}" src="${deletedUserUrl}">
+    </div>
+    <div class="${config.classes.userCards.info}">
+        <div class="${config.classes.userCards.link}">anonymous user</div>
+    </div>
+</div>`
+                    const parsedHtml = new DOMParser().parseFromString(anonymousUserHtml, "text/html");
+                    Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO); // fancy Stacks tooltip
+                    return parsedHtml.querySelector(config.selectors.userCards.default);
+                }
+
                 const gravatarImageSrc = editorReviewStats.querySelector("img").src;
                 const username = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).innerHTML;
                 const editorProfileUrl = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).href;
@@ -881,8 +909,6 @@
                     editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
-                const proposedText = editProposedTime.firstElementChild.innerText; // e.g. 4 hours ago
-                const proposedISO = editProposedTime.firstElementChild.title; // YYYY-MM-DD HH:MM:SSZ
 
                 const rawHtml = `
 <div class="${config.classes.userCards.base}">
@@ -892,9 +918,9 @@
         <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
     </a>
     <div class="${config.classes.userCards.info}">
-        <a href="${editorProfileUrl}" class="s-user-card--link">${username}</a>
+        <a href="${editorProfileUrl}" class="${config.classes.userCards.link}">${username}</a>
         <ul class="${config.classes.userCards.awards}">
-            <li class="s-user-card--rep">${editorReputation}</li>
+            <li class="${config.classes.userCards.reputation}">${editorReputation}</li>
             ${gold ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.gold}">${gold}</li>` : ''}
             ${silver ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.silver}">${silver}</li>` : ''}
             ${bronze ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.bronze}">${bronze}</li>` : ''}
@@ -992,11 +1018,14 @@
                     },
                     // https://stackoverflow.design/product/components/user-cards/
                     base: "s-user-card",
+                    deleted: "s-user-card__deleted",
                     time: "s-user-card--time",
                     avatar: "s-user-card--avatar",
                     info: "s-user-card--info",
+                    link: "s-user-card--link",
                     awards: "s-user-card--awards",
                     awardBling: "s-award-bling",
+                    reputation: "s-user-card--rep",
                     gold: "s-award-bling__gold",
                     silver: "s-award-bling__silver",
                     bronze: "s-award-bling__bronze",
