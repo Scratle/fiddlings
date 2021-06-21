@@ -694,7 +694,7 @@
         // -------    originalPostUserCards    --------------------
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
-            const { selectors: {content: {originalPost} },
+            const { selectors: {content: {originalPost}, userCards: { gravatarSmall } },
                     classes: {grid: {cell}, answers, userCards: {signature} },
                   } = config;
 
@@ -728,7 +728,11 @@
 
                     const postUserCardContainer = createNewDiv();
                     // userCards.forEach(node => userCardDiv.appendChild(node));
-                    postUserCardContainer.append(...userCards);
+                    const stacksifiedUserCards = userCards
+                        // if the avatar has no children, then the OP edited the post
+                        // so we don't need to stacksify the user card
+                        .map(card => card.querySelector('img') ? stacksifyUserCards(card) : card);
+                    postUserCardContainer.append(...stacksifiedUserCards);
 
                     userCardsContainerAll.appendChild(postUserCardContainer);
                 } else if (userCardRequest.status === 404) { // not found
@@ -750,6 +754,43 @@
             if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
                 userCardsContainerAll.style.width = adjustUserCardsWidth();
 
+            // -------    stacksifyUserCards    --------------------
+            function stacksifyUserCards(original) {
+                const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
+                const gravatarImageSrc = original.querySelector("img").src;
+                const username = original.querySelector(config.selectors.userCards.username).innerHTML;
+                const profileUrl = original.querySelector(config.selectors.userCards.username).href;
+                const reputation = original.querySelector(config.selectors.userCards.reputation).innerText;
+                const [gold, silver, bronze] = [
+                    original.querySelector(config.selectors.userCards.goldBadges),
+                    original.querySelector(config.selectors.userCards.silverBadges),
+                    original.querySelector(config.selectors.userCards.bronzeBadges)
+                ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
+                const actionTime = userActionTime.innerText; // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
+                const actionTimeISO = userActionTime.querySelector('span').title; // YYYY-MM-DD HH:MM:SSZ
+                const isUserAsker = original.classList.contains('owner');
+
+                const rawHtml = `
+<div class="${config.classes.userCards.base}${isUserAsker ? ` ${config.classes.userCards.highlighted}` : ''} ${config.classes.userCards.signature}">
+    <time class="${config.classes.userCards.time}">${actionTime}</time>
+    <a href="${profileUrl}"
+       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
+        <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
+    </a>
+    <div class="${config.classes.userCards.stacksInfo}">
+        <a href="${profileUrl}" class="${config.classes.userCards.link}">${username}</a>
+        <ul class="${config.classes.userCards.awards}">
+            <li class="${config.classes.userCards.reputation}">${reputation}</li>
+            ${gold ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.gold}">${gold}</li>` : ''}
+            ${silver ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.silver}">${silver}</li>` : ''}
+            ${bronze ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.bronze}">${bronze}</li>` : ''}
+        </ul>
+    </div>
+</div>`;
+                const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
+                Stacks.setTooltipText(parsedHtml.querySelector('time'), actionTimeISO, { placement: 'top' }); // fancy Stacks tooltip
+                return parsedHtml.querySelector(config.selectors.userCards.default);
+            }
 
             // -------    adjustUserCardsWidth    --------------------
             function adjustUserCardsWidth() { // Only when NOT moving the radioButtonBox
@@ -870,12 +911,12 @@
        class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
         <img class="${config.classes.avatars.avatarImage}" src="${deletedUserUrl}">
     </div>
-    <div class="${config.classes.userCards.info}">
+    <div class="${config.classes.userCards.stacksInfo}">
         <div class="${config.classes.userCards.link}">anonymous user</div>
     </div>
 </div>`
                     const parsedHtml = new DOMParser().parseFromString(anonymousUserHtml, "text/html");
-                    Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO); // fancy Stacks tooltip
+                    Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO, { placement: 'top' });
                     return parsedHtml.querySelector(config.selectors.userCards.default);
                 }
 
@@ -896,7 +937,7 @@
        class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
         <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
     </a>
-    <div class="${config.classes.userCards.info}">
+    <div class="${config.classes.userCards.stacksInfo}">
         <a href="${editorProfileUrl}" class="${config.classes.userCards.link}">${username}</a>
         <ul class="${config.classes.userCards.awards}">
             <li class="${config.classes.userCards.reputation}">${editorReputation}</li>
@@ -998,9 +1039,10 @@
                     // https://stackoverflow.design/product/components/user-cards/
                     base: "s-user-card",
                     deleted: "s-user-card__deleted",
+                    highlighted: "s-user-card__highlighted",
                     time: "s-user-card--time",
                     avatar: "s-user-card--avatar",
-                    info: "s-user-card--info",
+                    stacksInfo: "s-user-card--info",
                     link: "s-user-card--link",
                     awards: "s-user-card--awards",
                     awardBling: "s-award-bling",
@@ -1066,6 +1108,9 @@
                     um: {
                         userLink: ".um-user-link"
                     },
+                    gravatarSmall: ".user-gravatar32",
+                    username: ".user-details a",
+                    actionTime: ".user-action-time", // action = asked/answered/edited
                 },
                 content: {
                     content: ".js-review-content",
