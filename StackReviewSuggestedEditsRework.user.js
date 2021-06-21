@@ -827,10 +827,10 @@
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector(config.selectors.userCards.minimal);
-
             if (!editProposedTime || !minimalUserCard) // !(editProposedTime && minimalUserCard)
                 return;
 
+            minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue
             // Getting the editor userid
             const userLink = minimalUserCard.querySelector("a");
             if (!userLink)
@@ -851,7 +851,7 @@
                  })
                 .then(data => {
                     const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createUserCard(editorReviewStats, editProposedTime);
+                    const editorUserCard = createStacksUserCard(editorReviewStats, editProposedTime);
 
                     // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
                     minimalUserCard.before(editorUserCard);
@@ -860,78 +860,51 @@
                     editProposedTime.remove();
 
                     if (userConfig.options.userCards.withEditiorStats === "Yes") {
-                        insertEditorStatistics(editorUserCard,editorUserid);
+                        insertEditorStatistics(editorUserCard, editorUserid);
                     }
                  })
                 .catch((error) => {
                     console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
                  });
 
-            // -------    createUserCard    --------------------
-            function createUserCard(editorReviewHover, editProposedTime) {
+            // -------    createStacksUserCard    --------------------
+            function createStacksUserCard(editorReviewStats, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
+                // https://stackoverflow.design/product/components/user-cards/
 
-                const { classes: { grid: { cell } , userCards },
-                           size: { gravatarSmall },
-                            ids: { custom: { editorCard : editorCardId } }
-                      } = config;
+                const gravatarImageSrc = editorReviewStats.querySelector("img").src;
+                const username = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).innerHTML;
+                const editorProfileUrl = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).href;
+                const editorReputation = editorReviewStats.querySelector(config.selectors.userCards.reputation).innerText;
+                const [gold, silver, bronze] = [
+                    editorReviewStats.querySelector(config.selectors.userCards.goldBadges),
+                    editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
+                    editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
+                ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
+                const proposedText = editProposedTime.firstElementChild.innerText; // e.g. 4 hours ago
+                const proposedISO = editProposedTime.firstElementChild.title; // YYYY-MM-DD HH:MM:SSZ
 
-                const editorCardContainer = document.createElement("div");
-                editorCardContainer.id = editorCardId;
-                editorCardContainer.classList.add(userCards.signature,              // "post-signature"
-                                                  cell);                            // "grid--cell"
-
-                const editorCardDiv = document.createElement("div");
-                editorCardDiv.classList.add(userCards.info);                        // "user-info"
-
-                const actionTime = document.createElement("div");
-                actionTime.classList.add(userCards.actionTime);                     // "user-action-time"
-                actionTime.textContent = "proposed "; // editProposedTime.textContent;
-                actionTime.appendChild(editProposedTime.firstElementChild);
-
-                const editorGravatar
-                    = editorReviewHover.querySelector(`.${userCards.um.gravatar}`);
-                if (!editorGravatar)
-                    return;
-                const { classList : editorGravatarClassList } = editorGravatar;
-                editorGravatarClassList.remove(userCards.um.gravatar);             // "um-gravatar"
-                editorGravatarClassList.add(userCards.gravatarSmall);              // "user-gravatar32"
-
-                const editorGravatarDiv
-                    = editorGravatar.querySelector(`.${userCards.gravatarWrap}`);
-                if (!editorGravatarDiv)
-                    return;
-                const { classList : editorGravatarDivClassList } = editorGravatarDiv;
-                editorGravatarDivClassList.remove(userCards.gravatarWrap);         // "gravatar-wrapper-64"
-                editorGravatarDivClassList.add(userCards.gravatarSmallWrap);       // "gravatar-wrapper-32"
-
-                const editorGravatarImg = editorGravatarDiv.querySelector("img");
-                if (!editorGravatarImg)
-                    return;
-                editorGravatarImg.style.height
-                    = editorGravatarImg.style.width
-                    = gravatarSmall; // '32'
-
-                const editorFlairDiv = document.createElement("div");
-                editorFlairDiv.classList.add(userCards.details);                    // "user-details"
-                const editorUserNameLink
-                    = editorReviewHover.querySelector(`.${userCards.um.header} a`); // "um-header-info"
-                if (!editorUserNameLink)
-                    return;
-
-                const editorFlair = editorReviewHover.querySelector(`.${userCards.um.flair}`);
-                if (!editorFlair)
-                    return;
-                const { classList : editorFlairClassList } = editorFlair;
-                editorFlairClassList.remove(userCards.um.flair);                   // "um-flair"
-                editorFlairClassList.add(userCards.flair);                         // "-flair"
-
-                editorFlairDiv.append(editorUserNameLink, editorFlair);
-                editorCardDiv.append(actionTime, editorGravatar, editorFlairDiv);
-                editorCardContainer.appendChild(editorCardDiv);
-
-                return editorCardContainer;
-            } // createUserCard
+                const rawHtml = `
+<div class="${config.classes.userCards.base}">
+    <time class="${config.classes.userCards.time}">proposed ${proposedText}</time>
+    <a href="${editorProfileUrl}"
+       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
+        <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
+    </a>
+    <div class="${config.classes.userCards.info}">
+        <a href="${editorProfileUrl}" class="s-user-card--link">${username}</a>
+        <ul class="${config.classes.userCards.awards}">
+            <li class="s-user-card--rep">${editorReputation}</li>
+            ${gold ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.gold}">${gold}</li>` : ''}
+            ${silver ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.silver}">${silver}</li>` : ''}
+            ${bronze ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.bronze}">${bronze}</li>` : ''}
+        </ul>
+    </div>
+</div>`;
+                const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
+                Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO); // fancy Stacks tooltip
+                return parsedHtml.querySelector(config.selectors.userCards.default);
+            } // createStacksUserCard
 
         } // editorUserCard
     }
@@ -1017,6 +990,21 @@
                         header: "um-header-info",
                         flair: "um-flair",
                     },
+                    // https://stackoverflow.design/product/components/user-cards/
+                    base: "s-user-card",
+                    time: "s-user-card--time",
+                    avatar: "s-user-card--avatar",
+                    info: "s-user-card--info",
+                    awards: "s-user-card--awards",
+                    awardBling: "s-award-bling",
+                    gold: "s-award-bling__gold",
+                    silver: "s-award-bling__silver",
+                    bronze: "s-award-bling__bronze",
+                },
+                avatars: {
+                    base: "s-avatar",
+                    avatar32px: "s-avatar__32",
+                    avatarImage: "s-avatar--image"
                 },
                 buttons: {
                     button: "s-btn",
@@ -1025,7 +1013,7 @@
                     danger: "s-btn__danger",
                     muted: "s-btn__muted",
                     loading: "is-loading",
-                    },
+                },
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
                 desktopHide: "d-none",
@@ -1061,7 +1049,15 @@
                     header: ".s-page-title--header",
                 },
                 userCards: {
+                    default: ".s-user-card",
                     minimal: ".s-user-card__minimal",
+                    reputation: ".reputation-score",
+                    goldBadges: ".badge1",
+                    silverBadges: ".badge2",
+                    bronzeBadges: ".badge3",
+                    um: {
+                        userLink: ".um-user-link"
+                    },
                 },
                 content: {
                     content: ".js-review-content",
