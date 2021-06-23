@@ -752,26 +752,27 @@
                 const userCardResponse = await userCardRequest.text();
                 // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
                 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-                if (userCardRequest.status === 200) {
-                    const userCards =
-                        [...new DOMParser()
-                            .parseFromString(userCardResponse, "text/html")
-                            // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
-                            .querySelectorAll(`${thePost} .${signature}.${cell}`)
-                            // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
-                            // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
-                        ];
+                const userCards =
+                    [...new DOMParser()
+                        .parseFromString(userCardResponse, "text/html")
+                        // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
+                        .querySelectorAll(`${thePost} .${signature}.${cell}`)
+                        // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
+                        // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
+                    ];
 
-                    const postUserCardContainer = createNewDiv();
-                    // userCards.forEach(node => userCardDiv.appendChild(node));
-                    const stacksifiedUserCards = userCards
-                        // if the avatar has no children, then the OP edited the post
-                        // so we don't need to stacksify the user card
-                        .map(card => card.querySelector('img') ? stacksifyUserCards(card) : card);
+                const postUserCardContainer = createNewDiv();
+                // userCards.forEach(node => userCardDiv.appendChild(node));
+                const stacksifiedUserCards = userCards
+                    // if the avatar has no children, then the OP edited the post
+                    // so we don't need to stacksify the user card
+                    .map(card => card.querySelector('img') ? stacksifyUserCards(card) : card);
+
+                if (userCardRequest.status === 200 && stacksifiedUserCards.length) {
                     postUserCardContainer.append(...stacksifiedUserCards);
-
                     userCardsContainerAll.appendChild(postUserCardContainer);
-                } else if (userCardRequest.status === 404) { // not found
+                } else if (userCardRequest.status === 404 || !stacksifiedUserCards.length) {
+                    // 404 => not found => question deleted, stacksifiedUserCards array empty => answer deleted
                     const messages = ["The original post is unavailable.", "User cards cannot be retrieved."]
                     userCardsContainerAll.appendChild(missingCards(messages));
                 } else if (!userCardRequest.ok) {
