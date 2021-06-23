@@ -793,7 +793,9 @@
             // -------    stacksifyUserCards    --------------------
             function stacksifyUserCards(original) {
                 const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
-                const actionText = userActionTime.innerText; // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
+                // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
+                // if it's the edited usercard, then the element needs to be an anchor pointing to the revision history
+                const actionText = userActionTime.innerText.includes('edited') ? userActionTime.outerHTML : userActionTime.innerText;
                 const actionISO = userActionTime.querySelector('span').title; // YYYY-MM-DD HH:MM:SSZ
 
                 const [gold, silver, bronze] = [
