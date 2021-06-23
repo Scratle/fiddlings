@@ -669,6 +669,42 @@
         }
     }
 
+    // -------    createUserCard    --------------------
+    // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
+    function createUserCard(isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges) {
+        const deletedUserImage = 'https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9';
+        const anonymousUsername = 'anonymous user';
+
+        const { base: cardsBase, time: timeClass, avatar: cardsAvatar, stacksInfo, link: linkClass, reputation: reputationClass,
+                awards, awardBling, gold: goldClass, silver: silverClass, bronze: bronzeClass, highlighted,
+                deleted: userDeletedClass, signature } = config.classes.userCards;
+        const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
+        const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
+        const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
+        const imageElementType = isUserAnonymous ? 'div' : 'a'; // gravatar and username must not be clickable
+        const finalActionText = actionText.replace(' by an anonymous user', '').replace('Proposed', 'proposed');
+
+        const rawHtml = `
+<div class="${cardsBase} ${signature}${isUserAnonymous ? ` ${userDeletedClass}` : ''}${isUserOwner ? ` ${highlighted}` : ''}">
+    <time class="${timeClass}" datetime="${actionISO}">${finalActionText}</time>
+    <${imageElementType} href="${profileUrl || ''}"
+       class="${avatarsBase} ${avatar32px} ${cardsAvatar}">
+        <img class="${avatarImage}" src="${profileImage || deletedUserImage /* guard against anonymous users image being null */}">
+    </${imageElementType}>
+    <div class="${stacksInfo}">
+        <${imageElementType} href="${profileUrl}" class="${linkClass}">${username || anonymousUsername}</${imageElementType}>
+        <ul class="${awards}">
+            ${reputation ? `<li class="${reputationClass}">${reputation}</li>` : '' }
+            ${goldBadges ? `<li class="${awardBling} ${goldClass}">${goldBadges}</li>` : ''}
+            ${silverBadges ? `<li class="${awardBling} ${silverClass}">${silverBadges}</li>` : ''}
+            ${bronzeBadges ? `<li class="${awardBling} ${bronzeClass}">${bronzeBadges}</li>` : ''}
+        </ul>
+    </div>
+</div>`;
+        const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
+        Stacks.setTooltipText(parsedHtml.querySelector('time'), actionISO, { placement: 'top' }); // add Stacks tooltip
+        return parsedHtml.querySelector(config.selectors.userCards.default);
+    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -757,39 +793,23 @@
             // -------    stacksifyUserCards    --------------------
             function stacksifyUserCards(original) {
                 const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
-                const gravatarImageSrc = original.querySelector("img").src;
-                const username = original.querySelector(config.selectors.userCards.username).innerHTML;
-                const profileUrl = original.querySelector(config.selectors.userCards.username).href;
-                const reputation = original.querySelector(config.selectors.userCards.reputation).innerText;
+                const actionText = userActionTime.innerText; // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
+                const actionISO = userActionTime.querySelector('span').title; // YYYY-MM-DD HH:MM:SSZ
+
                 const [gold, silver, bronze] = [
                     original.querySelector(config.selectors.userCards.goldBadges),
                     original.querySelector(config.selectors.userCards.silverBadges),
                     original.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
-                const actionTime = userActionTime.innerText; // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
-                const actionTimeISO = userActionTime.querySelector('span').title; // YYYY-MM-DD HH:MM:SSZ
-                const isUserAsker = original.classList.contains('owner');
 
-                const rawHtml = `
-<div class="${config.classes.userCards.base}${isUserAsker ? ` ${config.classes.userCards.highlighted}` : ''} ${config.classes.userCards.signature}">
-    <time class="${config.classes.userCards.time}">${actionTime}</time>
-    <a href="${profileUrl}"
-       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
-        <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
-    </a>
-    <div class="${config.classes.userCards.stacksInfo}">
-        <a href="${profileUrl}" class="${config.classes.userCards.link}">${username}</a>
-        <ul class="${config.classes.userCards.awards}">
-            <li class="${config.classes.userCards.reputation}">${reputation}</li>
-            ${gold ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.gold}">${gold}</li>` : ''}
-            ${silver ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.silver}">${silver}</li>` : ''}
-            ${bronze ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.bronze}">${bronze}</li>` : ''}
-        </ul>
-    </div>
-</div>`;
-                const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
-                Stacks.setTooltipText(parsedHtml.querySelector('time'), actionTimeISO, { placement: 'top' }); // fancy Stacks tooltip
-                return parsedHtml.querySelector(config.selectors.userCards.default);
+                const isUserAsker = original.classList.contains('owner');
+                const profileUrl = original.querySelector(config.selectors.userCards.username).href;
+                const profileImage = original.querySelector("img").src;
+                const username = original.querySelector(config.selectors.userCards.username).innerHTML;
+                const reputation = original.querySelector(config.selectors.userCards.reputation).innerText;
+                const badges = { gold, silver, bronze };
+
+                return createUserCard(isUserAsker, actionText, actionISO, profileUrl, profileImage, username, reputation, badges);
             }
 
             // -------    adjustUserCardsWidth    --------------------
@@ -852,7 +872,7 @@
 
             // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
             if (!minimalUserCard) {
-                const editorUserCard = createStacksUserCard(null, editProposedTime);
+                const editorUserCard = createSuggestorsUserCard(null, editProposedTime);
                 editProposedTime.replaceWith(editorUserCard);
                 return;
             }
@@ -878,7 +898,7 @@
                  })
                 .then(data => {
                     const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createStacksUserCard(editorReviewStats, editProposedTime);
+                    const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
 
                     // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
                     minimalUserCard.before(editorUserCard);
@@ -894,63 +914,31 @@
                     console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
                  });
 
-            // -------    createStacksUserCard    --------------------
-            function createStacksUserCard(editorReviewStats, editProposedTime) {
+            // -------    createSuggestorsUserCard    --------------------
+            function createSuggestorsUserCard(editorReviewStats, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
                 // https://stackoverflow.design/product/components/user-cards/
 
-                const deletedUserUrl = 'https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9';
-                const proposedText = editProposedTime.firstElementChild.innerText; // e.g. 4 hours ago
+                const proposedText = editProposedTime.innerText; // e.g. 4 hours ago
                 const proposedISO = editProposedTime.firstElementChild.title; // YYYY-MM-DD HH:MM:SSZ
 
                 if (!editorReviewStats) {
-                    const anonymousUserHtml = `
-<div class="${config.classes.userCards.base} ${config.classes.userCards.deleted}">
-    <time class="${config.classes.userCards.time}">proposed ${proposedText}</time>
-    <div href="${deletedUserUrl}"
-       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
-        <img class="${config.classes.avatars.avatarImage}" src="${deletedUserUrl}">
-    </div>
-    <div class="${config.classes.userCards.stacksInfo}">
-        <div class="${config.classes.userCards.link}">anonymous user</div>
-    </div>
-</div>`
-                    const parsedHtml = new DOMParser().parseFromString(anonymousUserHtml, "text/html");
-                    Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO, { placement: 'top' });
-                    return parsedHtml.querySelector(config.selectors.userCards.default);
+                    return createUserCard(false, proposedText, proposedISO, null, null, null, null, {});
                 }
 
-                const gravatarImageSrc = editorReviewStats.querySelector("img").src;
+                const profileUrl = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).href;
+                const profileImage = editorReviewStats.querySelector("img").src;
+                const reputation = editorReviewStats.querySelector(config.selectors.userCards.reputation).innerText;
                 const username = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).innerHTML;
-                const editorProfileUrl = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).href;
-                const editorReputation = editorReviewStats.querySelector(config.selectors.userCards.reputation).innerText;
                 const [gold, silver, bronze] = [
                     editorReviewStats.querySelector(config.selectors.userCards.goldBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
+                const badges = { gold, silver, bronze };
 
-                const rawHtml = `
-<div class="${config.classes.userCards.base}">
-    <time class="${config.classes.userCards.time}">proposed ${proposedText}</time>
-    <a href="${editorProfileUrl}"
-       class="${config.classes.avatars.base} ${config.classes.avatars.avatar32px} ${config.classes.userCards.avatar}">
-        <img class="${config.classes.avatars.avatarImage}" src="${gravatarImageSrc}">
-    </a>
-    <div class="${config.classes.userCards.stacksInfo}">
-        <a href="${editorProfileUrl}" class="${config.classes.userCards.link}">${username}</a>
-        <ul class="${config.classes.userCards.awards}">
-            <li class="${config.classes.userCards.reputation}">${editorReputation}</li>
-            ${gold ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.gold}">${gold}</li>` : ''}
-            ${silver ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.silver}">${silver}</li>` : ''}
-            ${bronze ? `<li class="${config.classes.userCards.awardBling} ${config.classes.userCards.bronze}">${bronze}</li>` : ''}
-        </ul>
-    </div>
-</div>`;
-                const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
-                Stacks.setTooltipText(parsedHtml.querySelector('time'), proposedISO); // fancy Stacks tooltip
-                return parsedHtml.querySelector(config.selectors.userCards.default);
-            } // createStacksUserCard
+                return createUserCard(false, proposedText, proposedISO, profileUrl, profileImage, username, reputation, badges);
+            } // createSuggestorsUserCard
 
         } // editorUserCard
     }
