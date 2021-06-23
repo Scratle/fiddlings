@@ -866,7 +866,7 @@
         } // originalPostUserCards
 
         // -------    editorUserCard    ---------------------
-        function editorUserCard(userCardsContainerAll) {
+        async function editorUserCard(userCardsContainerAll) {
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector(config.selectors.userCards.minimal);
@@ -888,34 +888,30 @@
             const [editorUserid] = userLink.href.split("/").slice(-2); // second last element
 
             const queueNumber = 1; // there must be a "1" queue-number :)
-            const url = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
+            const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
 
             // Oleg says to change to async and use "await fetch" and "await reponse" instead
             // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Response status was: ' + response.status);
-                    }
-                    return response.text();
-                 })
-                .then(data => {
-                    const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
+            try {
+                const userInfoRequest = await fetch(userInformationUrl);
+                if (!userInfoRequest.ok) throw new Error("Response status was: " + userInfoRequest.status);
+                const userInformation = await userInfoRequest.text();
 
-                    // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
-                    minimalUserCard.before(editorUserCard);
+                const editorReviewStats = new DOMParser().parseFromString(userInformation, "text/html");
+                const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
 
-                    minimalUserCard.remove();
-                    editProposedTime.remove();
+                // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
+                minimalUserCard.before(editorUserCard);
 
-                    if (userConfig.options.userCards.withEditiorStats === "Yes") {
-                        insertEditorStatistics(editorUserCard, editorUserid);
-                    }
-                 })
-                .catch((error) => {
-                    console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
-                 });
+                minimalUserCard.remove();
+                editProposedTime.remove();
+
+                if (userConfig.options.userCards.withEditiorStats === "Yes") {
+                    insertEditorStatistics(editorUserCard, editorUserid);
+                }
+            } catch (error) {
+                console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
+            }
 
             // -------    createSuggestorsUserCard    --------------------
             function createSuggestorsUserCard(editorReviewStats, editProposedTime) {
