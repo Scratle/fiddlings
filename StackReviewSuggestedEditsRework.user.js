@@ -933,7 +933,7 @@
                     editorReviewStats.querySelector(config.selectors.userCards.goldBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
+                ].map(element => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
                 const badges = { gold, silver, bronze };
 
                 return createUserCard(false, proposedText, proposedISO, profileUrl, profileImage, username, reputation, badges);
@@ -1290,6 +1290,15 @@
         movePosttype(config);
     }
 
+    async function makeApiCall(apiEndpointUrl, page) {
+        try {
+            const apiCall = await fetch(`${apiEndpointUrl.toString()}&page=${page}`);
+            if (!apiCall.ok) return [];
+            return await apiCall.json();
+        } catch (error) {
+            console.error(USERSCRIPTNAME + ' - error fetching editor stats from the API - makeApiCall', error);
+        }
+    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -1297,23 +1306,27 @@
 
         // -------    getSuggestionsUserStats    --------------------
         const getSuggestionsUserStats = async (id) => {
-            // FIXME! Maybe add pagination/throttling in case a user has a massive amounts of edits?.
             // See https://api.stackexchange.com/docs ("users/{ids}/suggested-edits")
 
-            const url = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
+            const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
-                site: window.location.hostname, //     "stackoverflow"
-                key: 'YeacD0LmoUvMwthbBXF7Lw((',//:-)) Registered Key
+                site: window.location.hostname,  // "stackoverflow"
+                filter: '!3xgWlhxc4ZsL1tY5Y',    // only include approval_date and rejection_date
+                key: 'YeacD0LmoUvMwthbBXF7Lw((', //:-)) Registered Key
+                pagesize: 100
             };
-            url.search = new URLSearchParams(params).toString();
-            const res = await fetch(url.toString());
-            if (!res.ok)
-                return [];
-            const { items, } = await res.json();
-            // Examples of destructuring:
-            // const { items, quota_remaining } = await res.json();
-            // const { items: allTheItems, quota_remaining: myVeryLowQuotaOfToday} = await res.json();
-            return items;
+            apiEndpointUrl.search = new URLSearchParams(params).toString();
+
+            const allApiItems = [];
+            let hasMore = true, pageNumber = 1;
+
+            while (hasMore) {
+                const { items, has_more } = await makeApiCall(apiEndpointUrl, pageNumber);
+                allApiItems.push(...items);
+                hasMore = has_more;
+                pageNumber++;
+            }
+            return allApiItems;
         };
 
         // Create a container div and put the editorUserCard into it. Then add the stats into it too.
