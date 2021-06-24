@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 (function() {
-    'use strict';
+    "use strict";
 
     // --------------------------------------------------------------------------------------------
     // ---- User Options --------------------------------------------------------------------------
@@ -126,8 +126,7 @@
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/test
     const reviewRegex = /^\/review\/(next-task|task-reviewed)/;
 
-    $(document).ajaxComplete(function(event, request, settings) {
-
+    $(document).ajaxComplete((event, request, settings) => {
         // Just that first response with the review information
         if (reviewRegex.test(settings.url)) {
             if (request.responseJSON) {
@@ -135,48 +134,41 @@
             } else {
                try {
                     reviewResponse = JSON.parse(request.responseText);
-                }
-                catch (e) {
-                    console.error(USERSCRIPTNAME + ' - error parsing JSON', request.responseText);
+                } catch (e) {
+                    console.error(USERSCRIPTNAME + " - error parsing JSON", request.responseText);
                 }
             }
         }
-    })
+    });
 
     // ---------------------------
     // Lots of elements are not ready when the page is loaded. These .ajax method
     // ensures that a foonction is not fired until the page got a response
 
     function ajaxCompleteWrapper(foonction) {
-        $(document).ajaxComplete(function(event, request, { url }) {
+        $(document).ajaxComplete((event, request, { url }) => {
             if (reviewRegex.test(url)) {
                 foonction();
             }
-        })
+        });
     }
 
     function ajaxStopWrapper(foonction) {
-        $(document).ajaxStop(function(handler) {
-            foonction();
-        })
+        $(document).ajaxStop(() => foonction());
     }
 
     // https://chat.stackoverflow.com/transcript/message/52156286#52156286
     const ajaxCompleteWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
-            $(document).ajaxComplete((event, request, settings) => {
-                resolve(foonction());
-            })
+            $(document).ajaxComplete(() => resolve(foonction()))
         );
-    }
+    };
 
     const ajaxStopWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
-            $(document).ajaxStop((handler) => {
-                resolve(foonction());
-            })
+            $(document).ajaxStop(() => resolve(foonction()))
         );
-    }
+    };
 
 
     // --------------------------------------------------------------------------------------------
@@ -192,9 +184,7 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function addSeparator() {
-        const {selectors: {content: {revision : reviewRevision, tabs} },
-               classes: {grid: {cell} }
-              } = config;
+        const { selectors: {content: {revision : reviewRevision, tabs} } } = config;
         const revision = document.querySelector(reviewRevision);
         if (!revision)
             return;
@@ -329,7 +319,7 @@
         if (!buttonsParent)
             return;
         [...buttonsParent.children]
-             .forEach(button => {
+             .forEach((button) => {
                           if (isSkip(button.innerText.trim()))
                               button.style.minWidth = "70px";
                      });
@@ -343,7 +333,7 @@
             return;
 
         fieldsetChildren
-            .forEach(radio => {
+            .forEach((radio) => {
                          const { firstElementChild : gridContainer,
                                  classList         : radioClassList,
                                  style             : radiostyle
@@ -354,7 +344,7 @@
                          if (!p || !gridContainer) // !(p && gridContainer)
                              return;
 
-                         if (gridCells && gridCells.length == 2) {
+                         if (gridCells && gridCells.length === 2) {
                              const { parentElement } = gridCells[0];
                              if (parentElement)
                                  parentElement.append(gridCells[0]); // Switch them
@@ -413,7 +403,7 @@
         p.textContent = infoTextNode.nodeValue.trim();
         p.style.color = messageColour;
         p.style.backgroundColor = messageBackground;
-        p.style.padding = "5px"
+        p.style.padding = "5px";
         p.style.fontSize = messageSize;
         info.insertBefore(p, firstElementChild);
         infoTextNode.nodeValue = "";
@@ -492,7 +482,7 @@
         } else {  // We've not done this before.
 
             // https://chat.stackoverflow.com/transcript/message/52234064#52234064 by https://stackoverflow.com/users/10607772/double-beep
-            document.body.addEventListener('click', event => {
+            document.body.addEventListener("click", (event) => {
                 if (event.target.type === "button" || event.target.nodeName === "BUTTON") {
                     const buttonText = event.target.innerText.trim();
 /*
@@ -517,7 +507,7 @@
                     // console.log(USERSCRIPTNAME + " - shadowRadiosToButtons ------", {buttonsActionEntry} );
                     changeState(buttonsActions.get(buttonsActionEntry));
                 }
-            })
+            });
                                                    // ".js-actions-sidebar" (has both mobile and desktop)
             const sidebar = document.querySelector(actions.radioActionsBox);
             if (sidebar) sidebar.style.display = "none";
@@ -536,7 +526,7 @@
         // add the radios as buttons
         const radioButtons =            // ".js-action-radio-parent"
             [...actionBox.querySelectorAll(actions.radioParent)]
-                .map(element => {
+                .map((element) => {
                     const radio = element.querySelector("input[type=radio]");
                     const label = element.querySelector("label"); // The text part
 
@@ -611,7 +601,7 @@
             const button = document.createElement("button");
             button.type = "button";
             button.classList.add(buttonClasses.button);
-            button.style.marginLeft = '3px';
+            button.style.marginLeft = "3px";
             button.textContent = content;
 
             if (isSkip(content)) {
@@ -621,9 +611,9 @@
                 button.classList.add(buttonClasses.primary);
             }
 
-            button.addEventListener('click', function(event) {
-                                                 realButtons.forEach(real => real.click());
-                                    });
+            button.addEventListener("click", () => {
+                realButtons.forEach((realButton) => realButton.click());
+            });
             return button;
         }
 
@@ -648,18 +638,18 @@
 
             switch (changeTo) {
                 case state.SKIP    : [...buttonBox.children]
-                                        .forEach(button => {
+                                        .forEach((button) => {
                                                     button.disabled = true;
                                                     if (isSkip(button.textContent)) { // "is-loading"
                                                         button.classList.add(loading);
                                                     }
-                                                })
+                                                });
                     break;
                 case state.DISABLE : [...buttonBox.children]
-                                         .forEach(button => button.disabled = true);
+                                         .forEach((button) => button.disabled = true);
                     break;
                 case state.ENABLE  : [...buttonBox.children]
-                                         .forEach(button => button.disabled = false);
+                                         .forEach((button) => button.disabled = false);
                     break;
                 case state.HIDE    : buttonBox.classList.add(desktopHide);
                     break;
@@ -672,8 +662,8 @@
     // -------    createUserCard    --------------------
     // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
     function createUserCard(isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges) {
-        const deletedUserImage = 'https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9';
-        const anonymousUsername = 'anonymous user';
+        const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
+        const anonymousUsername = "anonymous user";
 
         const { base: cardsBase, time: timeClass, avatar: cardsAvatar, stacksInfo, link: linkClass, reputation: reputationClass,
                 awards, awardBling, gold: goldClass, silver: silverClass, bronze: bronzeClass, highlighted,
@@ -681,28 +671,28 @@
         const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
         const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
         const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
-        const imageElementType = isUserAnonymous ? 'div' : 'a'; // gravatar and username must not be clickable
-        const finalActionText = actionText.replace(' by an anonymous user', '').replace('Proposed', 'proposed');
+        const imageElementType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
+        const finalActionText = actionText.replace(" by an anonymous user", "").replace("Proposed", "proposed");
 
         const rawHtml = `
-<div class="${cardsBase} ${signature}${isUserAnonymous ? ` ${userDeletedClass}` : ''}${isUserOwner ? ` ${highlighted}` : ''}">
+<div class="${cardsBase} ${signature}${isUserAnonymous ? ` ${userDeletedClass}` : ""}${isUserOwner ? ` ${highlighted}` : ""}">
     <time class="${timeClass}" datetime="${actionISO}">${finalActionText}</time>
-    <${imageElementType} href="${profileUrl || ''}"
+    <${imageElementType} href="${profileUrl || ""}"
        class="${avatarsBase} ${avatar32px} ${cardsAvatar}">
         <img class="${avatarImage}" src="${profileImage || deletedUserImage /* guard against anonymous users image being null */}">
     </${imageElementType}>
     <div class="${stacksInfo}">
         <${imageElementType} href="${profileUrl}" class="${linkClass}">${username || anonymousUsername}</${imageElementType}>
         <ul class="${awards}">
-            ${reputation ? `<li class="${reputationClass}">${reputation}</li>` : '' }
-            ${goldBadges ? `<li class="${awardBling} ${goldClass}">${goldBadges}</li>` : ''}
-            ${silverBadges ? `<li class="${awardBling} ${silverClass}">${silverBadges}</li>` : ''}
-            ${bronzeBadges ? `<li class="${awardBling} ${bronzeClass}">${bronzeBadges}</li>` : ''}
+            ${reputation ? `<li class="${reputationClass}">${reputation}</li>` : "" }
+            ${goldBadges ? `<li class="${awardBling} ${goldClass}">${goldBadges}</li>` : ""}
+            ${silverBadges ? `<li class="${awardBling} ${silverClass}">${silverBadges}</li>` : ""}
+            ${bronzeBadges ? `<li class="${awardBling} ${bronzeClass}">${bronzeBadges}</li>` : ""}
         </ul>
     </div>
 </div>`;
         const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
-        Stacks.setTooltipText(parsedHtml.querySelector('time'), actionISO, { placement: 'top' }); // add Stacks tooltip
+        Stacks.setTooltipText(parsedHtml.querySelector("time"), actionISO, { placement: "top" }); // add Stacks tooltip
         return parsedHtml.querySelector(config.selectors.userCards.default);
     }
 
@@ -730,7 +720,7 @@
         // -------    originalPostUserCards    --------------------
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
-            const { selectors: {content: {originalPost}, userCards: { gravatarSmall } },
+            const { selectors: {content: {originalPost} },
                     classes: {grid: {cell}, answers, userCards: {signature} },
                   } = config;
 
@@ -766,18 +756,18 @@
                 const stacksifiedUserCards = userCards
                     // if the avatar has no children, then the OP edited the post
                     // so we don't need to stacksify the user card
-                    .map(card => card.querySelector('img') ? stacksifyUserCards(card) : card);
+                    .map((card) => card.querySelector("img") ? stacksifyUserCards(card) : card);
 
                 if (userCardRequest.status === 200 && stacksifiedUserCards.length) {
                     postUserCardContainer.append(...stacksifiedUserCards);
                     userCardsContainerAll.appendChild(postUserCardContainer);
                 } else if (userCardRequest.status === 404 || !stacksifiedUserCards.length) {
                     // 404 => not found => question deleted, stacksifiedUserCards array empty => answer deleted
-                    const messages = ["The original post is unavailable.", "User cards cannot be retrieved."]
+                    const messages = ["The original post is unavailable.", "User cards cannot be retrieved."];
                     userCardsContainerAll.appendChild(missingCards(messages));
                 } else if (!userCardRequest.ok) {
                     const status = userCardRequest.status;
-                    const messages = ["Tried to fetch usercards, but", `Stack responsed with status: ${status}`]
+                    const messages = ["Tried to fetch usercards, but", `Stack responsed with status: ${status}`];
                     userCardsContainerAll.appendChild(missingCards(messages));
                 }
             } catch (error) {
@@ -795,17 +785,17 @@
             function stacksifyUserCards(original) {
                 const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
                 // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
-                // if it's the edited usercard, then the element needs to be an anchor pointing to the revision history
-                const actionText = userActionTime.innerText.includes('edited') ? userActionTime.outerHTML : userActionTime.innerText;
-                const actionISO = userActionTime.querySelector('span').title; // YYYY-MM-DD HH:MM:SSZ
+                // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
+                const actionText = userActionTime.innerText.includes("edited") ? userActionTime.outerHTML : userActionTime.innerText;
+                const actionISO = userActionTime.querySelector("span").title; // YYYY-MM-DD HH:MM:SSZ
 
                 const [gold, silver, bronze] = [
                     original.querySelector(config.selectors.userCards.goldBadges),
                     original.querySelector(config.selectors.userCards.silverBadges),
                     original.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map(element => element ? element.nextElementSibling.innerText : '' /* TODO optional chaining */);
+                ].map((element) => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
 
-                const isUserAsker = original.classList.contains('owner');
+                const isUserAsker = original.classList.contains("owner");
                 const profileUrl = original.querySelector(config.selectors.userCards.username).href;
                 const profileImage = original.querySelector("img").src;
                 const username = original.querySelector(config.selectors.userCards.username).innerHTML;
@@ -837,14 +827,14 @@
                 NoUserCardDiv.style.margin = "6px";
 
                 const messageElements =
-                          messages.map(message => {
+                          messages.map((message) => {
                               const info = document.createElement("h4");
                               info.textContent = message;
                               info.style.color = "var(--theme-body-font-color)";
                               // info.style.color = "var(--black-750)";
                               info.style.padding = "2px";
                               return info;
-                          })
+                          });
                 NoUserCardDiv.append(...messageElements);
 
                 return NoUserCardDiv;
@@ -881,7 +871,7 @@
             }
 
             minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue
-            // Getting the editor userid
+            // Getting the editor user id
             const userLink = minimalUserCard.querySelector("a");
             if (!userLink)
                 return;
@@ -890,8 +880,6 @@
             const queueNumber = 1; // there must be a "1" queue-number :)
             const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
 
-            // Oleg says to change to async and use "await fetch" and "await reponse" instead
-            // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
             try {
                 const userInfoRequest = await fetch(userInformationUrl);
                 if (!userInfoRequest.ok) throw new Error("Response status was: " + userInfoRequest.status);
@@ -910,7 +898,7 @@
                     insertEditorStatistics(editorUserCard, editorUserid);
                 }
             } catch (error) {
-                console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
+                console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
             }
 
             // -------    createSuggestorsUserCard    --------------------
@@ -933,7 +921,7 @@
                     editorReviewStats.querySelector(config.selectors.userCards.goldBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
                     editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map(element => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
+                ].map((element) => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
                 const badges = { gold, silver, bronze };
 
                 return createUserCard(false, proposedText, proposedISO, profileUrl, profileImage, username, reputation, badges);
@@ -980,7 +968,7 @@
     const API_BASE = "https://api.stackexchange.com";
     const API_VER = 2.2;
 
-    const EMPTY = '\u00A0'; // NO-BREAK SPACE https://codepoints.net/U+00A0
+    const EMPTY = "\u00A0"; // NO-BREAK SPACE https://codepoints.net/U+00A0
 
     const config = {
             ids: {
@@ -1268,7 +1256,7 @@
                https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede
                .. or StackOverflow.Models.PostTypeId object.
             */
-            let matchResult = posttype.textContent.match(/^Review the following (.*) edit$/);
+            const matchResult = posttype.textContent.match(/^Review the following (.*) edit$/);
             if (matchResult) {
                 // https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
                 // https://masteringjs.io/tutorials/fundamentals/capitalize-first-letter
@@ -1296,7 +1284,7 @@
             if (!apiCall.ok) return [];
             return await apiCall.json();
         } catch (error) {
-            console.error(USERSCRIPTNAME + ' - error fetching editor stats from the API - makeApiCall', error);
+            console.error(USERSCRIPTNAME + " - error fetching editor stats from the API - makeApiCall", error);
         }
     }
 
@@ -1311,8 +1299,8 @@
             const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
                 site: window.location.hostname,  // "stackoverflow"
-                filter: '!3xgWlhxc4ZsL1tY5Y',    // only include approval_date and rejection_date
-                key: 'YeacD0LmoUvMwthbBXF7Lw((', //:-)) Registered Key
+                filter: "!3xgWlhxc4ZsL1tY5Y",    // only include approval_date and rejection_date
+                key: "YeacD0LmoUvMwthbBXF7Lw((", //:-)) Registered Key
                 pagesize: 100
             };
             apiEndpointUrl.search = new URLSearchParams(params).toString();
@@ -1333,7 +1321,7 @@
         const superDiv = document.createElement("div");
         superDiv.classList.add("grid");
         // editorUserCard.parentNode.insertBefore(superDiv, editorUserCard);
-        editorUserCard.before(superDiv)
+        editorUserCard.before(superDiv);
         superDiv.appendChild(editorUserCard);
 
         const {colour : displayColours} = userConfig;
@@ -1378,7 +1366,7 @@
                 if (postType && ["Question","Answer"].indexOf(postType.textContent) < 0) {
                     itemParams.rows.push({ ...commonColour, items: [EMPTY]});
                     itemParams.rows.push({ ...commonColour, items: ["Tag wiki/excerpt edits are not returned."]});
-                    itemParams.rows.push({ ...commonColour, items: ["Please see the user\'s activity tab"]});
+                    itemParams.rows.push({ ...commonColour, items: ["Please see the user's activity tab"]});
                     return createItem(makeTable(itemParams));
                 }
             }
@@ -1434,11 +1422,11 @@
             } else {
                 return isFinite(ratio) ? ratio.toFixed(2) : "N/A";
             }
-        }
+        };
 
         // -------    makeCells    --------------------
         const makeCells = (cells, isHead = false) => {
-            return cells.map((content, idx) => {
+            return cells.map((content) => {
                 const cell = document.createElement(isHead ? "th" : "td");
                 if (isHead) {
                     cell.colSpan = 4;
@@ -1450,7 +1438,7 @@
                 }
                 return cell;
             });
-        }
+        };
 
         // -------    makeRow    --------------------
         const makeRow = (row, isHead = false) => {
@@ -1458,7 +1446,7 @@
             tr.style.color = row.colour;
             tr.append(...makeCells(row.items, isHead));
             return tr;
-        }
+        };
 
         // -------    makeTable    --------------------
         const makeTable = ({ relativeFontSize, header, rows }) => {
@@ -1469,7 +1457,7 @@
                 const headrow = makeRow(header,true);
                 tab.append(headrow);
             }
-            const listItems = rows.map(subArray => makeRow(subArray));
+            const listItems = rows.map((subArray) => makeRow(subArray));
             tab.append(...listItems);
             return tab;
         };
@@ -1504,15 +1492,15 @@
 
         moveProgress();       // Puts " (0/40)" on the "Review tasks" tab instead of "Your daily reviews 0 /40 (-----)"
         movePostTypeUp();     // Removes "Review the following answer/question edit"
-        highlightSummary();   // Makes the edit summary noticable
-        highlightMessage();   // Makes a review message to the reviwer more noticatble
+        highlightSummary();   // Makes the edit summary noticeable
+        highlightMessage();   // Makes a review message to the reviewer more noticeable
         moveDiffChoices();    // Moves the "Inline | Side-by-side | Side-by-side markdown"
         getUserCards();       // Gets back the user cards! :)
-        addSeparator();       // Adds a border separtor between the post summary and the review
-    }
+        addSeparator();       // Adds a border separator between the post summary and the review
+    };
 
     changePageTitle();        // Removes redundant information and moves the "Learn more"
-    removeLineThrough();      // Removes the strike through of text that is already highlighed in red
+    removeLineThrough();      // Removes the strike through of text that is already highlighted in red
 
     ajaxCompleteWrapper(almostAll);
 
@@ -2115,17 +2103,17 @@
         // key.split(".").forEach(key => defaultUserConfigValue = defaultUserConfigValue[key]);
         const deepGet = (obj, path) => {
             let temp = obj;
-            path.split(".").forEach(key => temp = temp[key]);
+            path.split(".").forEach((key) => temp = temp[key]);
             return temp;
-        }
+        };
 
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
         const deepSet = (obj, path, value) => {
             let temp = obj;
-            let keys = path.split(".");
-            keys.slice(0, -1).forEach(key => temp = temp[key]);
+            const keys = path.split(".");
+            keys.slice(0, -1).forEach((key) => temp = temp[key]);
             temp[keys.slice(-1)] = value;
-        }
+        };
 
 
         // ----------------------------------------------------------------------------------------
@@ -2136,7 +2124,7 @@
             if (cancel) {
 
                 modalElements                      // have to go through the modalElements
-                    .forEach(modalElement => {     // since most of them are not in the DOM.
+                    .forEach((modalElement) => {   // since most of them are not in the DOM.
                                  resetTab(modalElement, tempUserConfig); // reset to last saved settings.
                             });
 
@@ -2151,14 +2139,14 @@
             function resetTab(modalConfigElement, configObject) {
                 modalConfigElement
                     .items
-                    .forEach(item => {
+                    .forEach((item) => {
                                  const element = item.element;
                                  const id = item.id;
                                  if (id) {         // Preview elements may not have an id
                                      const valueElement = element.querySelector("#" + id);
                                      resetValue(valueElement, item, configObject);
                                  }
-                    })
+                    });
             }
 
             // (Oleg's nice solution) https://chat.stackoverflow.com/transcript/message/52354809#52354809
@@ -2179,7 +2167,7 @@
 
                 // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
                 // https://developer.mozilla.org/en-US/docs/Web/API/Event/Event
-                element.dispatchEvent(new Event('change', { bubbles: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
             }
         }
 
@@ -2199,11 +2187,10 @@
         // ---- Setting up the modal --------------------------------------------------------------
 
         function insertIcon() {
-            const {show,
-                   topMenuSelector,
+            const {topMenuSelector,
                    headerNtooltip,
                    ids: { icon : iconId },
-                   classes: { smodals: { modal }, icon }
+                   classes: { icon }
                   } = modalConfig;
 
             if (document.querySelector(`${topMenuSelector} #${iconId}`))
@@ -2216,7 +2203,7 @@
             // https://chat.stackoverflow.com/transcript/message/52315572#52315572
             // https://chat.stackoverflow.com/transcript/message/52315623#52315623
             // https://chat.stackoverflow.com/transcript/message/52333918#52333918
-            if (typeof Svg !== 'undefined') {
+            if (typeof Svg !== "undefined") {
                 settingsLink.append(Svg.Gear().get(0));
             } else {
                 settingsLink.textContent = "⚙️";
@@ -2225,7 +2212,7 @@
             settingsLink.title = headerNtooltip; // tooltip
 
             // The settings-item on the top bar
-            const settingsItem = document.createElement('li');
+            const settingsItem = document.createElement("li");
             settingsItem.classList.add(icon.iconItem);
             settingsItem.id = iconId;
             settingsItem.append(settingsLink);
@@ -2326,11 +2313,11 @@
             const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
             const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
 
-            saveButton.addEventListener("click", (event) => updateValueFromCache(PREFIX, tempUserConfig));
+            saveButton.addEventListener("click", () => updateValueFromCache(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
-                                          (event) => {
+                                          () => {
                                                       tempUserConfig = getUserConfig();
                                                       reset(true); // true means Cancel back to userConfig.
                                           });
@@ -2341,7 +2328,7 @@
             buttons.append(saveButton, cancelButton);
 
             const restoreButton = createModalButton("Restore tab settings", [basebutton, danger, outlined]);
-            restoreButton.addEventListener('click', (event) => reset(false)); // false means the tab to default.
+            restoreButton.addEventListener("click", () => reset(false)); // false means the tab to default.
 
             const allButtons = document.createElement("div");
             allButtons.classList.add(container, negative, zeroX, footer);
@@ -2359,7 +2346,7 @@
                   } = modalConfig;
 
             const closeButton = createModalButton("", [close, basebutton, muted]);
-            if (typeof Svg !== 'undefined') {
+            if (typeof Svg !== "undefined") {
                 closeButton.append(Svg.ClearSm().get(0));
             } else {
                 // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
@@ -2429,7 +2416,7 @@
             const {classes: { naviagations: { selected : navigationSelected } } } = modalConfig;
 
             navigationItem.addEventListener("click", () => {
-                [...navigationContainer.children].forEach(item => item.classList.remove(navigationSelected));
+                [...navigationContainer.children].forEach((item) => item.classList.remove(navigationSelected));
                 modalContainer.replaceChild(modalContent, modalContainer.firstElementChild);
                 navigationItem.classList.add(navigationSelected);
             });
@@ -2438,7 +2425,7 @@
         // -------------------------------
         function createContentnNavigationTabs(navigation, modalContentContainer) {
             const navigationItems =
-                      modalElements.map(tabItem => {
+                      modalElements.map((tabItem) => {
                           const contentTab = createTabBody(tabItem.tabMenu);
                           const navigationItem = createNavigationItem(tabItem.tabMenu, tabItem.tabDefault);
                           if (tabItem.tabDefault)
@@ -2463,22 +2450,22 @@
                       select:  createSelectInputGet,
                       size:    createSizeInputGet,
                       header:  createOptionHeaderGet,
-            }
+            };
 
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
             const elements = tab.items
                                  .sort((firstItem, secondItem) =>
                                             firstItem.displayOrder - secondItem.displayOrder)
-                                 .map(item => elementFunctionMap[item.type](item.name, tabName));
+                                 .map((item) => elementFunctionMap[item.type](item.name, tabName));
 
             (tab.needIntiliatize || [])
-               .forEach(initialise => tab.previewUpdates[initialise](tabName));
+               .forEach((initialise) => tab.previewUpdates[initialise](tabName));
 
             (tab.bottomSpace || [])
-               .forEach(itemName => addBottomSpace(objectFromName(tab.items, itemName).element));
+               .forEach((itemName) => addBottomSpace(objectFromName(tab.items, itemName).element));
 
             (tab.topSpaceSeparator || [])
-               .forEach(itemName => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
+               .forEach((itemName) => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
 
             initEnableDisable(tabName);
 
@@ -2497,7 +2484,7 @@
         function getPreviewUpdateFunctions(item, tabMenu) {
             const previewFunctions = item.refPreviewUpdates || [];
             const tab = objectFromTabname(modalElements, tabMenu);
-            return previewFunctions.map(key => tab.previewUpdates[key]);
+            return previewFunctions.map((key) => tab.previewUpdates[key]);
         }
 
 
@@ -2536,7 +2523,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             selectInput.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
             return selectInput;
         }
@@ -2560,7 +2547,7 @@
             const selectInputs = document.createElement("select");
             selectInputs.id = selectInputId;
             const selectOptions =
-                      options.map(selectOption => {
+                      options.map((selectOption) => {
                           const selectInputOption = document.createElement("option");
                           selectInputOption.value = selectOption;
                           selectInputOption.textContent = selectOption;
@@ -2599,7 +2586,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             sizeInput.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value + item.postfix);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return sizeInput;
@@ -2654,7 +2641,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             colourPicker.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return colourPicker;
@@ -2729,7 +2716,7 @@
             toggle.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, (event.target.checked ? "Yes" : "No"));
                 toggleEnableDisable(tabMenu, labelText);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return toggle;
@@ -2785,7 +2772,7 @@
             if (indents)       label.style.marginLeft = (indents * 15) + "px";
             if (alignIndents)  label.style.marginLeft = `${(alignIndents * 15) + 10 + 44}px`;
                                    // ^ from colourPicker: marginLeft + marginRight + width
-            return label
+            return label;
         }
 
 
@@ -2854,10 +2841,10 @@
                     return;
                 const [h, s, l] = [matchHSL[1], matchHSL[2], matchHSL[3] /= 100];
                 const a = s * Math.min(l, 1 - l) / 100;
-                const f = n => {
+                const f = (n) => {
                     const k = (n + h / 30) % 12;
                     const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                    return Math.round(255 * color).toString(16).padStart(2, '0');   // convert to Hex and prefix "0" if needed
+                    return Math.round(255 * color).toString(16).padStart(2, "0");   // convert to Hex and prefix "0" if needed
                 };
                 return `#${f(0)}${f(8)}${f(4)}`;
             }
@@ -2885,9 +2872,9 @@
             tab.forEach(({ toggleEntry }) => {
                 if (toggleEntry !== undefined && !entries.includes(toggleEntry))
                     entries.push(toggleEntry);
-            })
+            });
 
-            entries.forEach(entry =>  toggleEnableDisable(tabName, entry));
+            entries.forEach((entry) =>  toggleEnableDisable(tabName, entry));
         }
 
         // -------------------------------
@@ -2914,12 +2901,11 @@
 
                 level++;
                 if (entryItem.dependents) {
-                    let on = deepGet(tempUserConfig, entryItem.configKey);
+                    const on = deepGet(tempUserConfig, entryItem.configKey);
                     disable = disable || (on !== "Yes");
                     entryItem
                         .dependents
-                        .forEach(newEntry =>
-                                     recurseOnEntries(objectFromName(tab, newEntry), disable, level));
+                        .forEach((newEntry) => recurseOnEntries(objectFromName(tab, newEntry), disable, level));
                 }
             }
         }
@@ -2939,7 +2925,7 @@
 
             if (disable) {
                 [...containerElement.children]
-                    .forEach(element => {
+                    .forEach((element) => {
                         if (item.type === "toggle"
                               && element.classList.contains(sweetch)) {
                             const checkbox = element.firstElementChild;
@@ -2960,13 +2946,13 @@
                     });
             } else {
                 [...containerElement.children]
-                    .forEach(element => {
+                    .forEach((element) => {
                         if (item.type === "toggle"
                               && element.classList.contains(sweetch)) {
                             const checkbox = element.firstElementChild;
                             const toggle   = element.lastElementChild;
                             checkbox.disabled = false;
-                            toggle.removeAttribute('style');
+                            toggle.removeAttribute("style");
                         } else {
                             element.disabled = false;
                             element.style.color = active;
@@ -3012,7 +2998,7 @@
         }
 
         // -------------------------------
-        const previewContainerWidth = 484; // ReferenceError: Cannot access 'previewContainerWidth' before initialization.. ?!?
+        // const previewContainerWidth = 484; // ReferenceError: Cannot access 'previewContainerWidth' before initialization.. ?!?
 
         function getPreviewWidth() {
             return 484;
@@ -3080,7 +3066,7 @@
 
             const radios =
                   ["Approve", "Improve edit", "Reject and edit", "Reject"]
-                     .map(label => makeRadio(label, radioButtonLabel));
+                     .map((label) => makeRadio(label, radioButtonLabel));
 
             const fieldset = document.createElement("fieldset");
             fieldset.classList.add(container, negative, zeroY);
@@ -3220,7 +3206,7 @@
 
             const radios = element.querySelectorAll(`#${radioButtonsId}`);
 
-            radios.forEach(radio => {
+            radios.forEach((radio) => {
                 if (radioWithBorders) {
                     radio.style.paddingLeft = "3px";
                     radio.style.borderLeft  = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
@@ -3521,7 +3507,7 @@
                 moveProgressToElement(taskLink, colour, dailyElem, reviewedElem, false);
 
             } else {
-                taskLink.removeAttribute('style');
+                taskLink.removeAttribute("style");
                 taskLink.textContent = "Review tasks";
                 // wrapper.id = PREFIX + "-Progressbar"; // config.ids.custom.progressBar;
                 const stackProgess = element.querySelector("#" + config.ids.custom.progressBar);
@@ -3647,10 +3633,10 @@
 
             if (on) {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach(elementChild => elementChild.style.textDecoration = "initial");
+                    .forEach((elementChild) => elementChild.style.textDecoration = "initial");
             } else {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach(elementChild => elementChild.style.textDecoration = "line-through");
+                    .forEach((elementChild) => elementChild.style.textDecoration = "line-through");
             }
         }
 
@@ -3772,7 +3758,7 @@
             } else {
                 const textContent = editSummary.textContent;
                 editSummary.textContent = (textContent || "").trim().replace(/^Summary/, "Comment");
-                editSummary.removeAttribute('style');
+                editSummary.removeAttribute("style");
                 editSummary.classList.add(summaryRed);
             }
 
