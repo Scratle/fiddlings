@@ -797,17 +797,18 @@
                     original.querySelector(config.selectors.userCards.goldBadges),
                     original.querySelector(config.selectors.userCards.silverBadges),
                     original.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map((element) => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
+                ].map((element) => element?.nextElementSibling?.innerText);
 
                 // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
                 const userCardConfig = {
                     isUserOwner: original.classList.contains("owner"),
                     actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
                     actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
-                    profileUrl: original.querySelector(config.selectors.userCards.username).href,
-                    profileImage: original.querySelector("img").src,
-                    username: original.querySelector(config.selectors.userCards.username).innerHTML,
-                    reputation: original.querySelector(config.selectors.userCards.reputation).innerText,
+                    profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
+                    profileImage: original.querySelector("img")?.src,
+                    username: usernameContainer.querySelector('a')?.innerHTML || usernameContainer.innerText,
+                    reputation: original.querySelector(config.selectors.userCards.reputation)?.innerText,
                     badges: { gold, silver, bronze },
                 };
 
@@ -1100,7 +1101,8 @@
                         userLink: ".um-user-link"
                     },
                     gravatarSmall: ".user-gravatar32",
-                    username: ".user-details a",
+                    userDetails: ".user-details",
+                    profileUrl: ".user-details a",
                     actionTime: ".user-action-time", // action = asked/answered/edited
                 },
                 content: {
