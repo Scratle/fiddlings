@@ -772,10 +772,10 @@
 
                 const responseMap = {
                     200: postUserCardContainer, // response successful => append the usercards
-                    404: missingCards(messages.errorNotFound), // 404 => not found => question deleted
-                    default: missingCards(messages.responseNotOk)
+                    404: missingCards(messages.errorNotFound) // 404 => not found => question deleted
                 };
-                userCardsContainerAll.appendChild(responseMap[requestStatus] || responseMap.default);
+                const elementToAppend = responseMap[requestStatus] || missingCards(messages.responseNotOk);
+                userCardsContainerAll.append(elementToAppend);
             } catch (error) {
                 const messages = [
                     "Something is blocking fetching user cards",
