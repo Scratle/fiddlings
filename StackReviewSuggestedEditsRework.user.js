@@ -469,7 +469,7 @@
         }
 
         const { ids: { custom: {buttons : buttonsId} },
-                classes: { choiceRadios: {widget} },
+                classes: { choiceRadios: { widget }, flex: { container: flexContainer, marginXAxis, gap4px } },
                 selectors: { actions , buttons : buttonSelectors},
               } = config;
 
@@ -590,18 +590,18 @@
         function createNewDiv() {
             const newDiv = document.createElement("div");
             newDiv.id = buttonsId;
+            newDiv.classList.add(flexContainer, marginXAxis, gap4px);
             return newDiv;
         }
 
         // -------    createButton    --------------------
         // https://stackoverflow.design/product/components/buttons/
         function createButton(content, realButtons) {
-            const { buttons : buttonClasses } = config.classes;
+            const { buttons: buttonClasses, flex: { item } } = config.classes;
 
             const button = document.createElement("button");
             button.type = "button";
-            button.classList.add(buttonClasses.button);
-            button.style.marginLeft = "3px";
+            button.classList.add(buttonClasses.button, item);
             button.textContent = content;
 
             if (isSkip(content)) {
@@ -994,7 +994,10 @@
                 },
                 flex: {
                     container: "d-flex",
-                    item: "flex--item"
+                    item: "flex--item",
+                    marginXAxis: "gsx",
+                    marginYAxis: "gsy",
+                    gap4px: "gs4"
                 },
                 choiceRadios: {
                     fieldset: ["fd-column", "p12"],
