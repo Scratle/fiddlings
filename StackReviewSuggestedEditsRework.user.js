@@ -3333,11 +3333,7 @@
         }
 
         // -------------------------------
-        function previewEditorStatisticsUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewEditorStatisticsUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const grid = element.lastElementChild;
             const statisticsTable = grid.querySelector("table");
             if (!statisticsTable)
@@ -3364,10 +3360,7 @@
         }
 
         // -------------------------------
-        function previewPageTitleLinkOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
+        function previewPageTitleLinkOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
 
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
@@ -3394,11 +3387,7 @@
         }
 
         // -------------------------------
-        function previewDiffChoicesOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewDiffChoicesOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
@@ -3497,11 +3486,7 @@
         }
 
         // -------------------------------
-        function previewProgressBarOnfUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewProgressBarOnfUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const taskLink = element.querySelector("." + modalConfig.classes.naviagations.selected);
             const moveProgressBar = tempUserConfig.options.moveProgressBar === "Yes";
 
@@ -3532,11 +3517,7 @@
         }
 
         // -------------------------------
-        function previewMovePostTypeOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMovePostTypeOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
@@ -3580,11 +3561,7 @@
         }
 
         // -------------------------------
-        function previewMovePostTypeColourUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMovePostTypeColourUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const header = element.lastElementChild.firstElementChild;
 
             const movePostType = tempUserConfig.options.AnswerQuestionOnTop === "Yes";
@@ -3630,11 +3607,7 @@
         }
 
         // -------------------------------
-        function previewLineThoughOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewLineThoughOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const { ids: { lineThrough : lineThroughId } } = modalConfig;
 
             const on = tempUserConfig.options.removeLineThrough === "Yes";
@@ -3683,11 +3656,7 @@
         }
 
         // -------------------------------
-        function previewMessageOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMessageOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const info = element.lastElementChild;
 
             const on = tempUserConfig.options.prominentReviewMessage === "Yes";
@@ -3707,11 +3676,7 @@
         }
 
         // -------------------------------
-        function previewMessageUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMessageUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             if (tempUserConfig.options.prominentReviewMessage !== "Yes")
                 return;
 
@@ -3746,11 +3711,7 @@
         }
 
         // -------------------------------
-        function previewSummaryOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewSummaryOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const editSummary = element.lastElementChild;
             const { classes: { summary : summaryRed } } = config;
 
