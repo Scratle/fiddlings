@@ -738,8 +738,7 @@
 
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             try {
-                const userCardRequest = await fetch(postlink);
-                const userCardResponse = await userCardRequest.text();
+                const userCardRequest = await fetch(postlink), userCardResponse = await userCardRequest.text();
                 // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
                 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
                 const userCards =
@@ -758,18 +757,25 @@
                     // so we don't need to stacksify the user card
                     .map((card) => card.querySelector("img") ? stacksifyUserCards(card) : card);
 
-                if (userCardRequest.status === 200 && stacksifiedUserCards.length) {
+                let requestStatus = userCardRequest.status;
+                // if we handle a suggested edit on a deleted answer on a question that hasn't been deleted,
+                // the request to the latter will be successful (200) yet the user cards wouldn't be found
+                // in this case, we need to show the errorNotFound message
+                requestStatus = requestStatus === 200 && !stacksifiedUserCards.length ? 404 : requestStatus;
+                const messages = {
+                    errorNotFound: ["The original post is unavailable.", "User cards cannot be retrieved."],
+                    responseNotOk: ["Tried to fetch usercards, but", `Stack responsed with status: ${requestStatus}`]
+                };
+
+                if (requestStatus === 200 && stacksifiedUserCards.length)
                     postUserCardContainer.append(...stacksifiedUserCards);
-                    userCardsContainerAll.appendChild(postUserCardContainer);
-                } else if (userCardRequest.status === 404 || !stacksifiedUserCards.length) {
-                    // 404 => not found => question deleted, stacksifiedUserCards array empty => answer deleted
-                    const messages = ["The original post is unavailable.", "User cards cannot be retrieved."];
-                    userCardsContainerAll.appendChild(missingCards(messages));
-                } else if (!userCardRequest.ok) {
-                    const status = userCardRequest.status;
-                    const messages = ["Tried to fetch usercards, but", `Stack responsed with status: ${status}`];
-                    userCardsContainerAll.appendChild(missingCards(messages));
-                }
+
+                const responseMap = {
+                    200: postUserCardContainer, // response successful => append the usercards
+                    404: missingCards(messages.errorNotFound), // 404 => not found => question deleted
+                    default: missingCards(messages.responseNotOk)
+                };
+                userCardsContainerAll.appendChild(responseMap[requestStatus] || responseMap.default);
             } catch (error) {
                 const messages = [
                     "Something is blocking fetching user cards",
