@@ -992,6 +992,10 @@
                     container: "grid",
                     cell: "grid--cell",
                 },
+                flex: {
+                    container: "d-flex",
+                    item: "flex--item"
+                },
                 choiceRadios: {
                     fieldset: ["fd-column", "p12"],
                     submits: ["bt", "bc-black-3"],
@@ -1185,9 +1189,9 @@
             return;
 
         // -------    createGridCell    --------------------
-        const createGridCell = () => {
+        const createFlexItem = () => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.grid.cell); // "grid--cell"
+            elem.classList.add(config.classes.flex.item); // "flex--item"
             return elem;
         };
 
@@ -1203,7 +1207,7 @@
                 return false;
             titleWrap.classList.add(config.classes.grid.container); // "grid"
             const header = document.querySelector(cnf.selectors.title.header);
-            const titleCell = createGridCell();
+            const titleCell = createFlexItem();
             titleCell.classList.add(config.classes.titleSpace); // "ml12"
             if (header)
                 titleCell.append(header);
@@ -1466,7 +1470,7 @@
         // -------    createItem    --------------------
         const createItem = (...contents) => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.grid.cell);
+            elem.classList.add(config.classes.flex.item); // "flex--item"
             elem.append(...contents);
             return elem;
         };
@@ -2228,7 +2232,7 @@
                     modalElement = createModalAside(loadIt());
                     document.body.appendChild(modalElement);
                 }
-                setTimeout(() => Stacks.showModal(modalElement), 0);
+                StackExchange.helpers.showModal(modalElement);
             });
 
         }
@@ -2304,15 +2308,15 @@
 
         // -------------------------------
         function createFooterButtons() {
-            const { grid : { cell, container },
+            const { flex : { container, item },
                     buttons : { button : basebutton, primary, danger, outlined }
                   } = config.classes;
             const {hide,
                    classes: { smodals: { footer }, margins: { negative,  zeroX } }
                   } = modalConfig;
 
-            const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
-            const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
+            const saveButton   = createModalButton("Apply & Exit", [item, basebutton, primary]);
+            const cancelButton = createModalButton("Cancel",       [item, basebutton]);
 
             saveButton.addEventListener("click", () => updateValueFromCache(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
@@ -2688,13 +2692,13 @@
 
         // -------------------------------
         function createOptionHeader(labelText, headerId, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { flex: { item } } = config.classes;
             const { classes: { label } } = modalConfig;
 
             const optionHeaderContainer = createContainer();
 
             const optionHeader = document.createElement("p");
-            optionHeader.classList.add(cell, label);
+            optionHeader.classList.add(item, label);
             optionHeader.id = headerId;
             optionHeader.textContent = labelText;
             optionHeader.style.marginLeft = (indents * 15) + "px";
@@ -2725,7 +2729,7 @@
 
         // -------------------------------
         function createStackToggle(labelText, toggleId, option, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { flex: { item } } = config.classes;
             const { classes: { toggle: { sweetch, indicator } } } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
@@ -2737,7 +2741,7 @@
             const label = createLabel(labelText, toggleId, { indents });
 
             const toggle = document.createElement("div");
-            toggle.classList.add(cell, sweetch);
+            toggle.classList.add(item, sweetch);
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
@@ -3039,7 +3043,7 @@
 
         // -------------------------------
         function previewRadiosOrButtonsContainer() {
-            const { classes: { grid: { cell, container },
+            const { classes: { grid: { container, item },
                                buttons: { button : base, primary, outlined }
                              }
                   } = config;
@@ -3095,11 +3099,11 @@
 
             function makeRadio(labelText, radioId) {
                 const label = document.createElement("label");
-                label.classList.add(cell, stackLabel);
+                label.classList.add(item, stackLabel);
                 label.htmlFor = radioId;
                 label.textContent = labelText;
                 const labelContainer = document.createElement("div");
-                labelContainer.classList.add(cell);
+                labelContainer.classList.add(item);
                 labelContainer.append(label);
 
                 const radio = document.createElement("input");
@@ -3108,7 +3112,7 @@
                 radio.id = radioId;
                 radio.name = radioName;  // needed to make them exclusive
                 const radioContainer = document.createElement("div");
-                radioContainer.classList.add(cell);
+                radioContainer.classList.add(item);
                 radioContainer.append(radio);
 
                 const labelAndRadio = document.createElement("div");
@@ -3465,18 +3469,18 @@
 
         // -------------------------------
         function stackProgressBar() {
-            const { classes: { grid: { cell } } } = config;
+            const { container: flexContainer, item: flexItem } = config.classes.flex;
 
             const container = document.createElement("div");
-            container.classList.add(cell);
+            container.classList.add(flexItem);
             const content = `
-                    <div class="grid ai-center sm:fd-column">
-                        <div class="grid--cell mr12 ws-nowrap">
+                    <div class="${flexContainer} ai-center sm:fd-column">
+                        <div class="${flexItem} mr12 ws-nowrap">
                             <span>Your daily reviews</span>
                             <span class="js-reviews-done mrn2">20</span>
                             <span class="js-reviews-per-day" data-reviews-per-day="40">/40</span>
                         </div>
-                        <div class="grid--cell">
+                        <div class="${flexItem}">
                             <div class="s-progress wmn1 h8 bar-pill">
                                 <div class="s-progress--bar bar-pill js-review-progress"
                                      role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
@@ -3644,10 +3648,9 @@
 
         // -------------------------------
         function previewMessageContainer() {
-            const { classes: { grid: { container, cell },
-                               buttons: { button, primary }
-                             }
-                  } = config;
+            const { flex: { container, item },
+                    buttons: { button, primary }
+                  } = config.classes;
             const { classes: { notice: { base : noticeBase, info : noticeInfo },
                                padding: { top : paddingTop },
                                margins: { negative : negativeMargin },
@@ -3661,7 +3664,7 @@
 
             const dummyElement = document.createElement("div");  // needed since highlightMessageHelper wants an element.
             dummyElement.classList.add(container, negativeMargin, paddingTop);
-            const dummyButton = createModalButton("Next task", [button, primary, cell]);
+            const dummyButton = createModalButton("Next task", [button, primary, item]);
             dummyButton.disabled = true;
             dummyElement.append(dummyButton);
 
