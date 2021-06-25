@@ -153,22 +153,22 @@
         });
     }
 
-    function ajaxStopWrapper(foonction) {
+    /*function ajaxStopWrapper(foonction) {
         $(document).ajaxStop(() => foonction());
-    }
+    }*/
 
-    // https://chat.stackoverflow.com/transcript/message/52156286#52156286
+    /*// https://chat.stackoverflow.com/transcript/message/52156286#52156286
     const ajaxCompleteWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
             $(document).ajaxComplete(() => resolve(foonction()))
         );
-    };
+    };*/
 
-    const ajaxStopWrapperReturn = (foonction) => {
+    /*const ajaxStopWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
             $(document).ajaxStop(() => resolve(foonction()))
         );
-    };
+    };*/
 
 
     // --------------------------------------------------------------------------------------------
@@ -413,7 +413,7 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function isReviewActive() { // Only after ajax
-        return ((reviewResponse.isUnavailable !== undefined) && !reviewResponse.isUnavailable);
+        return reviewResponse.isUnavailable === false;
     }
 
 
@@ -619,7 +619,7 @@
 
         // -------    changeState    --------------------
         function changeState(changeTo) {
-            if (changeTo === undefined) {
+            if (!changeTo) {
                 console.error(USERSCRIPTNAME + " - shadowRadiosToButtons - No such state");
                 return; // do a state.NOOP
             }
@@ -1317,6 +1317,7 @@
             let hasMore = true, pageNumber = 1;
 
             while (hasMore) {
+                // eslint-disable-next-line no-await-in-loop
                 const { items, has_more } = await makeApiCall(apiEndpointUrl, pageNumber);
                 allApiItems.push(...items);
                 hasMore = has_more;
@@ -2878,11 +2879,11 @@
             const entries = [];
             const tab = objectFromTabname(modalElements, tabName).items;
             tab.forEach(({ toggleEntry }) => {
-                if (toggleEntry !== undefined && !entries.includes(toggleEntry))
+                if (toggleEntry && !entries.includes(toggleEntry))
                     entries.push(toggleEntry);
             });
 
-            entries.forEach((entry) =>  toggleEnableDisable(tabName, entry));
+            entries.forEach((entry) => toggleEnableDisable(tabName, entry));
         }
 
         // -------------------------------
@@ -2907,13 +2908,12 @@
                     disableModalOption(entryItem, disable);
                 }
 
-                level++;
                 if (entryItem.dependents) {
                     const on = deepGet(tempUserConfig, entryItem.configKey);
-                    disable = disable || (on !== "Yes");
+                    const shouldDisable = disable || (on !== "Yes");
                     entryItem
                         .dependents
-                        .forEach((newEntry) => recurseOnEntries(objectFromName(tab, newEntry), disable, level));
+                        .forEach((newEntry) => recurseOnEntries(objectFromName(tab, newEntry), shouldDisable, level + 1));
                 }
             }
         }
@@ -3005,14 +3005,7 @@
             return previewContainer;
         }
 
-        // -------------------------------
-        // const previewContainerWidth = 484; // ReferenceError: Cannot access 'previewContainerWidth' before initialization.. ?!?
-
-        function getPreviewWidth() {
-            return 484;
-        }
-
-        function getWidth(element) {
+        /*function getWidth(element) {
             const { style } = element;
             // https://stackoverflow.com/questions/13435604/getting-an-elements-inner-height
             const elementWidth        = parseInt(style.width);
@@ -3022,14 +3015,14 @@
             return elementWidth -
                        (elementPaddingLeft + elementPaddingRight) -
                        6; // magical pixels.. ?!?
-        }
+        }*/
 
 
         // -------------------------------
         function createPreviewImage() {
             const imageContainer = document.createElement("img");
             // imageContainer.style.width = getWidth(previeMoveRadioBoxContainer) + "px";
-            imageContainer.style.width = getPreviewWidth() + "px";
+            imageContainer.style.width = "100%";
 
             return imageContainer;
         }
