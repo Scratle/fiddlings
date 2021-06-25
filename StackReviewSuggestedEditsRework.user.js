@@ -2309,7 +2309,7 @@
         // -------------------------------
         function createFooterButtons() {
             const { flex : { container, item },
-                    buttons : { button : basebutton, primary, danger, outlined }
+                    buttons : { button : basebutton, primary, danger, outlined },
                   } = config.classes;
             const {hide,
                    classes: { smodals: { footer }, margins: { negative,  zeroX } }
@@ -2329,7 +2329,7 @@
             cancelButton.dataset.action = hide;
 
             const buttons = document.createElement("div");
-            buttons.classList.add(container);
+            buttons.classList.add(container, zeroX, negative);
             buttons.append(saveButton, cancelButton);
 
             const restoreButton = createModalButton("Restore tab settings", [basebutton, danger, outlined]);
