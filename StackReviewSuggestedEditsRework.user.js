@@ -807,7 +807,7 @@
                     actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
                     profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
                     profileImage: original.querySelector("img")?.src,
-                    username: usernameContainer.querySelector('a')?.innerHTML || usernameContainer.innerText,
+                    username: usernameContainer.querySelector("a")?.innerHTML || usernameContainer.innerText,
                     reputation: original.querySelector(config.selectors.userCards.reputation)?.innerText,
                     badges: { gold, silver, bronze },
                 };
@@ -853,7 +853,7 @@
             // -------    createNewDiv    --------------------
             function createNewDiv(horizontal = true) {
                 const { ids: {custom: {userCards} },
-                        classes: {grid: {container} }
+                        classes: {flex: {container} }
                       } = config;
 
                 const newDiv = document.createElement("div");
@@ -2509,11 +2509,11 @@
 
         // -------------------------------
         function createContainer() {
-            const { grid: { container : flex } } = config.classes;
+            const { container: flexContainer } = config.classes.flex;
             const { classes: { center } } = modalConfig;
 
             const container = document.createElement("div");
-            container.classList.add(flex, center);
+            container.classList.add(flexContainer, center);
 
             return container;
         }
@@ -3049,7 +3049,7 @@
 
         // -------------------------------
         function previewRadiosOrButtonsContainer() {
-            const { classes: { grid: { container, item },
+            const { classes: { flex: { container, item },
                                buttons: { button : base, primary, outlined }
                              }
                   } = config;
@@ -3244,7 +3244,7 @@
         // -------------------------------
         function previewEditorStatisticsContainer() {
 
-            const { classes: { grid: { container } } } = config;
+            const { container } = config.classes.flex;
             const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
 
             const previewEditorStatistics = createPreviewContainer();
@@ -3410,7 +3410,7 @@
 
         // -------------------------------
         function previewProgressBarContainer() {
-            const { classes: { grid: { container : flex } } } = config;
+            const { container: flexContainer } = config.classes.flex;
             const { classes: { naviagations: { base : navigationBase, item : nativationItem, selected },
                                padding: { Y : paddingY },
                                title: { base : title } }
@@ -3447,7 +3447,7 @@
                              padding: "3px", paddingTop: "12px", paddingBottom: "10px",
                              marginBottom: "0px"
                             });
-            container.classList.add(flex);
+            container.classList.add(flexContainer);
             container.style.flexDirection = "column"; // flex-direction: column
             container.style.alignItems = "flex-end";  // align-items: flex-end
 
