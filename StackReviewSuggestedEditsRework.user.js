@@ -661,7 +661,7 @@
 
     // -------    createUserCard    --------------------
     // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
-    function createUserCard(isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges) {
+    function createUserCard({ isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }) {
         const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
         const anonymousUsername = "anonymous user";
 
@@ -787,23 +787,25 @@
                 // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
                 // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
                 const { innerText: actionInnerText, outerHTML: actionOuterHtml } = userActionTime;
-                const actionText = actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText;
-                const actionISO = userActionTime.querySelector("span").title; // YYYY-MM-DD HH:MM:SSZ
-
                 const [gold, silver, bronze] = [
                     original.querySelector(config.selectors.userCards.goldBadges),
                     original.querySelector(config.selectors.userCards.silverBadges),
                     original.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map((element) => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
 
-                const isUserAsker = original.classList.contains("owner");
-                const profileUrl = original.querySelector(config.selectors.userCards.username).href;
-                const profileImage = original.querySelector("img").src;
-                const username = original.querySelector(config.selectors.userCards.username).innerHTML;
-                const reputation = original.querySelector(config.selectors.userCards.reputation).innerText;
-                const badges = { gold, silver, bronze };
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                const userCardConfig = {
+                    isUserOwner: original.classList.contains("owner"),
+                    actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
+                    actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
+                    profileUrl: original.querySelector(config.selectors.userCards.username).href,
+                    profileImage: original.querySelector("img").src,
+                    username: original.querySelector(config.selectors.userCards.username).innerHTML,
+                    reputation: original.querySelector(config.selectors.userCards.reputation).innerText,
+                    badges: { gold, silver, bronze },
+                };
 
-                return createUserCard(isUserAsker, actionText, actionISO, profileUrl, profileImage, username, reputation, badges);
+                return createUserCard(userCardConfig);
             }
 
             // -------    adjustUserCardsWidth    --------------------
@@ -907,25 +909,25 @@
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
                 // https://stackoverflow.design/product/components/user-cards/
 
-                const proposedText = editProposedTime.innerText; // e.g. 4 hours ago
-                const proposedISO = editProposedTime.firstElementChild.title; // YYYY-MM-DD HH:MM:SSZ
-
-                if (!editorReviewStats) {
-                    return createUserCard(false, proposedText, proposedISO, null, null, null, null, {});
-                }
-
-                const profileUrl = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).href;
-                const profileImage = editorReviewStats.querySelector("img").src;
-                const reputation = editorReviewStats.querySelector(config.selectors.userCards.reputation).innerText;
-                const username = editorReviewStats.querySelector(config.selectors.userCards.um.userLink).innerHTML;
                 const [gold, silver, bronze] = [
-                    editorReviewStats.querySelector(config.selectors.userCards.goldBadges),
-                    editorReviewStats.querySelector(config.selectors.userCards.silverBadges),
-                    editorReviewStats.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map((element) => element ? element.nextElementSibling.innerText : "" /* TODO optional chaining */);
-                const badges = { gold, silver, bronze };
+                    editorReviewStats?.querySelector(config.selectors.userCards.goldBadges),
+                    editorReviewStats?.querySelector(config.selectors.userCards.silverBadges),
+                    editorReviewStats?.querySelector(config.selectors.userCards.bronzeBadges)
+                ].map((element) => element?.nextElementSibling?.innerText);
 
-                return createUserCard(false, proposedText, proposedISO, profileUrl, profileImage, username, reputation, badges);
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                const userCardConfig = {
+                    isUserOwner: false,
+                    actionText: editProposedTime.innerText, // e.g. 4 hours ago
+                    actionISO: editProposedTime.firstElementChild.title, // YYYY-MM-DD HH:MM:SSZ
+                    profileUrl: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).href,
+                    profileImage: editorReviewStats?.querySelector("img").src,
+                    username: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).innerHTML,
+                    reputation: editorReviewStats?.querySelector(config.selectors.userCards.reputation).innerText,
+                    badges: { gold, silver, bronze }
+                };
+
+                return createUserCard(userCardConfig);
             } // createSuggestorsUserCard
 
         } // editorUserCard
