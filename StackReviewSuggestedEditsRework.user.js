@@ -237,11 +237,11 @@
         removeElement(`#${diffChoices}`);
 
         const choices = document.querySelector(filterDiff); // ".js-diff-choices"
-        if (choices) {
-            moveToFilterLine(choices, true);
-            choices.firstElementChild.style.padding = "10px";  // the larger padding on one takes precedence
-            choices.id = diffChoices;
-        }
+        if (!choices) return;
+
+        moveToFilterLine(choices, true);
+        choices.id = diffChoices;
+        [...choices.children].forEach((button) => button.classList.remove("s-btn__xs"));
     }
 
 
