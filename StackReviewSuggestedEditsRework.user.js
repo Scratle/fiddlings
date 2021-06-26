@@ -661,28 +661,30 @@
 
     // -------    createUserCard    --------------------
     // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
-    function createUserCard({ isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }) {
+    function createUserCard({ isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges, isMinimal }) {
         const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
         const anonymousUsername = "anonymous user";
 
         const { base: cardsBase, time: timeClass, avatar: cardsAvatar, stacksInfo, link: linkClass, reputation: reputationClass,
                 awards, awardBling, gold: goldClass, silver: silverClass, bronze: bronzeClass, highlighted,
-                deleted: userDeletedClass, signature } = config.classes.userCards;
+                deleted: userDeletedClass, minimal, signature } = config.classes.userCards;
         const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
         const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
         const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
-        const imageElementType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
+        const imageElType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
         const finalActionText = actionText.replace(" by an anonymous user", "").replace("Proposed", "proposed");
 
+        const anonymousClass = isUserAnonymous ? ` ${userDeletedClass}` : "";
+        const highlightedClass = isOwner ? ` ${highlighted}` : "";
+        const minimalClass = isMinimal ? ` ${minimal}` : "";
         const rawHtml = `
-<div class="${cardsBase} ${signature}${isUserAnonymous ? ` ${userDeletedClass}` : ""}${isUserOwner ? ` ${highlighted}` : ""}">
+<div class="${cardsBase} ${signature}${anonymousClass + highlightedClass + minimalClass}">
     <time class="${timeClass}" datetime="${actionISO}">${finalActionText}</time>
-    <${imageElementType} href="${profileUrl || ""}"
-       class="${avatarsBase} ${avatar32px} ${cardsAvatar}">
+    <${imageElType} href="${profileUrl || ""}" class="${avatarsBase} ${cardsAvatar}${isMinimal ? "" : ` ${avatar32px}`}">
         <img class="${avatarImage}" src="${profileImage || deletedUserImage /* guard against anonymous users image being null */}">
-    </${imageElementType}>
+    </${imageElType}>
     <div class="${stacksInfo}">
-        <${imageElementType} href="${profileUrl}" class="${linkClass}">${username || anonymousUsername}</${imageElementType}>
+        <${imageElType} href="${profileUrl}" class="${linkClass}">${username || anonymousUsername}</${imageElType}>
         <ul class="${awards}">
             ${reputation ? `<li class="${reputationClass}">${reputation}</li>` : "" }
             ${goldBadges ? `<li class="${awardBling} ${goldClass}">${goldBadges}</li>` : ""}
@@ -799,10 +801,10 @@
                     original.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map((element) => element?.nextElementSibling?.innerText);
 
-                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
                 const userCardConfig = {
-                    isUserOwner: original.classList.contains("owner"),
+                    isOwner: original.classList.contains("owner"),
                     actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
                     actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
                     profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
@@ -922,9 +924,9 @@
                     editorReviewStats?.querySelector(config.selectors.userCards.bronzeBadges)
                 ].map((element) => element?.nextElementSibling?.innerText);
 
-                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const userCardConfig = {
-                    isUserOwner: false,
+                    isOwner: false,
                     actionText: editProposedTime.innerText, // e.g. 4 hours ago
                     actionISO: editProposedTime.firstElementChild.title, // YYYY-MM-DD HH:MM:SSZ
                     profileUrl: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).href,
@@ -1032,6 +1034,7 @@
                     base: "s-user-card",
                     deleted: "s-user-card__deleted",
                     highlighted: "s-user-card__highlighted",
+                    minimal: "s-user-card__minimal",
                     time: "s-user-card--time",
                     avatar: "s-user-card--avatar",
                     stacksInfo: "s-user-card--info",
@@ -3243,31 +3246,11 @@
 
         // -------------------------------
         function previewEditorStatisticsContainer() {
-
             const { container } = config.classes.flex;
-            const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
 
             const previewEditorStatistics = createPreviewContainer();
-
-            const image = document.createElement("img");
-            image.style.width = width;
-
-            const imageContainer = document.createElement("div");
-            imageContainer.style.width = width;
-            imageContainer.style.heigth = heigth;
-            imageContainer.append(image);
-
             const previewEditorStatisticsGrid = document.createElement("div");
-            previewEditorStatisticsGrid.classList.add(container); // "overflow-hidden"
-
-            // To avoid word wrapping past 127%
-            // https://chat.stackoverflow.com/transcript/message/52375438#52375438
-            previewEditorStatisticsGrid.style.whiteSpace = "nowrap";
-            previewEditorStatisticsGrid.style.overflow = "hidden";
-
-            standardStyling(previewEditorStatisticsGrid);
-            previewEditorStatisticsGrid.append(imageContainer);
-
+            previewEditorStatisticsGrid.classList.add(container);
             previewEditorStatistics.append(previewEditorStatisticsGrid);
 
             // Do not initialize this yet since two preview elements needs to be set
@@ -3283,51 +3266,58 @@
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
             const userCardImage = userCardsElement.lastElementChild; // from the preview element
             const editorGrid  = editorElement.lastElementChild;      // from the preview element
-            const editorImage = editorElement.querySelector("img");
 
             const { userCards : configUserCards } = tempUserConfig.options;
             const userCards        = configUserCards.getUserCards === "Yes";
             const editorStatistics = configUserCards.withEditiorStats === "Yes";
 
             const lightMap = [
-                [["0N0gd.png","ABwF9.png"], userCards, editorStatistics],
-                [["eGv5x.png","ABwF9.png"], userCards],
-                [["yrz32.png","ZFoyD.png"]],
-            ];
-            const darkMap = [
-                [["tbGE3.png","ETSJS.png"], userCards, editorStatistics],
-                [["ldstt.png","ETSJS.png"], userCards],
-                [["7Gw2y.png","aQz4W.png"]],
+                ["0N0gd.png", userCards && editorStatistics],
+                ["eGv5x.png", userCards],
+                ["yrz32.png", true],
+            ], darkMap = [
+                ["tbGE3.png", userCards && editorStatistics],
+                ["ldstt.png", userCards],
+                ["7Gw2y.png", true],
             ];
 
             const screenShotMap = isLIGHT ? lightMap : darkMap;
-
-            const [[userCardScreenShot, editorScreenShot]] =
-                      screenShotMap.find(([_, ...conditions]) =>
-                          // conditions.every(c => !!c)
-                          conditions.every(Boolean)
-                      );
+            const userCardScreenShot = screenShotMap.find(([_, condition]) => condition)[0];
             userCardImage.src = `${imgHOST}${userCardScreenShot}`;
-            editorImage.src   = `${imgHOST}${editorScreenShot}`;
 
-            const on = userCards && editorStatistics;
+            // "live" preview for the editor's user card
+            // { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+            const isMinimal = !userCards;
+            const exampleUserCardConfig = {
+                isOwner: false,
+                actionText: `${isMinimal ? "P" : "p"}roposed 8 hours ago`, // proposed is capitalised by default
+                actionISO: new Date().toISOString().replace("T", " "),
+                profileUrl: "#",
+                profileImage: "https://i.stack.imgur.com/UDm50.png", // https://chat.stackoverflow.com/transcript/message/52496898
+                username: "Sbelz gr8",
+                // no badges or reputation for minimal user cards
+                reputation: isMinimal ? null : 64,
+                badges: isMinimal ? {} : { silver: 1, bronze: 5 }, // no badges for minimal user cards
+                isMinimal
+            };
+            const stacksUserCard = createUserCard(exampleUserCardConfig);
+            const currentUserCard = editorGrid.querySelector(config.selectors.userCards.default);
+            // the .s-user-card__minimal class cancels the padding: 8px style of
+            if (isMinimal) stacksUserCard.classList.add("p8");
+            currentUserCard ? currentUserCard.replaceWith(stacksUserCard) : editorGrid.prepend(stacksUserCard);
 
-            if (on) {
+            if (userCards && editorStatistics) {
                 // Do not add another statistics element! Important on restore
                 if (editorGrid.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
                     return;
                 }
 
-                const sample = [
-                                 {approval_date: 1},
-                                 {rejection_date: 1}, {rejection_date: 1},
-                                 {},{},{}, // pending
-                               ];
+                const sampleApiResponse = [{ approval_date: 1 }, { rejection_date: 1 }, {}, {}, {}]; // the {} are pending edits
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
                 // editorGrid.append(createEditorStatisticsItem(sample, colour, fontSize));
-                const editorStatsTable = createEditorStatisticsItem(sample, colour, fontSize);
+                const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
                 editorGrid.append(editorStatsTable);
             } else {
                 if (editorGrid.children.length > 1)
