@@ -251,10 +251,14 @@
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
         const {ids : { custom : { actionRadios : actionRadiosId } },
-               classes: { choiceRadios, grid: {cell, container} },
                selectors: {actions: {reviews : reviewActions, radioActionsBox} },
                tags: {radios : radiosTag},
               } = config;
+        const { choiceRadios,
+                textAlignCenter,
+                grid: { cell, container },
+                flex: { alignItemsCenter, marginXAxis, gap24px }
+              } = config.classes;
 
         const {colour: { radioSeperator : radioSeperatorColour },
                size: { radioSeperator : radioSeperatorSize },
@@ -292,11 +296,10 @@
         actionBox.id = actionRadiosId;
 
         const { lastElementChild : buttonsWrapperParent,
-                classList        : fieldsetClassList,
-                style            : fieldsetStyle
+                classList        : fieldsetClassList
               } = fieldset;
-        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12"
-        fieldsetStyle.textAlign = "center";
+        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12", "gsx", "gs8"
+        fieldsetClassList.add(marginXAxis, gap24px, textAlignCenter, alignItemsCenter); // "gsx", "gs24", "ta-center", "ai-center"
 
         // The Submit and Skip buttons
         if (!buttonsWrapperParent)
@@ -309,20 +312,19 @@
         if (!buttonsWrapper)
             return;
         const { firstElementChild : buttonsParent,
-                classList         : buttonsWrapperClassList,
-                style             : buttonsWrapperStyle
+                classList         : buttonsWrapperClassList
               } = buttonsWrapper;
         buttonsWrapperClassList.remove(choiceRadios.button); // "pt12"
-        buttonsWrapperStyle.marginLeft = "10px";
+        // those styles no longer apply, since the Submit and Skip buttons have been moved
+        buttonsWrapperClassList.remove("px12");
+        buttonsWrapper.parentElement.classList.remove("mxn12");
 
-        // Make the Skip button wider
         if (!buttonsParent)
             return;
+        // Make the Skip button wider
         [...buttonsParent.children]
-             .forEach((button) => {
-                          if (isSkip(button.innerText.trim()))
-                              button.style.minWidth = "70px";
-                     });
+            .filter((button) => isSkip(button.innerText.trim()))
+            .forEach((button) => button.style.minWidth = "70px");
 
         // https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Selectors/Combinators
         // https://drafts.csswg.org/selectors-4/#overview
@@ -358,7 +360,6 @@
                          const label = radio.querySelector("label");
                          const text = label.textContent || "";
                          if (radioWithBorders === "Yes" && text.trim() !== "Approve") {
-                             radiostyle.paddingLeft = "3px";
                              radiostyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                          }
                     });
@@ -1007,12 +1008,16 @@
                 flex: {
                     container: "d-flex",
                     item: "flex--item",
+                    // https://stackoverflow.design/product/base/flex/#gutter-classes
                     marginXAxis: "gsx",
                     marginYAxis: "gsy",
-                    gap4px: "gs4"
+                    gap4px: "gs4",
+                    gap24px: "gs24",
+                    // https://stackoverflow.design/product/base/flex/#align-items-classes
+                    alignItemsCenter: "ai-center"
                 },
                 choiceRadios: {
-                    fieldset: ["fd-column", "p12"],
+                    fieldset: ["fd-column", "p12", "gsy", "gs24"],
                     submits: ["bt", "bc-black-3"],
                     button: "pt12",
                     widget: "s-sidebarwidget",
@@ -1064,6 +1069,7 @@
                 answers: "answer-hyperlink",
                 desktopHide: "d-none",
                 titleSpace: "ml12",
+                textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
             },
             size: {
                 gravatarSmall: "32",
