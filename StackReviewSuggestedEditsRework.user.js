@@ -2259,11 +2259,9 @@
                 settingsLink.dataset.action = show;
                 settingsItem.dataset.controller = modal;
 
+                // Alternative: Stacks.showModal(settingsItem);
                 // The GUI needs to load first..
-                setTimeout(() => {
-                    settingsLink.click();
-                    // Stacks.showModal(settingsItem);
-                }, 50);
+                setTimeout(() => settingsLink.click(), 0);
             }, { once: true });
 
         }
