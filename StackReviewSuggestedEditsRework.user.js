@@ -1013,8 +1013,8 @@
                     marginYAxis: "gsy",
                     gap4px: "gs4",
                     gap24px: "gs24",
-                    // https://stackoverflow.design/product/base/flex/#align-items-classes
-                    alignItemsCenter: "ai-center"
+                    alignItemsCenter: "ai-center", // https://stackoverflow.design/product/base/flex/#align-items-classes
+                    justifyContentFlexEnd: "jc-end" // https://stackoverflow.design/product/base/flex/#justify-content
                 },
                 choiceRadios: {
                     fieldset: ["fd-column", "p12", "gsy", "gs24"],
@@ -1618,6 +1618,7 @@
                     select: "s-select",
                     input: "s-input",
                     label: "s-label",
+                    radio: "s-radio",
                     header: "js-user-header",
                 },
                 colours: {
@@ -3059,13 +3060,12 @@
 
         // -------------------------------
         function previewRadiosOrButtonsContainer() {
-            const { classes: { flex: { container, item },
-                               buttons: { button : base, primary, outlined }
-                             }
-                  } = config;
+            const { flex: { container, item, justifyContentFlexEnd },
+                    buttons: { button : base, primary, outlined },
+                  } = config.classes;
             const { ids: { radioButtons : radioButtonsId, radioName, radioButtonLabel },
                     classes: { actions: { radio : radioAction, radioParent },
-                               margins: { negative, zeroX, zeroY },
+                               margins: { negative, zeroX },
                                center,
                                label : stackLabel,
                                radio : stackradio },
@@ -3075,8 +3075,10 @@
 
             const submitButton = createModalButton("Submit", [base, primary]);
             const skipButton   = createModalButton("Skip",   [base, outlined]);
-            submitButton.disabled = true;
-            skipButton.disabled = true;
+            // pe-none => pointer-events: none; to ensure click events won't be fired
+            // https://stackoverflow.design/product/base/interactivity/#pointer-events
+            submitButton.classList.add("pe-none");
+            skipButton.classList.add("pe-none");
             skipButton.style.marginLeft = "4px";
             skipButton.style.minWidth = "70px";
 
@@ -3087,10 +3089,11 @@
 
             const radios =
                   ["Approve", "Improve edit", "Reject and edit", "Reject"]
-                     .map((label) => makeRadio(label, radioButtonLabel));
+                    // make sure the ids are actually unique using the button name to lower case and without spaces
+                    .map((label) => makeRadio(label, `${radioButtonLabel}-${label.toLowerCase().replaceAll(" ", "")}`));
 
             const fieldset = document.createElement("fieldset");
-            fieldset.classList.add(container, negative, zeroY);
+            fieldset.classList.add(container, negative, zeroX, justifyContentFlexEnd); // align grid to the right, as in review
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
@@ -3098,14 +3101,11 @@
             fieldset.style.zoom = "91%";
 
             const fieldsetContainer = document.createElement("div");
-            fieldsetContainer.style.paddingTop = "3px";
-            fieldsetContainer.style.paddingBottom = "7px";
             fieldsetContainer.append(fieldset);
 
             const buttonsContainer = createButtonContainer();
-            // jc-end => justify-content: flex-end
-            // https://stackoverflow.design/product/base/flex/#justify-content
-            buttonsContainer.classList.add("jc-end", "p8");
+
+            buttonsContainer.classList.add(justifyContentFlexEnd, "p8");
             // generate the review buttons
             // the createButton() requires the original radio as well as the submit button to be present
             // however, no events should be triggered when the user clicks the preview buttons
@@ -3239,10 +3239,8 @@
 
             radios.forEach((radio) => {
                 if (radioWithBorders) {
-                    radio.style.paddingLeft = "3px";
                     radio.style.borderLeft  = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                 } else {
-                    radio.style.paddingLeft = "4px";
                     radio.style.borderLeft  = "none";
                 }
             });
