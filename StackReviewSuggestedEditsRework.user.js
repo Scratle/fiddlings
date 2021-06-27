@@ -2217,10 +2217,11 @@
         // ---- Setting up the modal --------------------------------------------------------------
 
         function insertIcon() {
-            const {topMenuSelector,
-                   headerNtooltip,
-                   ids: { icon : iconId },
-                   classes: { icon }
+            const { show,
+                    topMenuSelector,
+                    headerNtooltip,
+                    ids: { icon : iconId },
+                    classes: { smodals: { modal }, icon }
                   } = modalConfig;
 
             if (document.querySelector(`${topMenuSelector} #${iconId}`))
@@ -2252,13 +2253,18 @@
 
             // loads the GUI for the settings
             settingsItem.addEventListener("click", () => {
-                let modalElement = document.querySelector(`#${modalConfig.ids.aside}`);
-                if (!modalElement) { // check if the modal has been appended to the DOM
-                    modalElement = createModalAside(loadIt());
-                    document.body.appendChild(modalElement);
-                }
-                StackExchange.helpers.showModal(modalElement);
-            });
+
+                const aside = createModalAside(loadIt());
+                settingsItem.append(aside);
+                settingsLink.dataset.action = show;
+                settingsItem.dataset.controller = modal;
+
+                // The GUI needs to load first..
+                setTimeout(() => {
+                    settingsLink.click();
+                    // Stacks.showModal(settingsItem);
+                }, 50);
+            }, { once: true });
 
         }
 
@@ -2273,7 +2279,6 @@
             modalAside.classList.add(modal);
             modalAside.id = asideId;
             modalAside.dataset.target = `${modal}.modal`;
-            modalAside.dataset.controller = modal;
             modalAside.append(linkToModal);
 
             return modalAside;
