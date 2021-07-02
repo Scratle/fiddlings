@@ -1627,6 +1627,9 @@
                     label: "s-label",
                     radio: "s-radio",
                     header: "js-user-header",
+                    // pe-none => pointer-events: none; to ensure click events won't be fired
+                    // https://stackoverflow.design/product/base/interactivity/#pointer-events
+                    pointerEventsNone: "pe-none"
                 },
                 colours: {
                     background: "var(--white)",  // #fff or #2d2d2d;
@@ -3078,17 +3081,17 @@
                                margins: { negative, zeroX },
                                center,
                                label : stackLabel,
-                               radio : stackradio },
+                               radio : stackradio,
+                               pointerEventsNone },
                   } = modalConfig;
 
             const previeRadiosVsButtonsContainer = createPreviewContainer();
 
             const submitButton = createModalButton("Submit", [base, primary]);
             const skipButton   = createModalButton("Skip",   [base, outlined]);
-            // pe-none => pointer-events: none; to ensure click events won't be fired
-            // https://stackoverflow.design/product/base/interactivity/#pointer-events
-            submitButton.classList.add("pe-none");
-            skipButton.classList.add("pe-none");
+
+            submitButton.classList.add(pointerEventsNone);
+            skipButton.classList.add(pointerEventsNone);
             skipButton.style.marginLeft = "4px";
             skipButton.style.minWidth = "70px";
 
@@ -3123,9 +3126,8 @@
             const dummyInput = document.createElement("input"), dummyButton = document.createElement("button");
             const reviewActions = ["Approve", "Improve edit", "Reject and edit", "Reject", "Skip"];
             const previewButtons = reviewActions.map((action) => createButton(action, [dummyInput, dummyButton]));
-            // pe-none => pointer-events: none; to ensure click events won't be fired
-            // https://stackoverflow.design/product/base/interactivity/#pointer-events
-            previewButtons.forEach((element) => element.classList.add("pe-none"));
+
+            previewButtons.forEach((element) => element.classList.add(pointerEventsNone));
             buttonsContainer.append(...previewButtons);
 
             const lastElement = document.createElement("div");
