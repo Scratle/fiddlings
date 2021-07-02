@@ -802,11 +802,8 @@
                 // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
                 // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
                 const { innerText: actionInnerText, outerHTML: actionOuterHtml } = userActionTime;
-                const [gold, silver, bronze] = [
-                    original.querySelector(config.selectors.userCards.goldBadges),
-                    original.querySelector(config.selectors.userCards.silverBadges),
-                    original.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map((element) => element?.nextElementSibling?.innerText);
+                const [gold, silver, bronze] = config.selectors.userCards.badges
+                    .map((selector) => original.querySelector(selector)?.nextElementSibling?.innerText);
 
                 // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
@@ -925,11 +922,8 @@
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
                 // https://stackoverflow.design/product/components/user-cards/
 
-                const [gold, silver, bronze] = [
-                    editorReviewStats?.querySelector(config.selectors.userCards.goldBadges),
-                    editorReviewStats?.querySelector(config.selectors.userCards.silverBadges),
-                    editorReviewStats?.querySelector(config.selectors.userCards.bronzeBadges)
-                ].map((element) => element?.nextElementSibling?.innerText);
+                const [gold, silver, bronze] = config.selectors.userCards.badges
+                    .map((selector) => editorReviewStats?.querySelector(selector)?.nextElementSibling?.innerText);
 
                 // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const userCardConfig = {
@@ -1111,9 +1105,11 @@
                     default: ".s-user-card",
                     minimal: ".s-user-card__minimal",
                     reputation: ".reputation-score",
-                    goldBadges: ".badge1",
-                    silverBadges: ".badge2",
-                    bronzeBadges: ".badge3",
+                    badges: [
+                        ".badge1", // gold
+                        ".badge2", // silver
+                        ".badge3"  // bronze
+                    ],
                     um: {
                         userLink: ".um-user-link"
                     },
