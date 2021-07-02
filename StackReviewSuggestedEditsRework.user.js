@@ -94,22 +94,22 @@
     // https://violentmonkey.github.io/api/gm/#gm_deletevalue
 
     function getUserConfig() {
-        let userConfig = getValueFromCache(PREFIX);
-        if (!userConfig) updateValueFromCache(PREFIX, defaultUserConfig);
-        userConfig = getValueFromCache(PREFIX);
+        let userConfig = getValueFromStorage(PREFIX);
+        if (!userConfig) updateValueFromStorage(PREFIX, defaultUserConfig);
+        userConfig = getValueFromStorage(PREFIX);
 
         return userConfig;
     }
 
-    function getValueFromCache(cacheKey) {
+    function getValueFromStorage(cacheKey) {
         return window.GM_getValue ? window.GM_getValue(cacheKey) : JSON.parse(localStorage.getItem(cacheKey));
     }
 
-    function removeValueFromCache(cacheKey) {
+    function removeValueFromStorage(cacheKey) {
         window.GM_deleteValue ? window.GM_deleteValue(cacheKey) : localStorage.removeItem(cacheKey);
     }
 
-    function updateValueFromCache(cacheKey, cacheValue) {
+    function updateValueFromStorage(cacheKey, cacheValue) {
         // GM_setValue accepts an object as the second parameter, so we don't need to stringify it
         window.GM_setValue ? window.GM_setValue(cacheKey, cacheValue) : localStorage.setItem(cacheKey, JSON.stringify(cacheValue));
         console.log("updateValueFromCache - config", cacheValue);
@@ -2212,7 +2212,7 @@
         // ---- Just insert the icon --------------------------------------------------------------
 
         let tempUserConfig;
-        // removeValueFromCache(PREFIX)  // For testing purposes
+        // removeValueFromStorage(PREFIX)  // For testing purposes
 
         // Just add the icon. Then wait until it's clicked.
         // insertIcon();                    // No Svg..
@@ -2352,7 +2352,7 @@
             const saveButton   = createModalButton("Apply & Exit", [item, basebutton, primary]);
             const cancelButton = createModalButton("Cancel",       [item, basebutton]);
 
-            saveButton.addEventListener("click", () => updateValueFromCache(PREFIX, tempUserConfig));
+            saveButton.addEventListener("click", () => updateValueFromStorage(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
