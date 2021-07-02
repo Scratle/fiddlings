@@ -233,7 +233,8 @@
         if (userConfig.options.moveDiffChoices !== "Yes")
             return;
 
-        const {ids: {custom: {diffChoices} } , selectors: {reviews: {filterDiff} } } = config;
+        const {ids: {custom: {diffChoices} }, selectors: {reviews: {filterDiff} } } = config;
+        const { small, extraSmall } = config.classes.buttons;
         removeElement(`#${diffChoices}`);
 
         const choices = document.querySelector(filterDiff); // ".js-diff-choices"
@@ -241,7 +242,11 @@
 
         moveToFilterLine(choices, true);
         choices.id = diffChoices;
-        [...choices.children].forEach((button) => button.classList.remove("s-btn__xs"));
+        [...choices.children].forEach((button) => {
+            button.classList.remove(extraSmall);
+            // see https://github.com/Scratle/fiddlings/pull/2#pullrequestreview-698140714, s-btn is just too large
+            button.classList.add(small);
+        });
     }
 
 
@@ -1063,6 +1068,8 @@
                     outlined: "s-btn__outlined",
                     danger: "s-btn__danger",
                     muted: "s-btn__muted",
+                    small: "s-btn__sm",
+                    extraSmall: "s-btn__xs",
                     loading: "is-loading",
                 },
                 summary: "fc-red-800",
