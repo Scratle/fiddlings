@@ -722,7 +722,7 @@
 
         const profileWrapper = document.createElement(imageWrapperElementType);
         profileWrapper.href = profileUrl || "";
-        profileWrapper.classList.add(avatarsBase, cardsAvatar, isMinimal ? "" : avatar32px);
+        profileWrapper.className = `${avatarsBase} ${cardsAvatar} ${isMinimal ? "" : avatar32px}`;
 
         const profileImageElement = document.createElement("img");
         profileImageElement.src = profileImage || deletedUserImage; // guard against anonymous users image being null
