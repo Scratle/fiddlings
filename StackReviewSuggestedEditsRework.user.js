@@ -668,7 +668,16 @@
 
     // -------    createUserCard    --------------------
     // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
-    function createUserCard({ isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges, isMinimal }) {
+    function createUserCard({ isOwner,
+                              actionText,
+                              actionISO,
+                              profileUrl,
+                              profileImage,
+                              username,
+                              reputation,
+                              badges,
+                              isMinimal }) {
+
         const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
         const anonymousUsername = "anonymous user";
 
@@ -711,7 +720,7 @@
 
         const actionTime = document.createElement("time");
         actionTime.classList.add(timeClass);
-        actionTime.textContent = finalActionText;
+        actionTime.innerHTML = finalActionText;
         actionTime.dateTime = actionISO;
         Stacks.setTooltipText(actionTime, actionISO, { placement: "top" }); // add Stacks tooltip
 
@@ -806,7 +815,9 @@
 
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             try {
-                const userCardRequest = await fetch(postlink), userCardResponse = await userCardRequest.text();
+                const userCardRequest = await fetch(postlink);
+                const userCardResponse = await userCardRequest.text();
+
                 // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
                 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
                 const userCards =
@@ -831,8 +842,14 @@
                 // in this case, we need to show the errorNotFound message
                 requestStatus = requestStatus === 200 && !stacksifiedUserCards.length ? 404 : requestStatus;
                 const messages = {
-                    errorNotFound: ["The original post is unavailable.", "User cards cannot be retrieved."],
-                    responseNotOk: ["Tried to fetch usercards, but", `Stack responsed with status: ${requestStatus}`]
+                    errorNotFound: [
+                                     "The original post is unavailable.",
+                                     "User cards cannot be retrieved."
+                                   ],
+                    responseNotOk: [
+                                     "Tried to fetch usercards, but",
+                                     `Stack responsed with status: ${requestStatus}`
+                                   ]
                 };
 
                 if (requestStatus === 200 && stacksifiedUserCards.length)
@@ -842,6 +859,7 @@
                     200: postUserCardContainer, // response successful => append the usercards
                     404: missingCards(messages.errorNotFound) // 404 => not found => question deleted
                 };
+
                 const elementToAppend = responseMap[requestStatus] || missingCards(messages.responseNotOk);
                 userCardsContainerAll.append(elementToAppend);
             } catch (error) {
@@ -849,6 +867,7 @@
                     "Something is blocking fetching user cards",
                     "Could be your ad-blocker or your network connection. Check the console."
                 ];
+
                 console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
                 userCardsContainerAll.appendChild(missingCards(messages));
             }
@@ -858,6 +877,7 @@
             // -------    stacksifyUserCards    --------------------
             function stacksifyUserCards(original) {
                 const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
+
                 // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
                 // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
                 const { innerText: actionInnerText, outerHTML: actionOuterHtml } = userActionTime;
@@ -3370,25 +3390,33 @@
             // "live" preview for the editor's user card
             // { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
             const isMinimal = !userCards;
+            const actionText = `${isMinimal ? "P" : "p"}roposed 8 hours ago`; // proposed is capitalised by default
+
             const exampleUserCardConfig = {
                 isOwner: false,
-                actionText: `${isMinimal ? "P" : "p"}roposed 8 hours ago`, // proposed is capitalised by default
+                actionText,
                 actionISO: new Date().toISOString().replace("T", " "),
                 profileUrl: "#",
                 profileImage: "https://i.stack.imgur.com/UDm50.png", // https://chat.stackoverflow.com/transcript/message/52496898
                 username: "Sbelz gr8",
+
                 // no badges or reputation for minimal user cards
                 reputation: isMinimal ? null : 64,
                 badges: isMinimal ? {} : { silver: 1, bronze: 5 }, // no badges for minimal user cards
                 isMinimal
             };
+
             const stacksUserCard = createUserCard(exampleUserCardConfig);
             const currentUserCard = editorGrid.querySelector(config.selectors.userCards.default);
-            // the .s-user-card__minimal class cancels the padding: 8px style of
-            if (isMinimal) stacksUserCard.classList.add("p8");
+
+            // the .s-user-card__minimal class overrides the padding: 8px style of s-user-card
+            if (isMinimal)
+                stacksUserCard.classList.add("p8");
+
             currentUserCard ? currentUserCard.replaceWith(stacksUserCard) : editorGrid.prepend(stacksUserCard);
 
             if (userCards && editorStatistics) {
+
                 // Do not add another statistics element! Important on restore
                 if (editorGrid.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
@@ -3401,6 +3429,7 @@
                 // editorGrid.append(createEditorStatisticsItem(sample, colour, fontSize));
                 const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
                 editorGrid.append(editorStatsTable);
+
             } else {
                 if (editorGrid.children.length > 1)
                     editorGrid.lastElementChild.remove();
