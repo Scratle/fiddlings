@@ -1138,6 +1138,7 @@
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
                 desktopHide: "d-none",
+                visibilityHidden: "v-hidden", // https://stackoverflow.design/product/base/visibility/#content
                 titleSpace: "ml12",
                 textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
             },
@@ -3184,10 +3185,9 @@
             const buttonsContainer = createButtonContainer();
 
             buttonsContainer.classList.add(justifyContentFlexEnd, "p8");
+
             // generate the review buttons
-            // the createButton() requires the original radio as well as the submit button to be present
-            // however, no events should be triggered when the user clicks the preview buttons
-            // hence the dummy* elements
+            // the createButton() requires the original radio as well as the submit button to be present, hence the dummy* elements
             const dummyInput = document.createElement("input"), dummyButton = document.createElement("button");
             const reviewActions = ["Approve", "Improve edit", "Reject and edit", "Reject", "Skip"];
             const previewButtons = reviewActions.map((action) => createButton(action, [dummyInput, dummyButton]));
@@ -3208,6 +3208,7 @@
                 label.classList.add(item, stackLabel);
                 label.htmlFor = radioId;
                 label.textContent = labelText;
+
                 const labelContainer = document.createElement("div");
                 labelContainer.classList.add(item);
                 labelContainer.append(label);
@@ -3252,7 +3253,7 @@
             const keepRadios       = radioVsButtons.keepRadios === "Yes";
             const radioWithBorders = radioVsButtons.radioWithBorders === "Yes";
 
-            const { desktopHide } = config.classes;
+            const { desktopHide, visibilityHidden } = config.classes;
 
             // previewRadiosOrButtons:          light   /   dark
             //  moveRadioBox,  keepRadios  ->          -             radios + previewRadiosOrButtonsUpdate(element)
@@ -3265,6 +3266,7 @@
             //  moveRadioBox, !keepRadios                     -> XPIdk.png / Bf5Lm.png
             // !moveRadioBox                                  -> Sr586.png / 9Y7O9.png
 
+            actionsContent.classList.remove(visibilityHidden); // remove, will readd later if necessary
             if (moveRadioBox && keepRadios) {
 
                 actionsRadios.classList.remove(desktopHide);
@@ -3291,6 +3293,7 @@
                         ? `${imgHOST}XPIdk.png`
                         : `${imgHOST}Bf5Lm.png`;
                 } else {
+                    actionsContent.classList.add(visibilityHidden); // display: none; actually makes the preview box narrow
                     // actionsImage.src = `${imgHOST}WgO6m.png`; // <-- completely tranparent image
                     moveImage.src = isLIGHT
                         ? `${imgHOST}Sr586.png`
