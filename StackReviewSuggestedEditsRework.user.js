@@ -257,11 +257,9 @@
 
         const {ids : { custom : { actionRadios : actionRadiosId } },
                selectors: {actions: {reviews : reviewActions, radioActionsBox} },
-               tags: {radios : radiosTag},
               } = config;
         const { choiceRadios,
                 textAlignCenter,
-                grid: { cell, container },
                 flex: { alignItemsCenter, marginXAxis, gap24px }
               } = config.classes;
 
@@ -331,41 +329,38 @@
             .filter((button) => isSkip(button.innerText.trim()))
             .forEach((button) => button.style.minWidth = "70px");
 
-        // https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Selectors/Combinators
-        // https://drafts.csswg.org/selectors-4/#overview
-
         // The radios
-        const fieldsetChildren = fieldset.querySelectorAll(`${reviewActions} > ${radiosTag} > div[class="${cell}"]`);
+        // .slice() MDN: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+        const fieldsetChildren = [...fieldset.children].slice(0, -1);
         if (!fieldsetChildren.length)
             return;
 
         fieldsetChildren
             .forEach((radio) => {
-                         const { firstElementChild : gridContainer,
-                                 classList         : radioClassList,
-                                 style             : radiostyle
+                         const { firstElementChild : flexContainer,
+                                 style             : radioStyle
                                } = radio;
-                         const p = radio.querySelector("p");
-                         const gridCells = radio.querySelectorAll("." + cell);
+                         const buttonDescription = radio.querySelector("p");
+                         const [radioButtonWrapper, labelWrapper] = [...flexContainer.children];
 
-                         if (!p || !gridContainer) // !(p && gridContainer)
+                         if (!buttonDescription || !flexContainer) // !(buttonDescription && flexContainer)
                              return;
 
-                         if (gridCells && gridCells.length === 2) {
-                             const { parentElement } = gridCells[0];
-                             if (parentElement)
-                                 parentElement.append(gridCells[0]); // Switch them
+                         if (radioButtonWrapper && labelWrapper) {
+                             const { parentElement } = radioButtonWrapper;
+                             parentElement.append(radioButtonWrapper); // Switch them
                          }
 
-                         p.remove();
-                         gridContainer.classList.remove(container);
-                         radioClassList.remove(cell);
-                         radiostyle.padding = "4px";
+                         // only interested in the js-* class here, so remove the flex-related ones
+                         flexContainer.className = "js-action-radio-parent";
+                         buttonDescription.remove();
+                         radio.className = ""; // remove the grid--cell/flex--item class
+                         radioStyle.padding = "4px";
 
                          const label = radio.querySelector("label");
                          const text = label.textContent || "";
                          if (radioWithBorders === "Yes" && text.trim() !== "Approve") {
-                             radiostyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
+                             radioStyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                          }
                     });
 
@@ -452,7 +447,7 @@
         filterDiv.style.justifyContent = "space-between";
 
         // Remove a pointless empty space:
-        removeElement(".grid--cell.fl-grow1.js-review-filter-summary.fs-italic.fl1.ml8.mr12.v-truncate2");
+        removeElement(".js-review-filter-summary");
     }
 
     // -------    createButtonContainer    --------------------
@@ -780,25 +775,24 @@
         if (userConfig.options.userCards.getUserCards !== "Yes")
             return;
 
-        const {ids: {custom: {userCards} },
-               selectors: {content: {reviewPost} },
-               classes: {grid: {container} },
+        const { ids: { custom: { userCards } },
+                selectors: { content: { reviewPost } },
               } = config;
 
         if (document.getElementById(userCards))
             return; // One is quite enough :)
 
-        const originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid
-                  = document.querySelector(`${reviewPost} > .${container}`); // ".postcell > .grid"
+        const originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex
+                  = document.querySelector(reviewPost).children[2]; // ".postcell"
 
-        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
-        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
+        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
+        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
 
         // -------    originalPostUserCards    --------------------
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
-            const { selectors: {content: {originalPost} },
-                    classes: {grid: {cell}, answers, userCards: {signature} },
+            const { selectors: { content: { originalPost } },
+                    classes: { answers, userCards: { signature } },
                   } = config;
 
             const originalPostLink = document.querySelector(`${originalPost} a`);
@@ -808,7 +802,7 @@
             const { href: postlink, hash, classList } = originalPostLink;
 
             const thePost = classList.contains(answers)
-                                ? "#answer-" + hash.substring(1)
+                                ? "#answer-" + hash.substring(1) // #answer-<answer id>
                                 : ".question";
 
             userCardsContainerAll.style.justifyContent = "space-between";
@@ -823,10 +817,10 @@
                 const userCards =
                     [...new DOMParser()
                         .parseFromString(userCardResponse, "text/html")
-                        // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
-                        .querySelectorAll(`${thePost} .${signature}.${cell}`)
-                        // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
-                        // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
+                        // .querySelectorAll(`${thePost} .post-signature`)
+                        .querySelectorAll(`${thePost} .${signature}`)
+                        // .querySelectorAll(".post-signature.fl0")];   // <-- answer
+                        // .querySelectorAll(".post-signature.owner")]; // <-- question
                     ];
 
                 const postUserCardContainer = createNewDiv();
@@ -1079,10 +1073,6 @@
                 radios: "fieldset",
             },
             classes: {
-                grid: {
-                    container: "grid",
-                    cell: "grid--cell",
-                },
                 flex: {
                     container: "d-flex",
                     item: "flex--item",
@@ -1293,7 +1283,7 @@
         if (userConfig.options.movePageTitleLink !== "Yes")
             return;
 
-        // -------    createGridCell    --------------------
+        // -------    createFlexItem    --------------------
         const createFlexItem = () => {
             const elem = document.createElement("div");
             elem.classList.add(config.classes.flex.item); // "flex--item"
@@ -1310,7 +1300,7 @@
             const titleWrap = document.querySelector(cnf.selectors.title.title);
             if (!titleWrap)
                 return false;
-            titleWrap.classList.add(config.classes.grid.container); // "grid"
+            titleWrap.classList.add(config.classes.flex.container); // "d-flex"
             const header = document.querySelector(cnf.selectors.title.header);
             const titleCell = createFlexItem();
             titleCell.classList.add(config.classes.titleSpace); // "ml12"
@@ -1430,7 +1420,7 @@
 
         // Create a container div and put the editorUserCard into it. Then add the stats into it too.
         const superDiv = document.createElement("div");
-        superDiv.classList.add("grid");
+        superDiv.classList.add(config.classes.flex.container); // "d-flex"
         // editorUserCard.parentNode.insertBefore(superDiv, editorUserCard);
         editorUserCard.before(superDiv);
         superDiv.appendChild(editorUserCard);
@@ -3181,7 +3171,7 @@
                     .map((label) => makeRadio(label, `${radioButtonLabel}-${label.toLowerCase().replaceAll(" ", "")}`));
 
             const fieldset = document.createElement("fieldset");
-            fieldset.classList.add(container, negative, zeroX, justifyContentFlexEnd); // align grid to the right, as in review
+            fieldset.classList.add(container, negative, zeroX, justifyContentFlexEnd); // align flexbox to the right, as in review
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
@@ -3351,9 +3341,9 @@
             const { container } = config.classes.flex;
 
             const previewEditorStatistics = createPreviewContainer();
-            const previewEditorStatisticsGrid = document.createElement("div");
-            previewEditorStatisticsGrid.classList.add(container);
-            previewEditorStatistics.append(previewEditorStatisticsGrid);
+            const previewEditorStatisticsFlex = document.createElement("div");
+            previewEditorStatisticsFlex.classList.add(container);
+            previewEditorStatistics.append(previewEditorStatisticsFlex);
 
             // Do not initialize this yet since two preview elements needs to be set
 
@@ -3367,7 +3357,7 @@
 
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
             const userCardImage = userCardsElement.lastElementChild; // from the preview element
-            const editorGrid  = editorElement.lastElementChild;      // from the preview element
+            const editorFlex  = editorElement.lastElementChild;      // from the preview element
 
             const { userCards : configUserCards } = tempUserConfig.options;
             const userCards        = configUserCards.getUserCards === "Yes";
@@ -3407,18 +3397,18 @@
             };
 
             const stacksUserCard = createUserCard(exampleUserCardConfig);
-            const currentUserCard = editorGrid.querySelector(config.selectors.userCards.default);
+            const currentUserCard = editorFlex.querySelector(config.selectors.userCards.default);
 
             // the .s-user-card__minimal class overrides the padding: 8px style of s-user-card
             if (isMinimal)
                 stacksUserCard.classList.add("p8");
 
-            currentUserCard ? currentUserCard.replaceWith(stacksUserCard) : editorGrid.prepend(stacksUserCard);
+            currentUserCard ? currentUserCard.replaceWith(stacksUserCard) : editorFlex.prepend(stacksUserCard);
 
             if (userCards && editorStatistics) {
 
                 // Do not add another statistics element! Important on restore
-                if (editorGrid.children.length > 1) {
+                if (editorFlex.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
                     return;
                 }
@@ -3426,20 +3416,20 @@
                 const sampleApiResponse = [{ approval_date: 1 }, { rejection_date: 1 }, {}, {}, {}]; // the {} are pending edits
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
-                // editorGrid.append(createEditorStatisticsItem(sample, colour, fontSize));
+                // editorFlex.append(createEditorStatisticsItem(sample, colour, fontSize));
                 const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
-                editorGrid.append(editorStatsTable);
+                editorFlex.append(editorStatsTable);
 
             } else {
-                if (editorGrid.children.length > 1)
-                    editorGrid.lastElementChild.remove();
+                if (editorFlex.children.length > 1)
+                    editorFlex.lastElementChild.remove();
             }
         }
 
         // -------------------------------
         function previewEditorStatisticsUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            const grid = element.lastElementChild;
-            const statisticsTable = grid.querySelector("table");
+            const editorStatisticsContainer = element.lastElementChild;
+            const statisticsTable = editorStatisticsContainer.querySelector("table");
             if (!statisticsTable)
                 return;
             const rows = statisticsTable.children;
