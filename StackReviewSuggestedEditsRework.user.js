@@ -703,14 +703,11 @@
             .replace(" by an anonymous user", "")
             .replace("Proposed", "proposed");
 
-
-        const anonymousClass = isUserAnonymous ? userDeletedClass : "";
-        const highlightedClass = isOwner ? highlighted : "";
-        const minimalClass = isMinimal ? minimal : "";
-
         const userCardsContainer = document.createElement("div");
-        // .classList.add() doesn't accept empty strings, hence the .className
-        userCardsContainer.className = `${cardsBase} ${signature} ${anonymousClass} ${highlightedClass} ${minimalClass}`;
+        userCardsContainer.classList.add(cardsBase, signature);
+        if (isUserAnonymous) userCardsContainer.classList.add(userDeletedClass);
+        if (isOwner)         userCardsContainer.classList.add(highlighted);
+        if (isMinimal)       userCardsContainer.classList.add(minimal);
 
 
         const actionTime = document.createElement("time");
@@ -722,7 +719,8 @@
 
         const profileWrapper = document.createElement(imageWrapperElementType);
         profileWrapper.href = profileUrl || "";
-        profileWrapper.className = `${avatarsBase} ${cardsAvatar} ${isMinimal ? "" : avatar32px}`;
+        profileWrapper.classList.add(avatarsBase, cardsAvatar);
+        if (!isMinimal) profileWrapper.classList.add(avatar32px);
 
         const profileImageElement = document.createElement("img");
         profileImageElement.src = profileImage || deletedUserImage; // guard against anonymous users image being null
