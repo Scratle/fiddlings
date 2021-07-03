@@ -672,37 +672,96 @@
         const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
         const anonymousUsername = "anonymous user";
 
-        const { base: cardsBase, time: timeClass, avatar: cardsAvatar, stacksInfo, link: linkClass, reputation: reputationClass,
-                awards, awardBling, gold: goldClass, silver: silverClass, bronze: bronzeClass, highlighted,
-                deleted: userDeletedClass, minimal, signature } = config.classes.userCards;
+        const { base: cardsBase,
+                time: timeClass,
+                avatar: cardsAvatar,
+                stacksInfo,
+                link: linkClass,
+                reputation: reputationClass,
+                awards,
+                awardBling,
+                gold: goldClass,
+                silver: silverClass,
+                bronze: bronzeClass,
+                highlighted,
+                deleted: userDeletedClass,
+                minimal,
+                signature
+              } = config.classes.userCards;
+
         const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
         const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
-        const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
-        const imageElType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
-        const finalActionText = actionText.replace(" by an anonymous user", "").replace("Proposed", "proposed");
 
-        const anonymousClass = isUserAnonymous ? ` ${userDeletedClass}` : "";
-        const highlightedClass = isOwner ? ` ${highlighted}` : "";
-        const minimalClass = isMinimal ? ` ${minimal}` : "";
-        const rawHtml = `
-<div class="${cardsBase} ${signature}${anonymousClass + highlightedClass + minimalClass}">
-    <time class="${timeClass}" datetime="${actionISO}">${finalActionText}</time>
-    <${imageElType} href="${profileUrl || ""}" class="${avatarsBase} ${cardsAvatar}${isMinimal ? "" : ` ${avatar32px}`}">
-        <img class="${avatarImage}" src="${profileImage || deletedUserImage /* guard against anonymous users image being null */}">
-    </${imageElType}>
-    <div class="${stacksInfo}">
-        <${imageElType} href="${profileUrl}" class="${linkClass}">${username || anonymousUsername}</${imageElType}>
-        <ul class="${awards}">
-            ${reputation ? `<li class="${reputationClass}">${reputation}</li>` : "" }
-            ${goldBadges ? `<li class="${awardBling} ${goldClass}">${goldBadges}</li>` : ""}
-            ${silverBadges ? `<li class="${awardBling} ${silverClass}">${silverBadges}</li>` : ""}
-            ${bronzeBadges ? `<li class="${awardBling} ${bronzeClass}">${bronzeBadges}</li>` : ""}
-        </ul>
-    </div>
-</div>`;
-        const parsedHtml = new DOMParser().parseFromString(rawHtml, "text/html");
-        Stacks.setTooltipText(parsedHtml.querySelector("time"), actionISO, { placement: "top" }); // add Stacks tooltip
-        return parsedHtml.querySelector(config.selectors.userCards.default);
+
+        const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
+        const imageWrapperElementType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
+        const finalActionText = actionText
+            .replace(" by an anonymous user", "")
+            .replace("Proposed", "proposed");
+
+
+        const anonymousClass = isUserAnonymous ? userDeletedClass : "";
+        const highlightedClass = isOwner ? highlighted : "";
+        const minimalClass = isMinimal ? minimal : "";
+
+        const userCardsContainer = document.createElement("div");
+        // .classList.add() doesn't accept empty strings, hence the .className
+        userCardsContainer.className = `${cardsBase} ${signature} ${anonymousClass} ${highlightedClass} ${minimalClass}`;
+
+
+        const actionTime = document.createElement("time");
+        actionTime.classList.add(timeClass);
+        actionTime.textContent = finalActionText;
+        actionTime.dateTime = actionISO;
+        Stacks.setTooltipText(actionTime, actionISO, { placement: "top" }); // add Stacks tooltip
+
+
+        const profileWrapper = document.createElement(imageWrapperElementType);
+        profileWrapper.href = profileUrl || "";
+        profileWrapper.classList.add(avatarsBase, cardsAvatar, isMinimal ? "" : avatar32px);
+
+        const profileImageElement = document.createElement("img");
+        profileImageElement.src = profileImage || deletedUserImage; // guard against anonymous users image being null
+        profileImageElement.classList.add(avatarImage);
+        profileWrapper.append(profileImageElement);
+
+
+        const userCardInformation = document.createElement("div");
+        userCardInformation.classList.add(stacksInfo);
+
+        const usernameElement = document.createElement(imageWrapperElementType);
+        usernameElement.classList.add(linkClass);
+        usernameElement.href = profileUrl || "";
+        usernameElement.innerHTML = username || anonymousUsername;
+
+        const awardsWrapper = document.createElement("ul");
+        awardsWrapper.classList.add(awards);
+
+        const reputationElement = document.createElement("li");
+        reputationElement.classList.add(reputationClass);
+        reputationElement.textContent = reputation;
+
+        const goldBadgeElement = createBadgeListElement(goldClass, goldBadges);
+        const silverBadgeElement = createBadgeListElement(silverClass, silverBadges);
+        const bronzeBadgeElement = createBadgeListElement(bronzeClass, bronzeBadges);
+
+        awardsWrapper.append(reputationElement, goldBadgeElement, silverBadgeElement, bronzeBadgeElement);
+        userCardInformation.append(usernameElement, awardsWrapper);
+        userCardsContainer.append(actionTime, profileWrapper, userCardInformation);
+
+        return userCardsContainer;
+
+        function createBadgeListElement(badgeClass, badgeCount) {
+            const badgeElement = document.createElement("li");
+            badgeElement.classList.add(awardBling, badgeClass);
+            badgeElement.textContent = badgeCount;
+
+            // hide the element if there are 0 badges
+            if (!badgeCount)
+                badgeElement.style.display = "none";
+
+            return badgeElement;
+        }
     }
 
     // --------------------------------------------------------------------------------------------
