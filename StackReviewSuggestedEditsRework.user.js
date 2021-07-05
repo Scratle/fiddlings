@@ -670,7 +670,8 @@
                               username,
                               reputation,
                               badges,
-                              isMinimal }) {
+                              isMinimal,
+                              isMod }) {
 
         const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
         const anonymousUsername = "anonymous user";
@@ -690,7 +691,11 @@
                 deleted: userDeletedClass,
                 minimal,
               } = config.classes.userCards;
-        const { minWidth2 } = config.classes;
+        const {
+                flex: { container: flexContainer, item: flexItem, gap4px },
+                minWidth2,
+                fsBody1
+              } = config.classes;
 
         const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
         const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
@@ -730,10 +735,21 @@
         const userCardInformation = document.createElement("div");
         userCardInformation.classList.add(stacksInfo);
 
-        const usernameElement = document.createElement(imageWrapperElementType);
-        usernameElement.classList.add(linkClass);
-        usernameElement.href = profileUrl || "";
-        usernameElement.innerHTML = username || anonymousUsername;
+        const usernameWrapper = document.createElement(imageWrapperElementType);
+        usernameWrapper.classList.add(linkClass);
+        usernameWrapper.href = profileUrl || "";
+        if (profileUrl && isMod) usernameWrapper.classList.add(flexContainer, gap4px); // ensure user isn't anonymous
+
+        const usernameLink = document.createElement("div");
+        usernameLink.classList.add(flexItem);
+        usernameLink.innerHTML = username || anonymousUsername;
+
+        const modFlair = document.createElement("div");
+        modFlair.classList.add(flexItem, fsBody1); // increase the size a bit
+        modFlair.innerHTML = "♦";
+        if (!isMod) modFlair.style.display = "none";
+
+        usernameWrapper.append(usernameLink, modFlair);
 
         const awardsWrapper = document.createElement("ul");
         awardsWrapper.classList.add(awards);
@@ -747,7 +763,7 @@
         const bronzeBadgeElement = createBadgeListElement(bronzeClass, bronzeBadges);
 
         awardsWrapper.append(reputationElement, goldBadgeElement, silverBadgeElement, bronzeBadgeElement);
-        userCardInformation.append(usernameElement, awardsWrapper);
+        userCardInformation.append(usernameWrapper, awardsWrapper);
         userCardsContainer.append(actionTime, profileWrapper, userCardInformation);
 
         return userCardsContainer;
@@ -886,6 +902,7 @@
                     username: usernameContainer.querySelector("a")?.innerHTML || usernameContainer.innerText,
                     reputation: original.querySelector(config.selectors.userCards.reputation)?.innerText,
                     badges: { gold, silver, bronze },
+                    isMod: !!original.querySelector(config.selectors.userCards.modFlair)
                 };
 
                 return createUserCard(userCardConfig);
@@ -1004,7 +1021,8 @@
                     profileImage: editorReviewStats?.querySelector("img").src,
                     username: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).innerHTML,
                     reputation: editorReviewStats?.querySelector(config.selectors.userCards.reputation).innerText,
-                    badges: { gold, silver, bronze }
+                    badges: { gold, silver, bronze },
+                    isMod: editorReviewStats?.querySelector(config.selectors.userCards.modFlair)
                 };
 
                 return createUserCard(userCardConfig);
@@ -1138,6 +1156,7 @@
                 titleSpace: "ml12",
                 textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
                 minWidth2: "wmn2",            // https://stackoverflow.design/product/base/width-height/#min-width-classes
+                fsBody1: "fs-body1",          // https://stackoverflow.design/product/base/typography/#sizes
             },
             size: {
                 gravatarSmall: "32",
@@ -1184,6 +1203,7 @@
                     userDetails: ".user-details",
                     profileUrl: ".user-details a",
                     actionTime: ".user-action-time", // action = asked/answered/edited
+                    modFlair: ".mod-flair"
                 },
                 content: {
                     content: ".js-review-content",
