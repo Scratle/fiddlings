@@ -689,8 +689,8 @@
                 highlighted,
                 deleted: userDeletedClass,
                 minimal,
-                signature
               } = config.classes.userCards;
+        const { minWidth2 } = config.classes;
 
         const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
         const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
@@ -703,7 +703,7 @@
             .replace("Proposed", "proposed");
 
         const userCardsContainer = document.createElement("div");
-        userCardsContainer.classList.add(cardsBase, signature);
+        userCardsContainer.classList.add(cardsBase, minWidth2);
         if (isUserAnonymous) userCardsContainer.classList.add(userDeletedClass);
         if (isOwner)         userCardsContainer.classList.add(highlighted);
         if (isMinimal)       userCardsContainer.classList.add(minimal);
@@ -1137,6 +1137,7 @@
                 visibilityHidden: "v-hidden", // https://stackoverflow.design/product/base/visibility/#content
                 titleSpace: "ml12",
                 textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
+                minWidth2: "wmn2",            // https://stackoverflow.design/product/base/width-height/#min-width-classes
             },
             size: {
                 gravatarSmall: "32",
