@@ -876,10 +876,10 @@
                 const [gold, silver, bronze] = config.selectors.userCards.badges
                     .map((selector) => original.querySelector(selector)?.nextElementSibling?.innerText);
 
-                // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
                 const userCardConfig = {
-                    isOwner: original.classList.contains("owner"),
+                    isUserOwner: original.classList.contains("owner"),
                     actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
                     actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
                     profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
@@ -996,9 +996,9 @@
                 const [gold, silver, bronze] = config.selectors.userCards.badges
                     .map((selector) => editorReviewStats?.querySelector(selector)?.nextElementSibling?.innerText);
 
-                // according to { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
                 const userCardConfig = {
-                    isOwner: false,
+                    isUserOwner: false,
                     actionText: editProposedTime.innerText, // e.g. 4 hours ago
                     actionISO: editProposedTime.firstElementChild.title, // YYYY-MM-DD HH:MM:SSZ
                     profileUrl: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).href,
@@ -1106,7 +1106,6 @@
                     base: "s-user-card",
                     deleted: "s-user-card__deleted",
                     highlighted: "s-user-card__highlighted",
-                    minimal: "s-user-card__minimal",
                     time: "s-user-card--time",
                     avatar: "s-user-card--avatar",
                     stacksInfo: "s-user-card--info",
@@ -3339,12 +3338,32 @@
 
         // -------------------------------
         function previewEditorStatisticsContainer() {
+
             const { container } = config.classes.flex;
+            const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
 
             const previewEditorStatistics = createPreviewContainer();
-            const previewEditorStatisticsFlex = document.createElement("div");
-            previewEditorStatisticsFlex.classList.add(container);
-            previewEditorStatistics.append(previewEditorStatisticsFlex);
+
+            const image = document.createElement("img");
+            image.style.width = width;
+
+            const imageContainer = document.createElement("div");
+            imageContainer.style.width = width;
+            imageContainer.style.heigth = heigth;
+            imageContainer.append(image);
+
+            const previewEditorStatisticsGrid = document.createElement("div");
+            previewEditorStatisticsGrid.classList.add(container); // "overflow-hidden"
+
+            // To avoid word wrapping past 127%
+            // https://chat.stackoverflow.com/transcript/message/52375438#52375438
+            previewEditorStatisticsGrid.style.whiteSpace = "nowrap";
+            previewEditorStatisticsGrid.style.overflow = "hidden";
+
+            standardStyling(previewEditorStatisticsGrid);
+            previewEditorStatisticsGrid.append(imageContainer);
+
+            previewEditorStatistics.append(previewEditorStatisticsGrid);
 
             // Do not initialize this yet since two preview elements needs to be set
 
@@ -3359,62 +3378,47 @@
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
             const userCardImage = userCardsElement.lastElementChild; // from the preview element
             const editorFlex  = editorElement.lastElementChild;      // from the preview element
+            const editorImage = editorElement.querySelector("img");
 
             const { userCards : configUserCards } = tempUserConfig.options;
             const userCards        = configUserCards.getUserCards === "Yes";
             const editorStatistics = configUserCards.withEditiorStats === "Yes";
 
             const lightMap = [
-                ["0N0gd.png", userCards && editorStatistics],
-                ["eGv5x.png", userCards],
-                ["yrz32.png", true],
-            ], darkMap = [
-                ["tbGE3.png", userCards && editorStatistics],
-                ["ldstt.png", userCards],
-                ["7Gw2y.png", true],
+                [["0N0gd.png","ABwF9.png"], userCards, editorStatistics],
+                [["eGv5x.png","ABwF9.png"], userCards],
+                [["yrz32.png","ZFoyD.png"]],
+            ];
+            const darkMap = [
+                [["tbGE3.png","ETSJS.png"], userCards, editorStatistics],
+                [["ldstt.png","ETSJS.png"], userCards],
+                [["7Gw2y.png","aQz4W.png"]],
             ];
 
             const screenShotMap = isLIGHT ? lightMap : darkMap;
-            const userCardScreenShot = screenShotMap.find(([_, condition]) => condition)[0];
+
+            const [[userCardScreenShot, editorScreenShot]] =
+                      screenShotMap.find(([_, ...conditions]) =>
+                          // conditions.every(c => !!c)
+                          conditions.every(Boolean)
+                      );
             userCardImage.src = `${imgHOST}${userCardScreenShot}`;
+            editorImage.src   = `${imgHOST}${editorScreenShot}`;
 
-            // "live" preview for the editor's user card
-            // { isOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
-            const isMinimal = !userCards;
-            const actionText = `${isMinimal ? "P" : "p"}roposed 8 hours ago`; // proposed is capitalised by default
+            const on = userCards && editorStatistics;
 
-            const exampleUserCardConfig = {
-                isOwner: false,
-                actionText,
-                actionISO: new Date().toISOString().replace("T", " "),
-                profileUrl: "#",
-                profileImage: "https://i.stack.imgur.com/UDm50.png", // https://chat.stackoverflow.com/transcript/message/52496898
-                username: "Sbelz gr8",
-
-                // no badges or reputation for minimal user cards
-                reputation: isMinimal ? null : 64,
-                badges: isMinimal ? {} : { silver: 1, bronze: 5 }, // no badges for minimal user cards
-                isMinimal
-            };
-
-            const stacksUserCard = createUserCard(exampleUserCardConfig);
-            const currentUserCard = editorFlex.querySelector(config.selectors.userCards.default);
-
-            // the .s-user-card__minimal class overrides the padding: 8px style of s-user-card
-            if (isMinimal)
-                stacksUserCard.classList.add("p8");
-
-            currentUserCard ? currentUserCard.replaceWith(stacksUserCard) : editorFlex.prepend(stacksUserCard);
-
-            if (userCards && editorStatistics) {
-
+            if (on) {
                 // Do not add another statistics element! Important on restore
                 if (editorFlex.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
                     return;
                 }
 
-                const sampleApiResponse = [{ approval_date: 1 }, { rejection_date: 1 }, {}, {}, {}]; // the {} are pending edits
+                const sampleApiResponse = [
+                                 {approval_date: 1},
+                                 {rejection_date: 1}, {rejection_date: 1},
+                                 {},{},{}, // pending
+                               ];
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
                 // editorFlex.append(createEditorStatisticsItem(sample, colour, fontSize));
