@@ -450,38 +450,6 @@
         removeElement(".js-review-filter-summary");
     }
 
-    // -------    createButtonContainer    --------------------
-    function createButtonContainer() {
-        const { container: flexContainer, marginXAxis, gap4px } = config.classes.flex;
-        const buttonsId = config.ids.custom.buttons;
-        const newDiv = document.createElement("div");
-        newDiv.id = buttonsId;
-        newDiv.classList.add(flexContainer, marginXAxis, gap4px);
-        return newDiv;
-    }
-
-    // -------    createButton    --------------------
-    // https://stackoverflow.design/product/components/buttons/
-    function createButton(content, realButtons) {
-        const { buttons: buttonClasses, flex: { item } } = config.classes;
-
-        const button = document.createElement("button");
-        button.type = "button";
-        button.classList.add(buttonClasses.button, item);
-        button.textContent = content;
-
-        if (isSkip(content)) {
-            button.style.minWidth = "70px";  // So the Skip button size doesn't change size when ".is_loading"
-            button.classList.add(buttonClasses.outlined);
-        } else {
-            button.classList.add(buttonClasses.primary);
-        }
-
-        button.addEventListener("click", () => {
-            realButtons.forEach((realButton) => realButton.click());
-        });
-        return button;
-    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -502,7 +470,7 @@
         }
 
         const { ids: { custom: {buttons : buttonsId} },
-                classes: { choiceRadios: { widget } },
+                classes: { choiceRadios: { widget }, flex: { container: flexContainer, marginXAxis, gap4px } },
                 selectors: { actions , buttons : buttonSelectors},
               } = config;
 
@@ -554,7 +522,7 @@
         if (!submitButton)
             return;
 
-        const container = createButtonContainer();
+        const container = createNewDiv();
 
         // add the radios as buttons
         const radioButtons =            // ".js-action-radio-parent"
@@ -618,6 +586,37 @@
                      ["Restore tab settings", state.NOOP],  // From the GUI
                      ["Apply & Exit", state.NOOP],          // ^ same
                    ]);
+
+        // -------    createNewDiv    --------------------
+        function createNewDiv() {
+            const newDiv = document.createElement("div");
+            newDiv.id = buttonsId;
+            newDiv.classList.add(flexContainer, marginXAxis, gap4px);
+            return newDiv;
+        }
+
+        // -------    createButton    --------------------
+        // https://stackoverflow.design/product/components/buttons/
+        function createButton(content, realButtons) {
+            const { buttons: buttonClasses, flex: { item } } = config.classes;
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.classList.add(buttonClasses.button, item);
+            button.textContent = content;
+
+            if (isSkip(content)) {
+                button.style.minWidth = "70px";  // So the Skip button size doesn't change size when ".is_loading"
+                button.classList.add(buttonClasses.outlined);
+            } else {
+                button.classList.add(buttonClasses.primary);
+            }
+
+            button.addEventListener("click", () => {
+                realButtons.forEach((realButton) => realButton.click());
+            });
+            return button;
+        }
 
         // -------    changeState    --------------------
         function changeState(changeTo) {
@@ -3179,21 +3178,11 @@
             const fieldsetContainer = document.createElement("div");
             fieldsetContainer.append(fieldset);
 
-            const buttonsContainer = createButtonContainer();
-
-            buttonsContainer.classList.add(justifyContentFlexEnd, "p8");
-
-            // generate the review buttons
-            // the createButton() requires the original radio as well as the submit button to be present, hence the dummy* elements
-            const dummyInput = document.createElement("input"), dummyButton = document.createElement("button");
-            const reviewActions = ["Approve", "Improve edit", "Reject and edit", "Reject", "Skip"];
-            const previewButtons = reviewActions.map((action) => createButton(action, [dummyInput, dummyButton]));
-
-            previewButtons.forEach((element) => element.classList.add(pointerEventsNone));
-            buttonsContainer.append(...previewButtons);
+            const imageContainer = createPreviewImage();
+            standardStyling(imageContainer);
 
             const lastElement = document.createElement("div");
-            lastElement.append(fieldsetContainer, buttonsContainer);
+            lastElement.append(fieldsetContainer, imageContainer);
             previeRadiosVsButtonsContainer.append(lastElement);
 
             // Do not initialize this yet since two preview elements needs to be set
@@ -3240,7 +3229,7 @@
 
             const actionsContent = actionsElement.lastElementChild; // from the preview element
             const { firstElementChild : actionsRadios,
-                    lastElementChild  : actionsButtons
+                    lastElementChild  : actionsImage
                   } = actionsContent;
 
             const moveImage = moveElement.lastElementChild; // from the preview element
@@ -3250,7 +3239,7 @@
             const keepRadios       = radioVsButtons.keepRadios === "Yes";
             const radioWithBorders = radioVsButtons.radioWithBorders === "Yes";
 
-            const { desktopHide, visibilityHidden } = config.classes;
+            const { classes: { desktopHide } } = config;
 
             // previewRadiosOrButtons:          light   /   dark
             //  moveRadioBox,  keepRadios  ->          -             radios + previewRadiosOrButtonsUpdate(element)
@@ -3263,11 +3252,10 @@
             //  moveRadioBox, !keepRadios                     -> XPIdk.png / Bf5Lm.png
             // !moveRadioBox                                  -> Sr586.png / 9Y7O9.png
 
-            actionsContent.classList.remove(visibilityHidden); // remove, will readd later if necessary
             if (moveRadioBox && keepRadios) {
 
                 actionsRadios.classList.remove(desktopHide);
-                actionsButtons.classList.add(desktopHide);
+                actionsImage.classList.add(desktopHide);
                 previewRadiosOrButtonsUpdate(tabMenu, actionsElementName);
 
                 if (isLIGHT) {
@@ -3283,15 +3271,17 @@
             } else {
 
                 actionsRadios.classList.add(desktopHide);
-                actionsButtons.classList.remove(desktopHide);
+                actionsImage.classList.remove(desktopHide);
 
                 if (moveRadioBox) {
+                    actionsImage.src = isLIGHT
+                        ? `${imgHOST}YxDs0.png`
+                        : `${imgHOST}FcrHn.png`;
                     moveImage.src = isLIGHT
                         ? `${imgHOST}XPIdk.png`
                         : `${imgHOST}Bf5Lm.png`;
                 } else {
-                    actionsContent.classList.add(visibilityHidden); // display: none; actually makes the preview box narrow
-                    // actionsImage.src = `${imgHOST}WgO6m.png`; // <-- completely tranparent image
+                    actionsImage.src = `${imgHOST}WgO6m.png`; // <-- completely tranparent image
                     moveImage.src = isLIGHT
                         ? `${imgHOST}Sr586.png`
                         : `${imgHOST}9Y7O9.png`;
