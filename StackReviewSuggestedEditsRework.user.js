@@ -662,7 +662,7 @@
 
     // -------    createUserCard    --------------------
     // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
-    function createUserCard({ isOwner,
+    function createUserCard({ isUserOwner,
                               actionText,
                               actionISO,
                               profileUrl,
@@ -710,7 +710,7 @@
         const userCardsContainer = document.createElement("div");
         userCardsContainer.classList.add(cardsBase, minWidth2);
         if (isUserAnonymous) userCardsContainer.classList.add(userDeletedClass);
-        if (isOwner)         userCardsContainer.classList.add(highlighted);
+        if (isUserOwner)     userCardsContainer.classList.add(highlighted);
         if (isMinimal)       userCardsContainer.classList.add(minimal);
 
 
