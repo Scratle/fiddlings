@@ -7,11 +7,13 @@
 // @contributor  Oleg Valter
 // @include      /^https://stackoverflow.com/review/suggested-edits.*/
 // @exclude      /^https://stackoverflow.com/review/suggested-edits/(stats|history)/
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
 // ==/UserScript==
 
 (function() {
-    'use strict';
+    "use strict";
 
     // --------------------------------------------------------------------------------------------
     // ---- User Options --------------------------------------------------------------------------
@@ -70,14 +72,14 @@
 
     /* OPTION 1:
        Required for the GUI to work.
-       Makes use of localStorage.
+       Makes use of the userscript manager's storage or localStorage if the user doesn't use a userscript manager.
        Manual changes to defaultUserConfig will only apply using the GUI (Restore button). */
     const userConfig = getUserConfig();           // <-- OPTION 1
 
     /* OPTION 2:
        If you don't want the GUI.
        NOTE: If using this, the GUI will have NO effect on the applied settings.
-       Avoids localStorage.
+       Avoids the userscript manager's storage and localStorage.
        Manual changes to defaultUserConfig will apply directly to the script. */
     // const userConfig = defaultUserConfig;         // <-- OPTION 2
 
@@ -86,23 +88,31 @@
     // ---- Local Storage  ------------- Needed with GUI ------------------------------------------
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+    // NOTE: these are from ViolentMonkey's docs, but TamperMonkey works in a similar way
+    // https://violentmonkey.github.io/api/gm/#gm_getvalue
+    // https://violentmonkey.github.io/api/gm/#gm_setvalue
+    // https://violentmonkey.github.io/api/gm/#gm_deletevalue
 
     function getUserConfig() {
-        let config = JSON.parse(localStorage.getItem(PREFIX));
-        if (config === null) {
-            updateLocalStorage(defaultUserConfig);
-            config = JSON.parse(localStorage.getItem(PREFIX));
-        }
-        return config;
+        let userConfig = getValueFromStorage(PREFIX);
+        if (!userConfig) updateValueFromStorage(PREFIX, defaultUserConfig);
+        userConfig = getValueFromStorage(PREFIX);
+
+        return userConfig;
     }
 
-    function removeFromLocalStorage() {
-        localStorage.removeItem(PREFIX);
+    function getValueFromStorage(cacheKey) {
+        return window.GM_getValue ? window.GM_getValue(cacheKey) : JSON.parse(localStorage.getItem(cacheKey));
     }
 
-    function updateLocalStorage(config) {
-        localStorage.setItem(PREFIX, JSON.stringify(config));
-        console.log("updateLocalStorage - config", config);
+    function removeValueFromStorage(cacheKey) {
+        window.GM_deleteValue ? window.GM_deleteValue(cacheKey) : localStorage.removeItem(cacheKey);
+    }
+
+    function updateValueFromStorage(cacheKey, cacheValue) {
+        // GM_setValue accepts an object as the second parameter, so we don't need to stringify it
+        window.GM_setValue ? window.GM_setValue(cacheKey, cacheValue) : localStorage.setItem(cacheKey, JSON.stringify(cacheValue));
+        console.log("updateValueFromCache - config", cacheValue);
     }
 
 
@@ -116,8 +126,7 @@
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/test
     const reviewRegex = /^\/review\/(next-task|task-reviewed)/;
 
-    $(document).ajaxComplete(function(event, request, settings) {
-
+    $(document).ajaxComplete((event, request, settings) => {
         // Just that first response with the review information
         if (reviewRegex.test(settings.url)) {
             if (request.responseJSON) {
@@ -125,48 +134,41 @@
             } else {
                try {
                     reviewResponse = JSON.parse(request.responseText);
-                }
-                catch (e) {
-                    console.error(USERSCRIPTNAME + ' - error parsing JSON', request.responseText);
+                } catch (e) {
+                    console.error(USERSCRIPTNAME + " - error parsing JSON", request.responseText);
                 }
             }
         }
-    })
+    });
 
     // ---------------------------
     // Lots of elements are not ready when the page is loaded. These .ajax method
     // ensures that a foonction is not fired until the page got a response
 
     function ajaxCompleteWrapper(foonction) {
-        $(document).ajaxComplete(function(event, request, { url }) {
+        $(document).ajaxComplete((event, request, { url }) => {
             if (reviewRegex.test(url)) {
                 foonction();
             }
-        })
+        });
     }
 
-    function ajaxStopWrapper(foonction) {
-        $(document).ajaxStop(function(handler) {
-            foonction();
-        })
-    }
+    /*function ajaxStopWrapper(foonction) {
+        $(document).ajaxStop(() => foonction());
+    }*/
 
-    // https://chat.stackoverflow.com/transcript/message/52156286#52156286
+    /*// https://chat.stackoverflow.com/transcript/message/52156286#52156286
     const ajaxCompleteWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
-            $(document).ajaxComplete((event, request, settings) => {
-                resolve(foonction());
-            })
+            $(document).ajaxComplete(() => resolve(foonction()))
         );
-    }
+    };*/
 
-    const ajaxStopWrapperReturn = (foonction) => {
+    /*const ajaxStopWrapperReturn = (foonction) => {
         return new Promise((resolve) =>
-            $(document).ajaxStop((handler) => {
-                resolve(foonction());
-            })
+            $(document).ajaxStop(() => resolve(foonction()))
         );
-    }
+    };*/
 
 
     // --------------------------------------------------------------------------------------------
@@ -182,9 +184,7 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function addSeparator() {
-        const {selectors: {content: {revision : reviewRevision, tabs} },
-               classes: {grid: {cell} }
-              } = config;
+        const { selectors: {content: {revision : reviewRevision, tabs} } } = config;
         const revision = document.querySelector(reviewRevision);
         if (!revision)
             return;
@@ -233,15 +233,20 @@
         if (userConfig.options.moveDiffChoices !== "Yes")
             return;
 
-        const {ids: {custom: {diffChoices} } , selectors: {reviews: {filterDiff} } } = config;
+        const {ids: {custom: {diffChoices} }, selectors: {reviews: {filterDiff} } } = config;
+        const { small, extraSmall } = config.classes.buttons;
         removeElement(`#${diffChoices}`);
 
         const choices = document.querySelector(filterDiff); // ".js-diff-choices"
-        if (choices) {
-            moveToFilterLine(choices, true);
-            choices.firstElementChild.style.padding = "10px";  // the larger padding on one takes precedence
-            choices.id = diffChoices;
-        }
+        if (!choices) return;
+
+        moveToFilterLine(choices, true);
+        choices.id = diffChoices;
+        [...choices.children].forEach((button) => {
+            button.classList.remove(extraSmall);
+            // see https://github.com/Scratle/fiddlings/pull/2#pullrequestreview-698140714, s-btn is just too large
+            button.classList.add(small);
+        });
     }
 
 
@@ -251,10 +256,12 @@
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
         const {ids : { custom : { actionRadios : actionRadiosId } },
-               classes: { choiceRadios, grid: {cell, container} },
                selectors: {actions: {reviews : reviewActions, radioActionsBox} },
-               tags: {radios : radiosTag},
               } = config;
+        const { choiceRadios,
+                textAlignCenter,
+                flex: { alignItemsCenter, marginXAxis, gap24px }
+              } = config.classes;
 
         const {colour: { radioSeperator : radioSeperatorColour },
                size: { radioSeperator : radioSeperatorSize },
@@ -292,11 +299,10 @@
         actionBox.id = actionRadiosId;
 
         const { lastElementChild : buttonsWrapperParent,
-                classList        : fieldsetClassList,
-                style            : fieldsetStyle
+                classList        : fieldsetClassList
               } = fieldset;
-        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12"
-        fieldsetStyle.textAlign = "center";
+        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12", "gsx", "gs8"
+        fieldsetClassList.add(marginXAxis, gap24px, textAlignCenter, alignItemsCenter); // "gsx", "gs24", "ta-center", "ai-center"
 
         // The Submit and Skip buttons
         if (!buttonsWrapperParent)
@@ -309,57 +315,52 @@
         if (!buttonsWrapper)
             return;
         const { firstElementChild : buttonsParent,
-                classList         : buttonsWrapperClassList,
-                style             : buttonsWrapperStyle
+                classList         : buttonsWrapperClassList
               } = buttonsWrapper;
         buttonsWrapperClassList.remove(choiceRadios.button); // "pt12"
-        buttonsWrapperStyle.marginLeft = "10px";
+        // those styles no longer apply, since the Submit and Skip buttons have been moved
+        buttonsWrapperClassList.remove("px12");
+        buttonsWrapper.parentElement.classList.remove("mxn12");
 
-        // Make the Skip button wider
         if (!buttonsParent)
             return;
+        // Make the Skip button wider
         [...buttonsParent.children]
-             .forEach(button => {
-                          if (isSkip(button.innerText.trim()))
-                              button.style.minWidth = "70px";
-                     });
-
-        // https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Selectors/Combinators
-        // https://drafts.csswg.org/selectors-4/#overview
+            .filter((button) => isSkip(button.innerText.trim()))
+            .forEach((button) => button.style.minWidth = "70px");
 
         // The radios
-        const fieldsetChildren = fieldset.querySelectorAll(`${reviewActions} > ${radiosTag} > div[class="${cell}"]`);
+        // .slice() MDN: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+        const fieldsetChildren = [...fieldset.children].slice(0, -1);
         if (!fieldsetChildren.length)
             return;
 
         fieldsetChildren
-            .forEach(radio => {
-                         const { firstElementChild : gridContainer,
-                                 classList         : radioClassList,
-                                 style             : radiostyle
+            .forEach((radio) => {
+                         const { firstElementChild : flexContainer,
+                                 style             : radioStyle
                                } = radio;
-                         const p = radio.querySelector("p");
-                         const gridCells = radio.querySelectorAll("." + cell);
+                         const buttonDescription = radio.querySelector("p");
+                         const [radioButtonWrapper, labelWrapper] = [...flexContainer.children];
 
-                         if (!p || !gridContainer) // !(p && gridContainer)
+                         if (!buttonDescription || !flexContainer) // !(buttonDescription && flexContainer)
                              return;
 
-                         if (gridCells && gridCells.length == 2) {
-                             const { parentElement } = gridCells[0];
-                             if (parentElement)
-                                 parentElement.append(gridCells[0]); // Switch them
+                         if (radioButtonWrapper && labelWrapper) {
+                             const { parentElement } = radioButtonWrapper;
+                             parentElement.append(radioButtonWrapper); // Switch them
                          }
 
-                         p.remove();
-                         gridContainer.classList.remove(container);
-                         radioClassList.remove(cell);
-                         radiostyle.padding = "4px";
+                         // only interested in the js-* class here, so remove the flex-related ones
+                         flexContainer.className = "js-action-radio-parent";
+                         buttonDescription.remove();
+                         radio.className = ""; // remove the grid--cell/flex--item class
+                         radioStyle.padding = "4px";
 
                          const label = radio.querySelector("label");
                          const text = label.textContent || "";
                          if (radioWithBorders === "Yes" && text.trim() !== "Approve") {
-                             radiostyle.paddingLeft = "3px";
-                             radiostyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
+                             radioStyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                          }
                     });
 
@@ -403,7 +404,7 @@
         p.textContent = infoTextNode.nodeValue.trim();
         p.style.color = messageColour;
         p.style.backgroundColor = messageBackground;
-        p.style.padding = "5px"
+        p.style.padding = "5px";
         p.style.fontSize = messageSize;
         info.insertBefore(p, firstElementChild);
         infoTextNode.nodeValue = "";
@@ -413,7 +414,7 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function isReviewActive() { // Only after ajax
-        return ((reviewResponse.isUnavailable !== undefined) && !reviewResponse.isUnavailable);
+        return reviewResponse.isUnavailable === false;
     }
 
 
@@ -446,7 +447,7 @@
         filterDiv.style.justifyContent = "space-between";
 
         // Remove a pointless empty space:
-        removeElement(".grid--cell.fl-grow1.js-review-filter-summary.fs-italic.fl1.ml8.mr12.v-truncate2");
+        removeElement(".js-review-filter-summary");
     }
 
 
@@ -469,7 +470,7 @@
         }
 
         const { ids: { custom: {buttons : buttonsId} },
-                classes: { choiceRadios: {widget} },
+                classes: { choiceRadios: { widget }, flex: { container: flexContainer, marginXAxis, gap4px } },
                 selectors: { actions , buttons : buttonSelectors},
               } = config;
 
@@ -482,7 +483,7 @@
         } else {  // We've not done this before.
 
             // https://chat.stackoverflow.com/transcript/message/52234064#52234064 by https://stackoverflow.com/users/10607772/double-beep
-            document.body.addEventListener('click', event => {
+            document.body.addEventListener("click", (event) => {
                 if (event.target.type === "button" || event.target.nodeName === "BUTTON") {
                     const buttonText = event.target.innerText.trim();
 /*
@@ -507,7 +508,7 @@
                     // console.log(USERSCRIPTNAME + " - shadowRadiosToButtons ------", {buttonsActionEntry} );
                     changeState(buttonsActions.get(buttonsActionEntry));
                 }
-            })
+            });
                                                    // ".js-actions-sidebar" (has both mobile and desktop)
             const sidebar = document.querySelector(actions.radioActionsBox);
             if (sidebar) sidebar.style.display = "none";
@@ -526,7 +527,7 @@
         // add the radios as buttons
         const radioButtons =            // ".js-action-radio-parent"
             [...actionBox.querySelectorAll(actions.radioParent)]
-                .map(element => {
+                .map((element) => {
                     const radio = element.querySelector("input[type=radio]");
                     const label = element.querySelector("label"); // The text part
 
@@ -590,18 +591,18 @@
         function createNewDiv() {
             const newDiv = document.createElement("div");
             newDiv.id = buttonsId;
+            newDiv.classList.add(flexContainer, marginXAxis, gap4px);
             return newDiv;
         }
 
         // -------    createButton    --------------------
         // https://stackoverflow.design/product/components/buttons/
         function createButton(content, realButtons) {
-            const { buttons : buttonClasses } = config.classes;
+            const { buttons: buttonClasses, flex: { item } } = config.classes;
 
             const button = document.createElement("button");
             button.type = "button";
-            button.classList.add(buttonClasses.button);
-            button.style.marginLeft = '3px';
+            button.classList.add(buttonClasses.button, item);
             button.textContent = content;
 
             if (isSkip(content)) {
@@ -611,15 +612,15 @@
                 button.classList.add(buttonClasses.primary);
             }
 
-            button.addEventListener('click', function(event) {
-                                                 realButtons.forEach(real => real.click());
-                                    });
+            button.addEventListener("click", () => {
+                realButtons.forEach((realButton) => realButton.click());
+            });
             return button;
         }
 
         // -------    changeState    --------------------
         function changeState(changeTo) {
-            if (changeTo === undefined) {
+            if (!changeTo) {
                 console.error(USERSCRIPTNAME + " - shadowRadiosToButtons - No such state");
                 return; // do a state.NOOP
             }
@@ -638,18 +639,18 @@
 
             switch (changeTo) {
                 case state.SKIP    : [...buttonBox.children]
-                                        .forEach(button => {
+                                        .forEach((button) => {
                                                     button.disabled = true;
                                                     if (isSkip(button.textContent)) { // "is-loading"
                                                         button.classList.add(loading);
                                                     }
-                                                })
+                                                });
                     break;
                 case state.DISABLE : [...buttonBox.children]
-                                         .forEach(button => button.disabled = true);
+                                         .forEach((button) => button.disabled = true);
                     break;
                 case state.ENABLE  : [...buttonBox.children]
-                                         .forEach(button => button.disabled = false);
+                                         .forEach((button) => button.disabled = false);
                     break;
                 case state.HIDE    : buttonBox.classList.add(desktopHide);
                     break;
@@ -659,6 +660,126 @@
         }
     }
 
+    // -------    createUserCard    --------------------
+    // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
+    function createUserCard({ isUserOwner,
+                              actionText,
+                              actionISO,
+                              profileUrl,
+                              profileImage,
+                              username,
+                              reputation,
+                              badges,
+                              isMinimal,
+                              isMod }) {
+
+        const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
+        const anonymousUsername = "anonymous user";
+
+        const { base: cardsBase,
+                time: timeClass,
+                avatar: cardsAvatar,
+                stacksInfo,
+                link: linkClass,
+                reputation: reputationClass,
+                awards,
+                awardBling,
+                gold: goldClass,
+                silver: silverClass,
+                bronze: bronzeClass,
+                highlighted,
+                deleted: userDeletedClass,
+                minimal,
+              } = config.classes.userCards;
+        const {
+                flex: { container: flexContainer, item: flexItem, gap4px },
+                minWidth2,
+                fsBody1
+              } = config.classes;
+
+        const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
+        const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
+
+
+        const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
+        const imageWrapperElementType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
+        const finalActionText = actionText
+            .replace(" by an anonymous user", "")
+            .replace("Proposed", "proposed");
+
+        const userCardsContainer = document.createElement("div");
+        userCardsContainer.classList.add(cardsBase, minWidth2);
+        if (isUserAnonymous) userCardsContainer.classList.add(userDeletedClass);
+        if (isUserOwner)     userCardsContainer.classList.add(highlighted);
+        if (isMinimal)       userCardsContainer.classList.add(minimal);
+
+
+        const actionTime = document.createElement("time");
+        actionTime.classList.add(timeClass);
+        actionTime.innerHTML = finalActionText;
+        actionTime.dateTime = actionISO;
+        Stacks.setTooltipText(actionTime, actionISO, { placement: "top" }); // add Stacks tooltip
+
+
+        const profileWrapper = document.createElement(imageWrapperElementType);
+        profileWrapper.href = profileUrl || "";
+        profileWrapper.classList.add(avatarsBase, cardsAvatar);
+        if (!isMinimal) profileWrapper.classList.add(avatar32px);
+
+        const profileImageElement = document.createElement("img");
+        profileImageElement.src = profileImage || deletedUserImage; // guard against anonymous users image being null
+        profileImageElement.classList.add(avatarImage);
+        profileWrapper.append(profileImageElement);
+
+
+        const userCardInformation = document.createElement("div");
+        userCardInformation.classList.add(stacksInfo);
+
+        const usernameWrapper = document.createElement(imageWrapperElementType);
+        usernameWrapper.classList.add(linkClass);
+        usernameWrapper.href = profileUrl || "";
+        if (profileUrl && isMod) usernameWrapper.classList.add(flexContainer, gap4px); // ensure user isn't anonymous
+
+        const usernameLink = document.createElement("div");
+        usernameLink.classList.add(flexItem);
+        usernameLink.innerHTML = username || anonymousUsername;
+
+        const modFlair = document.createElement("div");
+        modFlair.classList.add(flexItem, fsBody1); // increase the size a bit
+        modFlair.innerHTML = "♦";
+        if (!isMod) modFlair.style.display = "none";
+
+        usernameWrapper.append(usernameLink, modFlair);
+
+        const awardsWrapper = document.createElement("ul");
+        awardsWrapper.classList.add(awards);
+
+        const reputationElement = document.createElement("li");
+        reputationElement.classList.add(reputationClass);
+        reputationElement.textContent = reputation;
+
+        const goldBadgeElement = createBadgeListElement(goldClass, goldBadges);
+        const silverBadgeElement = createBadgeListElement(silverClass, silverBadges);
+        const bronzeBadgeElement = createBadgeListElement(bronzeClass, bronzeBadges);
+
+        awardsWrapper.append(reputationElement, goldBadgeElement, silverBadgeElement, bronzeBadgeElement);
+        userCardInformation.append(usernameWrapper, awardsWrapper);
+        userCardsContainer.append(actionTime, profileWrapper, userCardInformation);
+
+        return userCardsContainer;
+
+        function createBadgeListElement(badgeClass, badgeCount) {
+            const badgeElement = document.createElement("li");
+            badgeElement.classList.add(awardBling, badgeClass);
+            badgeElement.textContent = badgeCount;
+
+            // hide the element if there are 0 badges
+            if (!badgeCount)
+                badgeElement.style.display = "none";
+
+            return badgeElement;
+        }
+    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -667,25 +788,24 @@
         if (userConfig.options.userCards.getUserCards !== "Yes")
             return;
 
-        const {ids: {custom: {userCards} },
-               selectors: {content: {reviewPost} },
-               classes: {grid: {container} },
+        const { ids: { custom: { userCards } },
+                selectors: { content: { reviewPost } },
               } = config;
 
         if (document.getElementById(userCards))
             return; // One is quite enough :)
 
-        const originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid
-                  = document.querySelector(`${reviewPost} > .${container}`); // ".postcell > .grid"
+        const originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex
+                  = document.querySelector(reviewPost).children[2]; // ".postcell"
 
-        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
-        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
+        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
+        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
 
         // -------    originalPostUserCards    --------------------
-        function originalPostUserCards(userCardsContainerAll) {
+        async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
-            const { selectors: {content: {originalPost} },
-                    classes: {grid: {cell}, answers, userCards: {signature} },
+            const { selectors: { content: { originalPost } },
+                    classes: { answers, userCards: { signature } },
                   } = config;
 
             const originalPostLink = document.querySelector(`${originalPost} a`);
@@ -695,72 +815,98 @@
             const { href: postlink, hash, classList } = originalPostLink;
 
             const thePost = classList.contains(answers)
-                                ? "#answer-" + hash.substring(1)
+                                ? "#answer-" + hash.substring(1) // #answer-<answer id>
                                 : ".question";
 
             userCardsContainerAll.style.justifyContent = "space-between";
 
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-            fetch(postlink)
-                .then((response) => {
-                     // https://chat.stackoverflow.com/transcript/message/52286535#52286535
-                     const { status } = response;
+            try {
+                const userCardRequest = await fetch(postlink);
+                const userCardResponse = await userCardRequest.text();
 
-                     const responseMap = {
-                         200: (response) =>  // Status: OK
-                                  response
-                                      .text()
-                                      .then((data) => {
-                                           // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
-                                           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-                                           const userCards =
-                                               [...new DOMParser()
-                                                   .parseFromString(data, "text/html")
-                                                   // .querySelectorAll(`${thePost} .post-signature.grid--cell`)
-                                                   .querySelectorAll(`${thePost} .${signature}.${cell}`)
-                                                   // .querySelectorAll(".post-signature.grid--cell.fl0")];   // <-- answer
-                                                   // .querySelectorAll(".post-signature.owner.grid--cell")]; // <-- question
-                                               ];
+                // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+                const userCards =
+                    [...new DOMParser()
+                        .parseFromString(userCardResponse, "text/html")
+                        // .querySelectorAll(`${thePost} .post-signature`)
+                        .querySelectorAll(`${thePost} .${signature}`)
+                        // .querySelectorAll(".post-signature.fl0")];   // <-- answer
+                        // .querySelectorAll(".post-signature.owner")]; // <-- question
+                    ];
 
-                                           const postUserCardContainer = createNewDiv();
-                                           // userCards.forEach(node => userCardDiv.appendChild(node));
-                                           postUserCardContainer.append(...userCards);
+                const postUserCardContainer = createNewDiv();
+                // userCards.forEach(node => userCardDiv.appendChild(node));
+                const stacksifiedUserCards = userCards
+                    // if the avatar has no children, then the OP edited the post
+                    // so we don't need to stacksify the user card
+                    .map((card) => card.querySelector("img") ? stacksifyUserCards(card) : card);
 
-                                           userCardsContainerAll.appendChild(postUserCardContainer);
-                                       }),
+                let requestStatus = userCardRequest.status;
+                // if we handle a suggested edit on a deleted answer on a question that hasn't been deleted,
+                // the request to the latter will be successful (200) yet the user cards wouldn't be found
+                // in this case, we need to show the errorNotFound message
+                requestStatus = requestStatus === 200 && !stacksifiedUserCards.length ? 404 : requestStatus;
+                const messages = {
+                    errorNotFound: [
+                                     "The original post is unavailable.",
+                                     "User cards cannot be retrieved."
+                                   ],
+                    responseNotOk: [
+                                     "Tried to fetch usercards, but",
+                                     `Stack responsed with status: ${requestStatus}`
+                                   ]
+                };
 
-                         404: () => {  // Status: Not Found
-                                  const messages = [
-                                                    "The original post is unavailable.",
-                                                    "User cards cannot be retrieved."
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              },
+                if (requestStatus === 200 && stacksifiedUserCards.length)
+                    postUserCardContainer.append(...stacksifiedUserCards);
 
-                         default : () => {  // Status: Don't know
-                                  const messages = [
-                                                    "Tried to fetch usercards, but",
-                                                    `Stack responsed with status: ${status}`
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              }
-                     };
+                const responseMap = {
+                    200: postUserCardContainer, // response successful => append the usercards
+                    404: missingCards(messages.errorNotFound) // 404 => not found => question deleted
+                };
 
-                     (responseMap[status.toString()] || responseMap.default)(response);
+                const elementToAppend = responseMap[requestStatus] || missingCards(messages.responseNotOk);
+                userCardsContainerAll.append(elementToAppend);
+            } catch (error) {
+                const messages = [
+                    "Something is blocking fetching user cards",
+                    "Could be your ad-blocker or your network connection. Check the console."
+                ];
 
-                     // Only necessary when keeping the Radio Button Box
-                     if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
-                         userCardsContainerAll.style.width = adjustUserCardsWidth();
-                 })
-                .catch((error) => {
-                     // console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
-                     const messages = [
-                                       "Something is blocking fetching user cards",
-                                       "Could be your ad-blocker. Check the console."
-                                      ];
+                console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
+                userCardsContainerAll.appendChild(missingCards(messages));
+            }
+            if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
+                userCardsContainerAll.style.width = adjustUserCardsWidth();
 
-                     userCardsContainerAll.appendChild(missingCards(messages));
-              });
+            // -------    stacksifyUserCards    --------------------
+            function stacksifyUserCards(original) {
+                const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
+
+                // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
+                // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
+                const { innerText: actionInnerText, outerHTML: actionOuterHtml } = userActionTime;
+                const [gold, silver, bronze] = config.selectors.userCards.badges
+                    .map((selector) => original.querySelector(selector)?.nextElementSibling?.innerText);
+
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
+                const userCardConfig = {
+                    isUserOwner: original.classList.contains("owner"),
+                    actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
+                    actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
+                    profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
+                    profileImage: original.querySelector("img")?.src,
+                    username: usernameContainer.querySelector("a")?.innerHTML || usernameContainer.innerText,
+                    reputation: original.querySelector(config.selectors.userCards.reputation)?.innerText,
+                    badges: { gold, silver, bronze },
+                    isMod: !!original.querySelector(config.selectors.userCards.modFlair)
+                };
+
+                return createUserCard(userCardConfig);
+            }
 
             // -------    adjustUserCardsWidth    --------------------
             function adjustUserCardsWidth() { // Only when NOT moving the radioButtonBox
@@ -784,14 +930,14 @@
                 NoUserCardDiv.style.margin = "6px";
 
                 const messageElements =
-                          messages.map(message => {
+                          messages.map((message) => {
                               const info = document.createElement("h4");
                               info.textContent = message;
                               info.style.color = "var(--theme-body-font-color)";
                               // info.style.color = "var(--black-750)";
                               info.style.padding = "2px";
                               return info;
-                          })
+                          });
                 NoUserCardDiv.append(...messageElements);
 
                 return NoUserCardDiv;
@@ -800,7 +946,7 @@
             // -------    createNewDiv    --------------------
             function createNewDiv(horizontal = true) {
                 const { ids: {custom: {userCards} },
-                        classes: {grid: {container} }
+                        classes: {flex: {container} }
                       } = config;
 
                 const newDiv = document.createElement("div");
@@ -813,115 +959,74 @@
         } // originalPostUserCards
 
         // -------    editorUserCard    ---------------------
-        function editorUserCard(userCardsContainerAll) {
+        async function editorUserCard(userCardsContainerAll) {
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector(config.selectors.userCards.minimal);
-
-            if (!editProposedTime || !minimalUserCard) // !(editProposedTime && minimalUserCard)
+            if (!editProposedTime)
                 return;
 
-            // Getting the editor userid
+            // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
+            if (!minimalUserCard) {
+                const editorUserCard = createSuggestorsUserCard(null, editProposedTime);
+                editProposedTime.replaceWith(editorUserCard);
+                return;
+            }
+
+            minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue
+            // Getting the editor user id
             const userLink = minimalUserCard.querySelector("a");
             if (!userLink)
                 return;
             const [editorUserid] = userLink.href.split("/").slice(-2); // second last element
 
             const queueNumber = 1; // there must be a "1" queue-number :)
-            const url = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
+            const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
 
-            // Oleg says to change to async and use "await fetch" and "await reponse" instead
-            // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Response status was: ' + response.status);
-                    }
-                    return response.text();
-                 })
-                .then(data => {
-                    const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createUserCard(editorReviewStats, editProposedTime);
+            try {
+                const userInfoRequest = await fetch(userInformationUrl);
+                if (!userInfoRequest.ok) throw new Error("Response status was: " + userInfoRequest.status);
+                const userInformation = await userInfoRequest.text();
 
-                    // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
-                    minimalUserCard.before(editorUserCard);
+                const editorReviewStats = new DOMParser().parseFromString(userInformation, "text/html");
+                const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
 
-                    minimalUserCard.remove();
-                    editProposedTime.remove();
+                // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
+                minimalUserCard.before(editorUserCard);
 
-                    if (userConfig.options.userCards.withEditiorStats === "Yes") {
-                        insertEditorStatistics(editorUserCard,editorUserid);
-                    }
-                 })
-                .catch((error) => {
-                    console.error(USERSCRIPTNAME + ' - Error - while fetching editorUserCard : ', error);
-                 });
+                minimalUserCard.remove();
+                editProposedTime.remove();
 
-            // -------    createUserCard    --------------------
-            function createUserCard(editorReviewHover, editProposedTime) {
+                if (userConfig.options.userCards.withEditiorStats === "Yes") {
+                    insertEditorStatistics(editorUserCard, editorUserid);
+                }
+            } catch (error) {
+                console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
+            }
+
+            // -------    createSuggestorsUserCard    --------------------
+            function createSuggestorsUserCard(editorReviewStats, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
+                // https://stackoverflow.design/product/components/user-cards/
 
-                const { classes: { grid: { cell } , userCards },
-                           size: { gravatarSmall },
-                            ids: { custom: { editorCard : editorCardId } }
-                      } = config;
+                const [gold, silver, bronze] = config.selectors.userCards.badges
+                    .map((selector) => editorReviewStats?.querySelector(selector)?.nextElementSibling?.innerText);
 
-                const editorCardContainer = document.createElement("div");
-                editorCardContainer.id = editorCardId;
-                editorCardContainer.classList.add(userCards.signature,              // "post-signature"
-                                                  cell);                            // "grid--cell"
+                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
+                const userCardConfig = {
+                    isUserOwner: false,
+                    actionText: editProposedTime.innerText, // e.g. 4 hours ago
+                    actionISO: editProposedTime.firstElementChild.title, // YYYY-MM-DD HH:MM:SSZ
+                    profileUrl: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).href,
+                    profileImage: editorReviewStats?.querySelector("img").src,
+                    username: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).innerHTML,
+                    reputation: editorReviewStats?.querySelector(config.selectors.userCards.reputation).innerText,
+                    badges: { gold, silver, bronze },
+                    isMod: editorReviewStats?.querySelector(config.selectors.userCards.modFlair)
+                };
 
-                const editorCardDiv = document.createElement("div");
-                editorCardDiv.classList.add(userCards.info);                        // "user-info"
-
-                const actionTime = document.createElement("div");
-                actionTime.classList.add(userCards.actionTime);                     // "user-action-time"
-                actionTime.textContent = "proposed "; // editProposedTime.textContent;
-                actionTime.appendChild(editProposedTime.firstElementChild);
-
-                const editorGravatar
-                    = editorReviewHover.querySelector(`.${userCards.um.gravatar}`);
-                if (!editorGravatar)
-                    return;
-                const { classList : editorGravatarClassList } = editorGravatar;
-                editorGravatarClassList.remove(userCards.um.gravatar);             // "um-gravatar"
-                editorGravatarClassList.add(userCards.gravatarSmall);              // "user-gravatar32"
-
-                const editorGravatarDiv
-                    = editorGravatar.querySelector(`.${userCards.gravatarWrap}`);
-                if (!editorGravatarDiv)
-                    return;
-                const { classList : editorGravatarDivClassList } = editorGravatarDiv;
-                editorGravatarDivClassList.remove(userCards.gravatarWrap);         // "gravatar-wrapper-64"
-                editorGravatarDivClassList.add(userCards.gravatarSmallWrap);       // "gravatar-wrapper-32"
-
-                const editorGravatarImg = editorGravatarDiv.querySelector("img");
-                if (!editorGravatarImg)
-                    return;
-                editorGravatarImg.style.height
-                    = editorGravatarImg.style.width
-                    = gravatarSmall; // '32'
-
-                const editorFlairDiv = document.createElement("div");
-                editorFlairDiv.classList.add(userCards.details);                    // "user-details"
-                const editorUserNameLink
-                    = editorReviewHover.querySelector(`.${userCards.um.header} a`); // "um-header-info"
-                if (!editorUserNameLink)
-                    return;
-
-                const editorFlair = editorReviewHover.querySelector(`.${userCards.um.flair}`);
-                if (!editorFlair)
-                    return;
-                const { classList : editorFlairClassList } = editorFlair;
-                editorFlairClassList.remove(userCards.um.flair);                   // "um-flair"
-                editorFlairClassList.add(userCards.flair);                         // "-flair"
-
-                editorFlairDiv.append(editorUserNameLink, editorFlair);
-                editorCardDiv.append(actionTime, editorGravatar, editorFlairDiv);
-                editorCardContainer.appendChild(editorCardDiv);
-
-                return editorCardContainer;
-            } // createUserCard
+                return createUserCard(userCardConfig);
+            } // createSuggestorsUserCard
 
         } // editorUserCard
     }
@@ -964,7 +1069,7 @@
     const API_BASE = "https://api.stackexchange.com";
     const API_VER = 2.2;
 
-    const EMPTY = '\u00A0'; // NO-BREAK SPACE https://codepoints.net/U+00A0
+    const EMPTY = "\u00A0"; // NO-BREAK SPACE https://codepoints.net/U+00A0
 
     const config = {
             ids: {
@@ -983,12 +1088,19 @@
                 radios: "fieldset",
             },
             classes: {
-                grid: {
-                    container: "grid",
-                    cell: "grid--cell",
+                flex: {
+                    container: "d-flex",
+                    item: "flex--item",
+                    // https://stackoverflow.design/product/base/flex/#gutter-classes
+                    marginXAxis: "gsx",
+                    marginYAxis: "gsy",
+                    gap4px: "gs4",
+                    gap24px: "gs24",
+                    alignItemsCenter: "ai-center", // https://stackoverflow.design/product/base/flex/#align-items-classes
+                    justifyContentFlexEnd: "jc-end" // https://stackoverflow.design/product/base/flex/#justify-content
                 },
                 choiceRadios: {
-                    fieldset: ["fd-column", "p12"],
+                    fieldset: ["fd-column", "p12", "gsy", "gs24"],
                     submits: ["bt", "bc-black-3"],
                     button: "pt12",
                     widget: "s-sidebarwidget",
@@ -1007,6 +1119,25 @@
                         header: "um-header-info",
                         flair: "um-flair",
                     },
+                    // https://stackoverflow.design/product/components/user-cards/
+                    base: "s-user-card",
+                    deleted: "s-user-card__deleted",
+                    highlighted: "s-user-card__highlighted",
+                    time: "s-user-card--time",
+                    avatar: "s-user-card--avatar",
+                    stacksInfo: "s-user-card--info",
+                    link: "s-user-card--link",
+                    awards: "s-user-card--awards",
+                    awardBling: "s-award-bling",
+                    reputation: "s-user-card--rep",
+                    gold: "s-award-bling__gold",
+                    silver: "s-award-bling__silver",
+                    bronze: "s-award-bling__bronze",
+                },
+                avatars: {
+                    base: "s-avatar",
+                    avatar32px: "s-avatar__32",
+                    avatarImage: "s-avatar--image"
                 },
                 buttons: {
                     button: "s-btn",
@@ -1014,12 +1145,18 @@
                     outlined: "s-btn__outlined",
                     danger: "s-btn__danger",
                     muted: "s-btn__muted",
+                    small: "s-btn__sm",
+                    extraSmall: "s-btn__xs",
                     loading: "is-loading",
-                    },
+                },
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
                 desktopHide: "d-none",
+                visibilityHidden: "v-hidden", // https://stackoverflow.design/product/base/visibility/#content
                 titleSpace: "ml12",
+                textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
+                minWidth2: "wmn2",            // https://stackoverflow.design/product/base/width-height/#min-width-classes
+                fsBody1: "fs-body1",          // https://stackoverflow.design/product/base/typography/#sizes
             },
             size: {
                 gravatarSmall: "32",
@@ -1051,7 +1188,22 @@
                     header: ".s-page-title--header",
                 },
                 userCards: {
+                    default: ".s-user-card",
                     minimal: ".s-user-card__minimal",
+                    reputation: ".reputation-score",
+                    badges: [
+                        ".badge1", // gold
+                        ".badge2", // silver
+                        ".badge3"  // bronze
+                    ],
+                    um: {
+                        userLink: ".um-user-link"
+                    },
+                    gravatarSmall: ".user-gravatar32",
+                    userDetails: ".user-details",
+                    profileUrl: ".user-details a",
+                    actionTime: ".user-action-time", // action = asked/answered/edited
+                    modFlair: ".mod-flair"
                 },
                 content: {
                     content: ".js-review-content",
@@ -1149,10 +1301,10 @@
         if (userConfig.options.movePageTitleLink !== "Yes")
             return;
 
-        // -------    createGridCell    --------------------
-        const createGridCell = () => {
+        // -------    createFlexItem    --------------------
+        const createFlexItem = () => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.grid.cell); // "grid--cell"
+            elem.classList.add(config.classes.flex.item); // "flex--item"
             return elem;
         };
 
@@ -1166,9 +1318,9 @@
             const titleWrap = document.querySelector(cnf.selectors.title.title);
             if (!titleWrap)
                 return false;
-            titleWrap.classList.add(config.classes.grid.container); // "grid"
+            titleWrap.classList.add(config.classes.flex.container); // "d-flex"
             const header = document.querySelector(cnf.selectors.title.header);
-            const titleCell = createGridCell();
+            const titleCell = createFlexItem();
             titleCell.classList.add(config.classes.titleSpace); // "ml12"
             if (header)
                 titleCell.append(header);
@@ -1222,7 +1374,7 @@
                https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede
                .. or StackOverflow.Models.PostTypeId object.
             */
-            let matchResult = posttype.textContent.match(/^Review the following (.*) edit$/);
+            const matchResult = posttype.textContent.match(/^Review the following (.*) edit$/);
             if (matchResult) {
                 // https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
                 // https://masteringjs.io/tutorials/fundamentals/capitalize-first-letter
@@ -1244,6 +1396,15 @@
         movePosttype(config);
     }
 
+    async function makeApiCall(apiEndpointUrl, page) {
+        try {
+            const apiCall = await fetch(`${apiEndpointUrl.toString()}&page=${page}`);
+            if (!apiCall.ok) return [];
+            return await apiCall.json();
+        } catch (error) {
+            console.error(USERSCRIPTNAME + " - error fetching editor stats from the API - makeApiCall", error);
+        }
+    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -1251,30 +1412,35 @@
 
         // -------    getSuggestionsUserStats    --------------------
         const getSuggestionsUserStats = async (id) => {
-            // FIXME! Maybe add pagination/throttling in case a user has a massive amounts of edits?.
             // See https://api.stackexchange.com/docs ("users/{ids}/suggested-edits")
 
-            const url = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
+            const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
-                site: window.location.hostname, //     "stackoverflow"
-                key: 'YeacD0LmoUvMwthbBXF7Lw((',//:-)) Registered Key
+                site: window.location.hostname,  // "stackoverflow"
+                filter: "!3xgWlhxc4ZsL1tY5Y",    // only include approval_date and rejection_date
+                key: "YeacD0LmoUvMwthbBXF7Lw((", //:-)) Registered Key
+                pagesize: 100
             };
-            url.search = new URLSearchParams(params).toString();
-            const res = await fetch(url.toString());
-            if (!res.ok)
-                return [];
-            const { items, } = await res.json();
-            // Examples of destructuring:
-            // const { items, quota_remaining } = await res.json();
-            // const { items: allTheItems, quota_remaining: myVeryLowQuotaOfToday} = await res.json();
-            return items;
+            apiEndpointUrl.search = new URLSearchParams(params).toString();
+
+            const allApiItems = [];
+            let hasMore = true, pageNumber = 1;
+
+            while (hasMore) {
+                // eslint-disable-next-line no-await-in-loop
+                const { items, has_more } = await makeApiCall(apiEndpointUrl, pageNumber);
+                allApiItems.push(...items);
+                hasMore = has_more;
+                pageNumber++;
+            }
+            return allApiItems;
         };
 
         // Create a container div and put the editorUserCard into it. Then add the stats into it too.
         const superDiv = document.createElement("div");
-        superDiv.classList.add("grid");
+        superDiv.classList.add(config.classes.flex.container); // "d-flex"
         // editorUserCard.parentNode.insertBefore(superDiv, editorUserCard);
-        editorUserCard.before(superDiv)
+        editorUserCard.before(superDiv);
         superDiv.appendChild(editorUserCard);
 
         const {colour : displayColours} = userConfig;
@@ -1319,7 +1485,7 @@
                 if (postType && ["Question","Answer"].indexOf(postType.textContent) < 0) {
                     itemParams.rows.push({ ...commonColour, items: [EMPTY]});
                     itemParams.rows.push({ ...commonColour, items: ["Tag wiki/excerpt edits are not returned."]});
-                    itemParams.rows.push({ ...commonColour, items: ["Please see the user\'s activity tab"]});
+                    itemParams.rows.push({ ...commonColour, items: ["Please see the user's activity tab"]});
                     return createItem(makeTable(itemParams));
                 }
             }
@@ -1375,12 +1541,12 @@
             } else {
                 return isFinite(ratio) ? ratio.toFixed(2) : "N/A";
             }
-        }
+        };
 
         // -------    makeCells    --------------------
         const makeCells = (cells, isHead = false) => {
-            return cells.map((content, idx) => {
-                var cell = document.createElement(isHead ? "th" : "td");
+            return cells.map((content) => {
+                const cell = document.createElement(isHead ? "th" : "td");
                 if (isHead) {
                     cell.colSpan = 4;
                     const bold = document.createElement("b");
@@ -1391,7 +1557,7 @@
                 }
                 return cell;
             });
-        }
+        };
 
         // -------    makeRow    --------------------
         const makeRow = (row, isHead = false) => {
@@ -1399,7 +1565,7 @@
             tr.style.color = row.colour;
             tr.append(...makeCells(row.items, isHead));
             return tr;
-        }
+        };
 
         // -------    makeTable    --------------------
         const makeTable = ({ relativeFontSize, header, rows }) => {
@@ -1410,7 +1576,7 @@
                 const headrow = makeRow(header,true);
                 tab.append(headrow);
             }
-            const listItems = rows.map(subArray => makeRow(subArray));
+            const listItems = rows.map((subArray) => makeRow(subArray));
             tab.append(...listItems);
             return tab;
         };
@@ -1418,7 +1584,7 @@
         // -------    createItem    --------------------
         const createItem = (...contents) => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.grid.cell);
+            elem.classList.add(config.classes.flex.item); // "flex--item"
             elem.append(...contents);
             return elem;
         };
@@ -1445,15 +1611,15 @@
 
         moveProgress();       // Puts " (0/40)" on the "Review tasks" tab instead of "Your daily reviews 0 /40 (-----)"
         movePostTypeUp();     // Removes "Review the following answer/question edit"
-        highlightSummary();   // Makes the edit summary noticable
-        highlightMessage();   // Makes a review message to the reviwer more noticatble
+        highlightSummary();   // Makes the edit summary noticeable
+        highlightMessage();   // Makes a review message to the reviewer more noticeable
         moveDiffChoices();    // Moves the "Inline | Side-by-side | Side-by-side markdown"
         getUserCards();       // Gets back the user cards! :)
-        addSeparator();       // Adds a border separtor between the post summary and the review
-    }
+        addSeparator();       // Adds a border separator between the post summary and the review
+    };
 
     changePageTitle();        // Removes redundant information and moves the "Learn more"
-    removeLineThrough();      // Removes the strike through of text that is already highlighed in red
+    removeLineThrough();      // Removes the strike through of text that is already highlighted in red
 
     ajaxCompleteWrapper(almostAll);
 
@@ -1542,7 +1708,11 @@
                     select: "s-select",
                     input: "s-input",
                     label: "s-label",
+                    radio: "s-radio",
                     header: "js-user-header",
+                    // pe-none => pointer-events: none; to ensure click events won't be fired
+                    // https://stackoverflow.design/product/base/interactivity/#pointer-events
+                    pointerEventsNone: "pe-none"
                 },
                 colours: {
                     background: "var(--white)",  // #fff or #2d2d2d;
@@ -2056,17 +2226,17 @@
         // key.split(".").forEach(key => defaultUserConfigValue = defaultUserConfigValue[key]);
         const deepGet = (obj, path) => {
             let temp = obj;
-            path.split(".").forEach(key => temp = temp[key]);
+            path.split(".").forEach((key) => temp = temp[key]);
             return temp;
-        }
+        };
 
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
         const deepSet = (obj, path, value) => {
             let temp = obj;
-            let keys = path.split(".");
-            keys.slice(0, -1).forEach(key => temp = temp[key]);
+            const keys = path.split(".");
+            keys.slice(0, -1).forEach((key) => temp = temp[key]);
             temp[keys.slice(-1)] = value;
-        }
+        };
 
 
         // ----------------------------------------------------------------------------------------
@@ -2077,7 +2247,7 @@
             if (cancel) {
 
                 modalElements                      // have to go through the modalElements
-                    .forEach(modalElement => {     // since most of them are not in the DOM.
+                    .forEach((modalElement) => {   // since most of them are not in the DOM.
                                  resetTab(modalElement, tempUserConfig); // reset to last saved settings.
                             });
 
@@ -2092,14 +2262,14 @@
             function resetTab(modalConfigElement, configObject) {
                 modalConfigElement
                     .items
-                    .forEach(item => {
+                    .forEach((item) => {
                                  const element = item.element;
                                  const id = item.id;
                                  if (id) {         // Preview elements may not have an id
                                      const valueElement = element.querySelector("#" + id);
                                      resetValue(valueElement, item, configObject);
                                  }
-                    })
+                    });
             }
 
             // (Oleg's nice solution) https://chat.stackoverflow.com/transcript/message/52354809#52354809
@@ -2120,7 +2290,7 @@
 
                 // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/dispatchEvent
                 // https://developer.mozilla.org/en-US/docs/Web/API/Event/Event
-                element.dispatchEvent(new Event('change', { bubbles: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
             }
         }
 
@@ -2129,7 +2299,7 @@
         // ---- Just insert the icon --------------------------------------------------------------
 
         let tempUserConfig;
-        // removeFromLocalStorage()  // For testing purposes
+        // removeValueFromStorage(PREFIX)  // For testing purposes
 
         // Just add the icon. Then wait until it's clicked.
         // insertIcon();                    // No Svg..
@@ -2140,11 +2310,11 @@
         // ---- Setting up the modal --------------------------------------------------------------
 
         function insertIcon() {
-            const {show,
-                   topMenuSelector,
-                   headerNtooltip,
-                   ids: { icon : iconId },
-                   classes: { smodals: { modal }, icon }
+            const { show,
+                    topMenuSelector,
+                    headerNtooltip,
+                    ids: { icon : iconId },
+                    classes: { smodals: { modal }, icon }
                   } = modalConfig;
 
             if (document.querySelector(`${topMenuSelector} #${iconId}`))
@@ -2157,7 +2327,7 @@
             // https://chat.stackoverflow.com/transcript/message/52315572#52315572
             // https://chat.stackoverflow.com/transcript/message/52315623#52315623
             // https://chat.stackoverflow.com/transcript/message/52333918#52333918
-            if (typeof Svg !== 'undefined') {
+            if (typeof Svg !== "undefined") {
                 settingsLink.append(Svg.Gear().get(0));
             } else {
                 settingsLink.textContent = "⚙️";
@@ -2166,7 +2336,7 @@
             settingsLink.title = headerNtooltip; // tooltip
 
             // The settings-item on the top bar
-            const settingsItem = document.createElement('li');
+            const settingsItem = document.createElement("li");
             settingsItem.classList.add(icon.iconItem);
             settingsItem.id = iconId;
             settingsItem.append(settingsLink);
@@ -2175,21 +2345,16 @@
             topBar.append(settingsItem);
 
             // loads the GUI for the settings
-            settingsItem.addEventListener("click", (event) => {
-                const sleep = (milliseconds) => {
-                    return new Promise(resolve => setTimeout(resolve, milliseconds));
-                }
+            settingsItem.addEventListener("click", () => {
 
                 const aside = createModalAside(loadIt());
                 settingsItem.append(aside);
                 settingsLink.dataset.action = show;
                 settingsItem.dataset.controller = modal;
 
+                // Alternative: Stacks.showModal(settingsItem);
                 // The GUI needs to load first..
-                sleep(50).then(() => {
-                    settingsLink.click();
-                    // Stacks.showModal(settingsItem);
-                })
+                setTimeout(() => settingsLink.click(), 0);
             }, { once: true });
 
         }
@@ -2264,32 +2429,32 @@
 
         // -------------------------------
         function createFooterButtons() {
-            const { grid : { cell, container },
-                    buttons : { button : basebutton, primary, danger, outlined }
+            const { flex : { container, item },
+                    buttons : { button : basebutton, primary, danger, outlined },
                   } = config.classes;
             const {hide,
                    classes: { smodals: { footer }, margins: { negative,  zeroX } }
                   } = modalConfig;
 
-            const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
-            const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
+            const saveButton   = createModalButton("Apply & Exit", [item, basebutton, primary]);
+            const cancelButton = createModalButton("Cancel",       [item, basebutton]);
 
-            saveButton.addEventListener("click", (event) => updateLocalStorage(tempUserConfig));
+            saveButton.addEventListener("click", () => updateValueFromStorage(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
-                                          (event) => {
+                                          () => {
                                                       tempUserConfig = getUserConfig();
                                                       reset(true); // true means Cancel back to userConfig.
                                           });
             cancelButton.dataset.action = hide;
 
             const buttons = document.createElement("div");
-            buttons.classList.add(container);
+            buttons.classList.add(container, zeroX, negative);
             buttons.append(saveButton, cancelButton);
 
             const restoreButton = createModalButton("Restore tab settings", [basebutton, danger, outlined]);
-            restoreButton.addEventListener('click', (event) => reset(false)); // false means the tab to default.
+            restoreButton.addEventListener("click", () => reset(false)); // false means the tab to default.
 
             const allButtons = document.createElement("div");
             allButtons.classList.add(container, negative, zeroX, footer);
@@ -2307,7 +2472,7 @@
                   } = modalConfig;
 
             const closeButton = createModalButton("", [close, basebutton, muted]);
-            if (typeof Svg !== 'undefined') {
+            if (typeof Svg !== "undefined") {
                 closeButton.append(Svg.ClearSm().get(0));
             } else {
                 // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
@@ -2338,7 +2503,7 @@
             const modalBody = document.createElement("div");
             modalBody.classList.add(body); //, "js-user-panel-content");
             modalBody.id = bodyId;
-            modalBody.style.marginTop = "20px";
+            modalBody.style.paddingTop = "20px";
 
             // Make the body scroll without effecting on the tabs nor the buttons
             modalBody.style.maxHeight = (window.innerHeight - 275) + "px";
@@ -2377,7 +2542,7 @@
             const {classes: { naviagations: { selected : navigationSelected } } } = modalConfig;
 
             navigationItem.addEventListener("click", () => {
-                [...navigationContainer.children].forEach(item => item.classList.remove(navigationSelected));
+                [...navigationContainer.children].forEach((item) => item.classList.remove(navigationSelected));
                 modalContainer.replaceChild(modalContent, modalContainer.firstElementChild);
                 navigationItem.classList.add(navigationSelected);
             });
@@ -2386,7 +2551,7 @@
         // -------------------------------
         function createContentnNavigationTabs(navigation, modalContentContainer) {
             const navigationItems =
-                      modalElements.map(tabItem => {
+                      modalElements.map((tabItem) => {
                           const contentTab = createTabBody(tabItem.tabMenu);
                           const navigationItem = createNavigationItem(tabItem.tabMenu, tabItem.tabDefault);
                           if (tabItem.tabDefault)
@@ -2411,22 +2576,22 @@
                       select:  createSelectInputGet,
                       size:    createSizeInputGet,
                       header:  createOptionHeaderGet,
-            }
+            };
 
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
             const elements = tab.items
                                  .sort((firstItem, secondItem) =>
                                             firstItem.displayOrder - secondItem.displayOrder)
-                                 .map(item => elementFunctionMap[item.type](item.name, tabName));
+                                 .map((item) => elementFunctionMap[item.type](item.name, tabName));
 
             (tab.needIntiliatize || [])
-               .forEach(initialise => tab.previewUpdates[initialise](tabName));
+               .forEach((initialise) => tab.previewUpdates[initialise](tabName));
 
             (tab.bottomSpace || [])
-               .forEach(itemName => addBottomSpace(objectFromName(tab.items, itemName).element));
+               .forEach((itemName) => addBottomSpace(objectFromName(tab.items, itemName).element));
 
             (tab.topSpaceSeparator || [])
-               .forEach(itemName => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
+               .forEach((itemName) => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
 
             initEnableDisable(tabName);
 
@@ -2445,17 +2610,17 @@
         function getPreviewUpdateFunctions(item, tabMenu) {
             const previewFunctions = item.refPreviewUpdates || [];
             const tab = objectFromTabname(modalElements, tabMenu);
-            return previewFunctions.map(key => tab.previewUpdates[key]);
+            return previewFunctions.map((key) => tab.previewUpdates[key]);
         }
 
 
         // -------------------------------
         function createContainer() {
-            const { grid: { container : flex } } = config.classes;
+            const { container: flexContainer } = config.classes.flex;
             const { classes: { center } } = modalConfig;
 
             const container = document.createElement("div");
-            container.classList.add(flex, center);
+            container.classList.add(flexContainer, center);
 
             return container;
         }
@@ -2484,7 +2649,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             selectInput.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
             return selectInput;
         }
@@ -2508,7 +2673,7 @@
             const selectInputs = document.createElement("select");
             selectInputs.id = selectInputId;
             const selectOptions =
-                      options.map(selectOption => {
+                      options.map((selectOption) => {
                           const selectInputOption = document.createElement("option");
                           selectInputOption.value = selectOption;
                           selectInputOption.textContent = selectOption;
@@ -2547,7 +2712,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             sizeInput.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value + item.postfix);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return sizeInput;
@@ -2602,7 +2767,7 @@
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
             colourPicker.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return colourPicker;
@@ -2648,13 +2813,13 @@
 
         // -------------------------------
         function createOptionHeader(labelText, headerId, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { flex: { item } } = config.classes;
             const { classes: { label } } = modalConfig;
 
             const optionHeaderContainer = createContainer();
 
             const optionHeader = document.createElement("p");
-            optionHeader.classList.add(cell, label);
+            optionHeader.classList.add(item, label);
             optionHeader.id = headerId;
             optionHeader.textContent = labelText;
             optionHeader.style.marginLeft = (indents * 15) + "px";
@@ -2677,7 +2842,7 @@
             toggle.addEventListener("change", (event) => {
                 deepSet(tempUserConfig, item.configKey, (event.target.checked ? "Yes" : "No"));
                 toggleEnableDisable(tabMenu, labelText);
-                previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
             });
 
             return toggle;
@@ -2685,7 +2850,7 @@
 
         // -------------------------------
         function createStackToggle(labelText, toggleId, option, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { flex: { item } } = config.classes;
             const { classes: { toggle: { sweetch, indicator } } } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
@@ -2697,7 +2862,7 @@
             const label = createLabel(labelText, toggleId, { indents });
 
             const toggle = document.createElement("div");
-            toggle.classList.add(cell, sweetch);
+            toggle.classList.add(item, sweetch);
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
@@ -2733,7 +2898,7 @@
             if (indents)       label.style.marginLeft = (indents * 15) + "px";
             if (alignIndents)  label.style.marginLeft = `${(alignIndents * 15) + 10 + 44}px`;
                                    // ^ from colourPicker: marginLeft + marginRight + width
-            return label
+            return label;
         }
 
 
@@ -2802,10 +2967,10 @@
                     return;
                 const [h, s, l] = [matchHSL[1], matchHSL[2], matchHSL[3] /= 100];
                 const a = s * Math.min(l, 1 - l) / 100;
-                const f = n => {
+                const f = (n) => {
                     const k = (n + h / 30) % 12;
                     const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                    return Math.round(255 * color).toString(16).padStart(2, '0');   // convert to Hex and prefix "0" if needed
+                    return Math.round(255 * color).toString(16).padStart(2, "0");   // convert to Hex and prefix "0" if needed
                 };
                 return `#${f(0)}${f(8)}${f(4)}`;
             }
@@ -2831,11 +2996,11 @@
             const entries = [];
             const tab = objectFromTabname(modalElements, tabName).items;
             tab.forEach(({ toggleEntry }) => {
-                if (toggleEntry !== undefined && !entries.includes(toggleEntry))
+                if (toggleEntry && !entries.includes(toggleEntry))
                     entries.push(toggleEntry);
-            })
+            });
 
-            entries.forEach(entry =>  toggleEnableDisable(tabName, entry));
+            entries.forEach((entry) => toggleEnableDisable(tabName, entry));
         }
 
         // -------------------------------
@@ -2860,14 +3025,12 @@
                     disableModalOption(entryItem, disable);
                 }
 
-                level++;
                 if (entryItem.dependents) {
-                    let on = deepGet(tempUserConfig, entryItem.configKey);
-                    disable = disable || (on !== "Yes");
+                    const on = deepGet(tempUserConfig, entryItem.configKey);
+                    const shouldDisable = disable || (on !== "Yes");
                     entryItem
                         .dependents
-                        .forEach(newEntry =>
-                                     recurseOnEntries(objectFromName(tab, newEntry), disable, level));
+                        .forEach((newEntry) => recurseOnEntries(objectFromName(tab, newEntry), shouldDisable, level + 1));
                 }
             }
         }
@@ -2887,7 +3050,7 @@
 
             if (disable) {
                 [...containerElement.children]
-                    .forEach(element => {
+                    .forEach((element) => {
                         if (item.type === "toggle"
                               && element.classList.contains(sweetch)) {
                             const checkbox = element.firstElementChild;
@@ -2908,13 +3071,13 @@
                     });
             } else {
                 [...containerElement.children]
-                    .forEach(element => {
+                    .forEach((element) => {
                         if (item.type === "toggle"
                               && element.classList.contains(sweetch)) {
                             const checkbox = element.firstElementChild;
                             const toggle   = element.lastElementChild;
                             checkbox.disabled = false;
-                            toggle.removeAttribute('style');
+                            toggle.removeAttribute("style");
                         } else {
                             element.disabled = false;
                             element.style.color = active;
@@ -2959,14 +3122,7 @@
             return previewContainer;
         }
 
-        // -------------------------------
-        const previewContainerWidth = 484; // ReferenceError: Cannot access 'previewContainerWidth' before initialization.. ?!?
-
-        function getPreviewWidth() {
-            return 484;
-        }
-
-        function getWidth(element) {
+        /*function getWidth(element) {
             const { style } = element;
             // https://stackoverflow.com/questions/13435604/getting-an-elements-inner-height
             const elementWidth        = parseInt(style.width);
@@ -2976,14 +3132,14 @@
             return elementWidth -
                        (elementPaddingLeft + elementPaddingRight) -
                        6; // magical pixels.. ?!?
-        }
+        }*/
 
 
         // -------------------------------
         function createPreviewImage() {
             const imageContainer = document.createElement("img");
             // imageContainer.style.width = getWidth(previeMoveRadioBoxContainer) + "px";
-            imageContainer.style.width = getPreviewWidth() + "px";
+            imageContainer.style.width = "100%";
 
             return imageContainer;
         }
@@ -3000,24 +3156,25 @@
 
         // -------------------------------
         function previewRadiosOrButtonsContainer() {
-            const { classes: { grid: { cell, container },
-                               buttons: { button : base, primary, outlined }
-                             }
-                  } = config;
+            const { flex: { container, item, justifyContentFlexEnd },
+                    buttons: { button : base, primary, outlined },
+                  } = config.classes;
             const { ids: { radioButtons : radioButtonsId, radioName, radioButtonLabel },
                     classes: { actions: { radio : radioAction, radioParent },
-                               margins: { negative, zeroX, zeroY },
+                               margins: { negative, zeroX },
                                center,
                                label : stackLabel,
-                               radio : stackradio },
+                               radio : stackradio,
+                               pointerEventsNone },
                   } = modalConfig;
 
             const previeRadiosVsButtonsContainer = createPreviewContainer();
 
             const submitButton = createModalButton("Submit", [base, primary]);
             const skipButton   = createModalButton("Skip",   [base, outlined]);
-            submitButton.disabled = true;
-            skipButton.disabled = true;
+
+            submitButton.classList.add(pointerEventsNone);
+            skipButton.classList.add(pointerEventsNone);
             skipButton.style.marginLeft = "4px";
             skipButton.style.minWidth = "70px";
 
@@ -3028,10 +3185,11 @@
 
             const radios =
                   ["Approve", "Improve edit", "Reject and edit", "Reject"]
-                     .map(label => makeRadio(label, radioButtonLabel));
+                    // make sure the ids are actually unique using the button name to lower case and without spaces
+                    .map((label) => makeRadio(label, `${radioButtonLabel}-${label.toLowerCase().replaceAll(" ", "")}`));
 
             const fieldset = document.createElement("fieldset");
-            fieldset.classList.add(container, negative, zeroY);
+            fieldset.classList.add(container, negative, zeroX, justifyContentFlexEnd); // align flexbox to the right, as in review
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
@@ -3039,8 +3197,6 @@
             fieldset.style.zoom = "91%";
 
             const fieldsetContainer = document.createElement("div");
-            fieldsetContainer.style.paddingTop = "3px";
-            fieldsetContainer.style.paddingBottom = "7px";
             fieldsetContainer.append(fieldset);
 
             const imageContainer = createPreviewImage();
@@ -3056,11 +3212,12 @@
 
             function makeRadio(labelText, radioId) {
                 const label = document.createElement("label");
-                label.classList.add(cell, stackLabel);
+                label.classList.add(item, stackLabel);
                 label.htmlFor = radioId;
                 label.textContent = labelText;
+
                 const labelContainer = document.createElement("div");
-                labelContainer.classList.add(cell);
+                labelContainer.classList.add(item);
                 labelContainer.append(label);
 
                 const radio = document.createElement("input");
@@ -3069,7 +3226,7 @@
                 radio.id = radioId;
                 radio.name = radioName;  // needed to make them exclusive
                 const radioContainer = document.createElement("div");
-                radioContainer.classList.add(cell);
+                radioContainer.classList.add(item);
                 radioContainer.append(radio);
 
                 const labelAndRadio = document.createElement("div");
@@ -3168,12 +3325,10 @@
 
             const radios = element.querySelectorAll(`#${radioButtonsId}`);
 
-            radios.forEach(radio => {
+            radios.forEach((radio) => {
                 if (radioWithBorders) {
-                    radio.style.paddingLeft = "3px";
                     radio.style.borderLeft  = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                 } else {
-                    radio.style.paddingLeft = "4px";
                     radio.style.borderLeft  = "none";
                 }
             });
@@ -3195,7 +3350,7 @@
         // -------------------------------
         function previewEditorStatisticsContainer() {
 
-            const { classes: { grid: { container } } } = config;
+            const { container } = config.classes.flex;
             const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
 
             const previewEditorStatistics = createPreviewContainer();
@@ -3233,7 +3388,7 @@
 
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
             const userCardImage = userCardsElement.lastElementChild; // from the preview element
-            const editorGrid  = editorElement.lastElementChild;      // from the preview element
+            const editorFlex  = editorElement.lastElementChild;      // from the preview element
             const editorImage = editorElement.querySelector("img");
 
             const { userCards : configUserCards } = tempUserConfig.options;
@@ -3265,35 +3420,32 @@
 
             if (on) {
                 // Do not add another statistics element! Important on restore
-                if (editorGrid.children.length > 1) {
+                if (editorFlex.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
                     return;
                 }
 
-                const sample = [
+                const sampleApiResponse = [
                                  {approval_date: 1},
                                  {rejection_date: 1}, {rejection_date: 1},
                                  {},{},{}, // pending
                                ];
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
-                // editorGrid.append(createEditorStatisticsItem(sample, colour, fontSize));
-                const editorStatsTable = createEditorStatisticsItem(sample, colour, fontSize);
-                editorGrid.append(editorStatsTable);
+                // editorFlex.append(createEditorStatisticsItem(sample, colour, fontSize));
+                const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
+                editorFlex.append(editorStatsTable);
+
             } else {
-                if (editorGrid.children.length > 1)
-                    editorGrid.lastElementChild.remove();
+                if (editorFlex.children.length > 1)
+                    editorFlex.lastElementChild.remove();
             }
         }
 
         // -------------------------------
-        function previewEditorStatisticsUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
-            const grid = element.lastElementChild;
-            const statisticsTable = grid.querySelector("table");
+        function previewEditorStatisticsUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const editorStatisticsContainer = element.lastElementChild;
+            const statisticsTable = editorStatisticsContainer.querySelector("table");
             if (!statisticsTable)
                 return;
             const rows = statisticsTable.children;
@@ -3318,10 +3470,7 @@
         }
 
         // -------------------------------
-        function previewPageTitleLinkOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
+        function previewPageTitleLinkOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
 
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
@@ -3348,11 +3497,7 @@
         }
 
         // -------------------------------
-        function previewDiffChoicesOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewDiffChoicesOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
@@ -3372,7 +3517,7 @@
 
         // -------------------------------
         function previewProgressBarContainer() {
-            const { classes: { grid: { container : flex } } } = config;
+            const { container: flexContainer } = config.classes.flex;
             const { classes: { naviagations: { base : navigationBase, item : nativationItem, selected },
                                padding: { Y : paddingY },
                                title: { base : title } }
@@ -3409,7 +3554,7 @@
                              padding: "3px", paddingTop: "12px", paddingBottom: "10px",
                              marginBottom: "0px"
                             });
-            container.classList.add(flex);
+            container.classList.add(flexContainer);
             container.style.flexDirection = "column"; // flex-direction: column
             container.style.alignItems = "flex-end";  // align-items: flex-end
 
@@ -3426,18 +3571,18 @@
 
         // -------------------------------
         function stackProgressBar() {
-            const { classes: { grid: { cell } } } = config;
+            const { container: flexContainer, item: flexItem } = config.classes.flex;
 
             const container = document.createElement("div");
-            container.classList.add(cell);
+            container.classList.add(flexItem);
             const content = `
-                    <div class="grid ai-center sm:fd-column">
-                        <div class="grid--cell mr12 ws-nowrap">
+                    <div class="${flexContainer} ai-center sm:fd-column">
+                        <div class="${flexItem} mr12 ws-nowrap">
                             <span>Your daily reviews</span>
                             <span class="js-reviews-done mrn2">20</span>
                             <span class="js-reviews-per-day" data-reviews-per-day="40">/40</span>
                         </div>
-                        <div class="grid--cell">
+                        <div class="${flexItem}">
                             <div class="s-progress wmn1 h8 bar-pill">
                                 <div class="s-progress--bar bar-pill js-review-progress"
                                      role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
@@ -3451,11 +3596,7 @@
         }
 
         // -------------------------------
-        function previewProgressBarOnfUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewProgressBarOnfUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const taskLink = element.querySelector("." + modalConfig.classes.naviagations.selected);
             const moveProgressBar = tempUserConfig.options.moveProgressBar === "Yes";
 
@@ -3469,7 +3610,7 @@
                 moveProgressToElement(taskLink, colour, dailyElem, reviewedElem, false);
 
             } else {
-                taskLink.removeAttribute('style');
+                taskLink.removeAttribute("style");
                 taskLink.textContent = "Review tasks";
                 // wrapper.id = PREFIX + "-Progressbar"; // config.ids.custom.progressBar;
                 const stackProgess = element.querySelector("#" + config.ids.custom.progressBar);
@@ -3486,11 +3627,7 @@
         }
 
         // -------------------------------
-        function previewMovePostTypeOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMovePostTypeOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
@@ -3534,11 +3671,7 @@
         }
 
         // -------------------------------
-        function previewMovePostTypeColourUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMovePostTypeColourUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const header = element.lastElementChild.firstElementChild;
 
             const movePostType = tempUserConfig.options.AnswerQuestionOnTop === "Yes";
@@ -3584,31 +3717,26 @@
         }
 
         // -------------------------------
-        function previewLineThoughOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewLineThoughOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const { ids: { lineThrough : lineThroughId } } = modalConfig;
 
             const on = tempUserConfig.options.removeLineThrough === "Yes";
 
             if (on) {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach(elementChild => elementChild.style.textDecoration = "initial");
+                    .forEach((elementChild) => elementChild.style.textDecoration = "initial");
             } else {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach(elementChild => elementChild.style.textDecoration = "line-through");
+                    .forEach((elementChild) => elementChild.style.textDecoration = "line-through");
             }
         }
 
 
         // -------------------------------
         function previewMessageContainer() {
-            const { classes: { grid: { container, cell },
-                               buttons: { button, primary }
-                             }
-                  } = config;
+            const { flex: { container, item },
+                    buttons: { button, primary }
+                  } = config.classes;
             const { classes: { notice: { base : noticeBase, info : noticeInfo },
                                padding: { top : paddingTop },
                                margins: { negative : negativeMargin },
@@ -3622,7 +3750,7 @@
 
             const dummyElement = document.createElement("div");  // needed since highlightMessageHelper wants an element.
             dummyElement.classList.add(container, negativeMargin, paddingTop);
-            const dummyButton = createModalButton("Next task", [button, primary, cell]);
+            const dummyButton = createModalButton("Next task", [button, primary, item]);
             dummyButton.disabled = true;
             dummyElement.append(dummyButton);
 
@@ -3638,11 +3766,7 @@
         }
 
         // -------------------------------
-        function previewMessageOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMessageOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const info = element.lastElementChild;
 
             const on = tempUserConfig.options.prominentReviewMessage === "Yes";
@@ -3662,11 +3786,7 @@
         }
 
         // -------------------------------
-        function previewMessageUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewMessageUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             if (tempUserConfig.options.prominentReviewMessage !== "Yes")
                 return;
 
@@ -3701,11 +3821,7 @@
         }
 
         // -------------------------------
-        function previewSummaryOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewSummaryOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const editSummary = element.lastElementChild;
             const { classes: { summary : summaryRed } } = config;
 
@@ -3720,7 +3836,7 @@
             } else {
                 const textContent = editSummary.textContent;
                 editSummary.textContent = (textContent || "").trim().replace(/^Summary/, "Comment");
-                editSummary.removeAttribute('style');
+                editSummary.removeAttribute("style");
                 editSummary.classList.add(summaryRed);
             }
 
