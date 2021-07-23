@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.30-beta
+// @version      0.36-beta
 // @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
 // @author       Scratte
@@ -66,6 +66,11 @@
                 postSummary: {
                     useStackSummary: "No",
                     useAPI: "No",                 // Only apllies when useStackSummary is "Yes"
+                },
+                reviewFilters: {
+                    removeTextFilters: "Yes",
+                    putAlertIcon: "Yes",          // Only apllies when useStackSummary is "Yes"
+                    keepFilterList: "No",         // ^ Same
                 },
                 removeLineThrough: "Yes",
                 linksOnTitles: "No",
@@ -243,10 +248,10 @@
         if (!editSummary)
             return;
 
-        highlightSummaryHelper(editSummary, summaryColour, summarySize, summaryClass);
+        highlightSummaryDoIt(editSummary, summaryColour, summarySize, summaryClass);
     }
 
-    function highlightSummaryHelper(editSummary, summaryColour, summarySize, summaryClass) {
+    function highlightSummaryDoIt(editSummary, summaryColour, summarySize, summaryClass) {
         const { classList, style, textContent } = editSummary;
         editSummary.textContent = (textContent || "").trim().replace(/^Comment/, "Summary");
         style.fontSize = summarySize;
@@ -261,7 +266,7 @@
         if (deepGet(userConfig, "options.moveDiffChoices") !== "Yes")
             return;
 
-        const { ids: { custom: { diffChoices, keepDiffChoices } },
+        const { ids: { custom: { diffChoices } },
                 classes: { filterDiff },
                 selectors: { fullReview }
               } = config;
@@ -275,7 +280,8 @@
         const choices = theReview.querySelector("." + filterDiff); // ".js-diff-choices"
         if (choices) {
             moveToFilterLine(choices, true);
-            choices.firstElementChild.style.padding = "10px"; // the larger padding on one takes precedence
+            // choices.firstElementChild.style.padding = "10px"; // the larger padding on one takes precedence
+            [...choices.children].forEach(element => {element.classList.add("s-btn__sm"); element.classList.remove("s-btn__xs");})
             choices.id = diffChoices;
         }
     }
@@ -301,6 +307,9 @@
             return;
 
         const revisionElement = document.querySelector(revision);
+        if (!revisionElement)
+            return;
+
         revisionElement.insertBefore(createDiffChoices(keepDiffChoicesId), revisionElement.firstChild);
     }
 
@@ -359,7 +368,7 @@
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
         const { ids: { custom : { actionRadios : actionRadiosId } },
-                classes: { choiceRadios, displayBlock, negativeMargin, grid: { cell, container, center } },
+                classes: { choiceRadios, displayBlock, negativeMargin, display: { cell, container, center } },
                 selectors: { actions: { reviews : reviewActions, radioActionsBox } },
                 tags: { radios : radiosTag },
                 size: { radio : radioSize }
@@ -369,11 +378,12 @@
                 size: { radioSeperator : radioSeperatorSize }
               } = userConfig;
 
-        // const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
-        // const { radioWithBorders, largerClickArea, tooltips } = radioVsButtons;
-        const radioWithBorders = deepGet(userConfig, "options.radioVsButtons.radioWithBorders");
-        const largerClickArea  = deepGet(userConfig, "options.radioVsButtons.largerClickArea");
-        const tooltips         = deepGet(userConfig, "options.radioVsButtons.tooltips");
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
+        // https://chat.stackoverflow.com/transcript/message/52565757#52565757
+        const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
+        const radioWithBorders = radioVsButtons?.radioWithBorders;
+        const largerClickArea  = radioVsButtons?.largerClickArea;
+        const tooltips         = radioVsButtons?.tooltips;
 
         const oldActions = document.getElementById(actionRadiosId);
         // Stack seems to insert a new action box into the sidebar on every new task.
@@ -523,7 +533,7 @@
         if (deepGet(userConfig, "options.moveNextButtons") !== "Yes")
             return;
 
-        const {classes: { desktopHide, grid: { container } } } = config;
+        const {classes: { desktopHide, display: { container } } } = config;
 
                                               // "[role=status]"
         const status = document.querySelector(config.selectors.reviews.banner);
@@ -531,6 +541,7 @@
             return;
 
         let buttonsContainer = status.querySelector("div > div");
+
         if (!buttonsContainer) {
             // after an audit, there's no container element.
             const button = status.querySelector("button");
@@ -538,18 +549,13 @@
                 return;
             buttonsContainer = document.createElement("div");
             buttonsContainer.classList.add(container);
-            buttonsContainer.style.justifyContent = "flex-end";
             button.parentElement.append(buttonsContainer);
             buttonsContainer.append(button);
-            return;
         }
 
-        buttonsContainer.style.justifyContent = "flex-end";
-        const buttons = buttonsContainer.children;
-        if (buttons.length > 1)
-            buttonsContainer.append(buttons[0]);
+        // https://chat.stackoverflow.com/transcript/message/52553183#52553183
+        buttonsContainer.style.flexDirection = "row-reverse";
     }
-
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -569,10 +575,10 @@
         if (!info)
             return;
 
-        highlightMessageHelper(info, messageColour, messageBackground, messageSize);
+        highlightMessageDoIt(info, messageColour, messageBackground, messageSize);
     }
 
-    function highlightMessageHelper(info, messageColour, messageBackground, messageSize) {
+    function highlightMessageDoIt(info, messageColour, messageBackground, messageSize) {
         const { firstChild : infoTextNode, firstElementChild } = info;
 
         if (!firstElementChild
@@ -609,8 +615,141 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
+    function reduceFilter() {
+
+        const reviewFilters = deepGet(userConfig, "options.reviewFilters");
+        const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";
+        const putAlertIcon      = reviewFilters?.putAlertIcon === "Yes";
+        const keepFilterList    = reviewFilters?.keepFilterList === "Yes";
+
+        const { ids: { custom: { tagFilters : tagFiltersId, tagFilterIcon : tagFilterIconId } },
+                selectors: { filter: { button, choices } },
+                classes: { display: { container },
+                           desktopHide },
+              } = config;
+
+        const filter  = document.querySelector(button); // "js-review-filter-button"
+        if (!filter)
+            return;
+
+        // the "pointless empty space"
+        const filterchoices = document.querySelector(choices); // .js-review-filter-summary
+        if (!filterchoices)
+            return;
+
+        const filters = filterchoices.textContent.trim();
+
+        if (!removeTextFilters) {
+            keepTextFilters(filterchoices);
+            return;
+        } else {
+            // hide it away
+            if (!filterchoices.classList.contains(desktopHide))
+                filterchoices.classList.add(desktopHide);
+        }
+
+        const theAlertIcon = filter.querySelector(`#${tagFilterIconId}`);
+
+        if (filters) {  // there a filter present. Ensure there's an icon
+
+            if (putAlertIcon && !theAlertIcon) {
+                let icon;
+                if (typeof Svg !== 'undefined') {
+                    icon = Svg.AlertCircle().get(0);
+                } else {
+                    icon = document.createElement("span");
+                    icon.textContent = "🛈"; // https://codepoints.net/U+1F6C8
+                    icon.style.fontSize = "175%";
+                    icon.style.verticalAlign = "sub";
+                    filter.style.paddingTop = "5px";
+                    filter.style.paddingBottom = "5px";
+                }
+                icon.id = tagFilterIconId;
+                filter.append(icon);
+            }
+        } else {        // there no filter. Ensure there's NO icon
+            if (theAlertIcon)
+                theAlertIcon.remove();
+        }
+
+        if (keepFilterList)
+            listTinyFilters();
+
+
+        // Notice how the constants are happily bleeding in here.. ;)
+        function listTinyFilters() {
+
+            const filteredTags = filters.split(" ");
+
+            const tags = filteredTags
+                             .filter(tagText => tagText !== "")
+                             .map(tagText => {
+                                      const tag = tagText
+                                              .replaceAll("[","")
+                                              .replaceAll("]","");
+                                      const taglink = document.createElement("a");
+                                      // taglink.classList.add("s-tag", "s-tag__xs");
+                                      taglink.classList.add("post-tag");
+                                      taglink.href = `https://stackoverflow.com/questions/tagged/${tag}`;
+                                      taglink.textContent = tag
+                                      taglink.style.padding = "1px 2px 1px 2px";
+
+                                      const span = document.createElement("span");
+                                      span.append(taglink);
+                                      return span;
+                          })
+
+            if (replace(tags))
+                return;
+
+            const filteredContainer = document.createElement("div");
+            filteredContainer.classList.add(container);
+            filter.replaceWith(filteredContainer);
+
+            const tagContainer = document.createElement("div");
+            tagContainer.classList.add(container);
+            tagContainer.id = tagFiltersId;
+            tagContainer.style.flexDirection = "column";
+            tagContainer.style.justifyContent = "center";
+            tagContainer.style.margin = "-12px";
+            tagContainer.style.marginLeft = "5px";
+            tagContainer.append(...tags);
+            filteredContainer.append(filter, tagContainer);
+        }
+
+        function replace(content) {
+            const existingTagContainer = document.getElementById(tagFiltersId);
+            if (existingTagContainer) {
+                [...existingTagContainer.children]
+                    .forEach(child => child.remove());
+                existingTagContainer.append(...content);
+                return true;
+            }
+            return false;
+        }
+
+        function keepTextFilters(filterchoices) {
+            if (replace([filterchoices]))
+                return;
+
+            const filteredContainer = document.createElement("div");
+            filteredContainer.classList.add(container);
+            filter.replaceWith(filteredContainer);
+
+            const tagContainer = document.createElement("div");
+            tagContainer.id = tagFiltersId;
+            tagContainer.append(filterchoices);
+
+            filteredContainer.style.alignItems = "center";
+            filteredContainer.append(filter, tagContainer);
+        }
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
     function moveToFilterLine(element, afterFirst = false) {
-        const filterDivSibling = document.querySelector(config.selectors.reviews.filterChoice);
+        const filterDivSibling = document.querySelector(config.selectors.filter.dialog);
         if (!filterDivSibling)
             return;
 
@@ -627,8 +766,9 @@
 
         filterDiv.style.justifyContent = "space-between";
 
-        // Remove a pointless empty space:
-        removeElement(".grid--cell.fl-grow1.js-review-filter-summary.fs-italic.fl1.ml8.mr12.v-truncate2");
+        // https://chat.stackoverflow.com/transcript/214345?m=52553973#52553973
+        // Remove a pointless empty space:  (turns out this isn't so pointless after all!)
+        // removeElement(".grid--cell.fl-grow1.js-review-filter-summary.fs-italic.fl1.ml8.mr12.v-truncate2");
     }
 
 
@@ -870,7 +1010,7 @@
 
         const { ids: { custom: { userCards } },
                 selectors: { content: { reviewPost } },
-                classes: { grid: { container } }
+                classes: { display: { container } }
               } = config;
 
         if (document.getElementById(userCards))
@@ -879,6 +1019,9 @@
         const originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid
                   = document.querySelector(`${reviewPost} > .${container}`); // ".postcell > .grid"
 
+        if (!originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid)
+            return;
+
         originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerGrid);
 
@@ -886,7 +1029,7 @@
         function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
             const { selectors: { content: { originalPost } },
-                    classes: { grid: { cell }, answers, userCards: { signature } }
+                    classes: { display: { cell }, answers, userCards: { signature } }
                   } = config;
 
             const originalPostLink = document.querySelector(`${originalPost} a`);
@@ -1001,7 +1144,7 @@
             // -------    createNewDiv    --------------------
             function createNewDiv(horizontal = true) {
                 const { ids: { custom: { userCards } },
-                        classes: { grid: { container } }
+                        classes: { display: { container } }
                       } = config;
 
                 const newDiv = document.createElement("div");
@@ -1015,6 +1158,9 @@
 
         // -------    editorUserCard    ---------------------
         function editorUserCard(userCardsContainerAll) {
+            if (!userCardsContainerAll)
+                return;
+
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector("." + config.classes.sUserCards.cardMinimal);
@@ -1062,7 +1208,7 @@
             function createUserCard(editorReviewHover, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
 
-                const { classes: { grid: { cell } , userCards },
+                const { classes: { display: { cell } , userCards },
                            size: { gravatarSmall },
                             ids: { custom: { editorCard : editorCardId } }
                       } = config;
@@ -1199,7 +1345,7 @@
                            badges: { base : badgeBase,  small : badgeSmall, green, red, grey },
                            sUserCards: { card, carlSmall, cardTime, cardAwards, cardRep, cardLink,
                                          avatar, cardAvatar, image : cardImage, cardDeleted } },
-               selectors: { postSummary, diffs: { diffAdd }, badges : existingBadges },
+               selectors: { postSummary, diffs: { diffAdd }, badges : existingBadges, content: { task } },
                ids: { custom: { postSummary : postSummaryId } }
               } = config;
 
@@ -1267,7 +1413,7 @@
                              .map(tag => {
                                       const newTag = document.createElement("a");
                                       newTag.href = `https://stackoverflow.com/questions/tagged/${tag}`;
-                                      newTag.classList = sTag;
+                                      newTag.classList.add(sTag);
                                       newTag.textContent = tag;
                                       newTag.title = `show questions tagged '${tag}'`;
                                       return newTag;
@@ -1320,12 +1466,12 @@
 
             const title = createTitle(existingTitleLink.href, existingTitleLink.textContent);
 
-            const existingtags = document.querySelectorAll(postSummary.tags); // ".post-tag"
+            const existingtags = document.querySelectorAll(`${task} ${postSummary.tags}`); // ".post-tag"
             const tags = [...existingtags]
                              .filter(tag => !tag.querySelector(diffAdd)) // remove edit added tags
                              .map(tag => {
                                       const newTag = tag.cloneNode();
-                                      newTag.classList = sTag;
+                                      newTag.className = sTag;
                                       newTag.textContent = tag.textContent;
                                       return newTag;
                               });
@@ -1415,7 +1561,7 @@
         function createScore(postScore) {
             const scoreBox = document.createElement("div");
             scoreBox.classList.add(badgeBase, badgeSmall);
-            scoreBox.classList.add(badgeMap.find(([_colour, handle]) => handle(postScore))[0]);
+            scoreBox.classList.add(badgeMap.find(([_colour, handle]) => handle(parseInt(postScore)))[0]);
             scoreBox.textContent = postScore;
             scoreBox.style.paddingTop = "2px";
             scoreBox.style.marginTop = "-1px";
@@ -1467,7 +1613,7 @@
             const title = document.createElement("a");
             title.classList.add(contentTitle, link);
             title.href = link;
-            title.innerHTML = text;
+            title.innerText = text;
             return title;
         }
 
@@ -1513,7 +1659,6 @@
             userAvatar.classList.add(avatar, cardAvatar); // "s-avatar","s-user-card--avatar"
             userAvatar.style.backgroundColor = "var(--white)";
             if (userAccountLink) userAvatar.href = userAccountLink;
-            userAvatar.paddingRight = "8px";
             userAvatar.append(userAvatarImage);
             return userAvatar;
         }
@@ -1608,7 +1753,8 @@
         // --- apiRequest
         async function getQuestion(questionId) {
             const site      = window.location.hostname; // "stackoverflow.com"
-            const apiFilter = "!)Q0(GDAJF0rK.NSRF4Z.*)8J";
+            // const apiFilter = "!)Q0(GDAJF0rK.NSRF4Z.*)8J";  // safe filter. Will escape HTML tags and stuff.
+            const apiFilter = "2Sh2Sk4rekX3O-Gbo7h.)Glw";  // unsafe to make it equvalent to taking it from the page itself.
             const apiKey    = config.apiKey;
             const apiUrl = `${API_BASE}/${API_VER}/questions/${questionId}?filter=${apiFilter}&site=${site}&key=${apiKey}`;
 
@@ -1771,7 +1917,7 @@
                         + apiOptions,
         };
 
-        const { grid: { container, cell, spaceBetween },
+        const { display: { container, cell, spaceBetween },
                 buttons: { button : buttonBase, notice : buttonNotice },
                 notice: { toast : sToast, base : noticeBase, warning, padding }
               } = config.classes;
@@ -1789,7 +1935,7 @@
         const buttonContainer = document.createElement("div");
         buttonContainer.classList.add(container);
         buttonContainer.style.marginTop = "-4px";
-        buttonContainer.style.marginright = "-2px";
+        buttonContainer.style.marginRight = "-2px";
         buttonContainer.append(button);
 
         const message = document.createElement("div");
@@ -1844,6 +1990,8 @@
                     keepDiffChoices:  PREFIX + "-KeepDiffChoices",
                     progressBar:      PREFIX + "-Progressbar",
                     postSummary:      PREFIX + "-postSummary",
+                    tagFilters:       PREFIX + "-tagFilters",
+                    tagFilterIcon:    PREFIX + "-tagFilterIcon",
                 },
             },
             error: "Oh No! Oh no-no-no-no-no! Arrrrrrrgh!...",
@@ -1851,14 +1999,13 @@
                 radios: "fieldset",
             },
             classes: {
-                grid: {
-                    container: "grid",
-                    cell: "grid--cell",
+                // https://stackoverflow.design/product/base/display/
+                display: {
                     center: "ai-center",
                     spaceBetween: "jc-space-between",
                     // https://stackoverflow.design/product/base/flex/
-                    // container: "d-flex",
-                    // cell: "flex--item",
+                    container: "d-flex",
+                    cell: "flex--item",
                 },
                 choiceRadios: {
                     fieldset: ["fd-column", "p12"],
@@ -1973,8 +2120,12 @@
                 reviews: {
                     done: ".js-reviews-done",
                     daily: ".js-reviews-per-day",
-                    filterChoice: "#js-review-filter-id",
                     banner: "[role=status]",
+                },
+                filter: {
+                    button: ".js-review-filter-button",
+                    choices: ".js-review-filter-summary",
+                    dialog: "#js-review-filter-id",
                 },
                 title: {
                     divwrapper: ".s-page-title",
@@ -1992,9 +2143,10 @@
                     reviewMargin: ".votecell",
                     revision: "#panel-revision",
                     tabs: ".js-review-tabs",
+                    task: ".js-review-task",
                 },
                 postSummary: {
-                    user: ".grid.fw-wrap.ai-center.gs12",
+                    user: ".d-flex.fw-wrap.ai-center.gs12",
                     userAvatar: ".pr4", // ".pr4 a"
                     userLink: ".pr8", // ".pr8 a"
                     userAwards: ".pr16",
@@ -2095,7 +2247,7 @@
         // -------    createGridCell    --------------------
         const createGridCell = (cnf) => {
             const elem = document.createElement("div");
-            elem.classList.add(cnf.classes.grid.cell); // "grid--cell"
+            elem.classList.add(cnf.classes.display.cell);
             return elem;
         };
 
@@ -2108,13 +2260,13 @@
         // -------    optimizePageTitle    --------------------
         const optimizePageTitle = (cnf) => {
             const { selectors: { title: { title, header: titleHeader, learnMore } },
-                    classes: { titleSpace, grid: { container } }
+                    classes: { titleSpace, display: { container } }
                   } = cnf;
 
             const titleWrap = document.querySelector(title);
             if (!titleWrap)
                 return false;
-            titleWrap.classList.add(container);  // "grid"
+            titleWrap.classList.add(container);
             const header = document.querySelector(titleHeader);
             const titleCell = createGridCell(cnf);
             titleCell.classList.add(titleSpace); // "ml12"
@@ -2226,7 +2378,7 @@
 
         // Create a container div and put the editorUserCard into it. Then add the stats into it too.
         const superDiv = document.createElement("div");
-        superDiv.classList.add(config.classes.grid.container);
+        superDiv.classList.add(config.classes.display.container);
         editorUserCard.before(superDiv);
         superDiv.appendChild(editorUserCard);
 
@@ -2401,7 +2553,7 @@
         // -------    createItem    --------------------
         const createItem = (...contents) => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.grid.cell);
+            elem.classList.add(config.classes.display.cell);
             elem.append(...contents);
             return elem;
         };
@@ -2417,8 +2569,11 @@
 
     const almostAll = () => {
         // Hides the Big Box with review radio options..
-        const moveRadioBox = (deepGet(userConfig, "options.radioVsButtons.moveRadioBox"));
-        const keepRadios   = (deepGet(userConfig, "options.radioVsButtons.keepRadios"));
+
+        const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
+        const moveRadioBox = radioVsButtons?.moveRadioBox;
+        const keepRadios   = radioVsButtons?.keepRadios;
+
         if (moveRadioBox === "Yes") {
             if (keepRadios !== "Yes") {
                 shadowRadiosToButtons();  // ..and replaces them with buttons on the Filter button level.
@@ -2435,6 +2590,7 @@
         moveDiffChoices();    // Moves the "Inline | Side-by-side | Side-by-side markdown"
         getUserCards();       // Gets back the user cards! :)
         addSeparator();       // Adds a border separtor between the post summary and the review
+        reduceFilter();       // Do not fill up the filter div line with text.
         moveNoticeButtons();  // Moves the "Reviewer stats" and "Next task" buttons on notices.
         addLinksToTitles();   // Adds link to all Question titles.
         StackSummary();       // Changes the post summary to comply with Stack Design.
@@ -2535,6 +2691,10 @@
                     radio: "s-radio",
                     header: "js-user-header",
                 },
+                attributes: {
+                    draggableTarget: "data-se-draggable-target",
+                    modalTarget: "data-s-modal-target",
+                },
                 colours: {
                     background: "var(--white)", // #fff or #2d2d2d;
                     toggleMutedOn: "var(--green-050)",
@@ -2549,7 +2709,7 @@
                 sizes: {
                     editorAvatar: {
                         width: "200px",
-                        heigth: "66px",
+                        height: "66px",
                     },
                     labels: {
                         fontSizeSmaller: "1.10rem",
@@ -3093,13 +3253,21 @@
                          (tabName) => previewNoticeUpdate(
                                           tabName,
                                           "Quota Notice Limit"),
+                     filters:
+                         (tabName) => previewFilterListUpdate(
+                                          tabName,
+                                          "Filter Options"),
                  },
                  needIntiliatize: ["titleLinks",
-                                   "newSummary"],
+                                   "newSummary",
+                                   "filters"],
                  topSpaceSeparator: ["Always diff choices",
                                      "Stack Design post summary",
-                                     "API Quota warning:"],
-                 bottomSpace: ["Stack Design post summary"],
+                                     "API quota warning:",
+                                     "Remove plain filters"],
+                 bottomSpace: ["Stack Design post summary",
+                               "Remove plain filters",
+                               "Insert alert icon"],
                  items: [
                      {
                       name: "Title links",
@@ -3124,6 +3292,12 @@
                       type: "preview",
                       create: () => previewNotice(),
                       displayOrder: 11,
+                     },
+                     {
+                      name: "Filter Options",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 15,
                      },
                      {
                       name: "Links in titles",
@@ -3171,7 +3345,7 @@
                       displayOrder: 7,
                      },
                      {
-                      name: "API Quota warning:",
+                      name: "API quota warning:",
                       id: PREFIXMODAL + "quotaWarning",
                       type: "header",
                       indents: 0,
@@ -3185,6 +3359,37 @@
                       maxValue: 9999,
                       refPreviewUpdates: ["quota"],
                       displayOrder: 10,
+                     },
+                     {
+                      name: "Remove plain filters",
+                      id: PREFIXMODAL + "RemovePlainFilters",
+                      configKey: "options.reviewFilters.removeTextFilters",
+                      type: "toggle",
+                      toggleEntry: "Remove plain filters",
+                      dependents: ["Insert alert icon",
+                                   "Show TinyTags™"],
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 12,
+                     },
+                     {
+                      name: "Insert alert icon",
+                      id: PREFIXMODAL + "InsertAlertIcon",
+                      configKey: "options.reviewFilters.putAlertIcon",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Remove plain filters",
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 13,
+                     },
+                     {
+                      name: "Show TinyTags™",
+                      id: PREFIXMODAL + "InsertAlertIcon",
+                      configKey: "options.reviewFilters.keepFilterList",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Remove plain filters",
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 14,
                      },
                  ],
                },
@@ -3320,14 +3525,15 @@
         // -------------------------------
         function createModalAside(linkToModal) {
             const { ids: { aside : asideId },
-                    classes: { smodals: { modal } }
+                    classes: { smodals: { modal } },
+                    attributes: { modalTarget }
                   } = modalConfig;
 
             // aside holds the modal. Activates when clicking on the icon
             const modalAside = document.createElement("aside");
             modalAside.classList.add(modal);
             modalAside.id = asideId;
-            modalAside.dataset.target = `${modal}.modal`;
+            modalAside.setAttribute(modalTarget, "modal");
             modalAside.append(linkToModal);
 
             return modalAside;
@@ -3370,15 +3576,15 @@
 
         // -------------------------------
         function createModalHeader() {
-            const { draggable,
-                    headerNtooltip,
+            const { headerNtooltip,
                     ids: { header : headerId },
-                    classes: { smodals: { header } }
+                    classes: { smodals: { header } },
+                    attributes: { draggableTarget }
                   } = modalConfig;
 
             const modalHeader = document.createElement("h3");
             modalHeader.classList.add(header);
-            modalHeader.dataset.target = `${draggable}.handle`;
+            modalHeader.setAttribute(draggableTarget, "handle");
             modalHeader.id = headerId;
             modalHeader.style.fontSize = "1.72rem";
             modalHeader.textContent = headerNtooltip;
@@ -3387,7 +3593,7 @@
 
         // -------------------------------
         function createFooterButtons() {
-            const { grid: { cell, container },
+            const { display: { cell, container },
                     buttons: { button : basebutton, primary, danger, outlined }
                   } = config.classes;
             const { hide,
@@ -3582,7 +3788,7 @@
 
         // -------------------------------
         function createContainer() {
-            const { grid: { container : flex, center } } = config.classes;
+            const { display: { container : flex, center } } = config.classes;
 
             const container = document.createElement("div");
             container.classList.add(flex, center);
@@ -3800,7 +4006,7 @@
 
         // -------------------------------
         function createOptionHeader(labelText, headerId, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { display: { cell } } = config.classes;
             const { classes: { label } } = modalConfig;
 
             const optionHeaderContainer = createContainer();
@@ -3840,7 +4046,7 @@
 
         // -------------------------------
         function createStackToggle(labelText, toggleId, option, indents = 0) {
-            const { grid: { cell } } = config.classes;
+            const { display: { cell } } = config.classes;
             const { classes: { toggle: { sweetch, indicator } } } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
@@ -3916,7 +4122,7 @@
             if (padding)       element.style.padding       = padding;
             if (paddingLeft)   element.style.paddingLeft   = paddingLeft;
             if (paddingTop)    element.style.paddingTop    = paddingTop;
-            if (paddingBottom) element.style.paddingBottom = paddingTop;
+            if (paddingBottom) element.style.paddingBottom = paddingBottom;
             if (marginBottom)  element.style.marginBottom  = marginBottom;
         }
 
@@ -4163,7 +4369,7 @@
 
         // -------------------------------
         function previewRadiosOrButtons() {
-            const { classes: { grid: { cell, container, center },
+            const { classes: { display: { cell, container, center },
                                buttons: { button : base, primary, outlined } }
                   } = config;
             const { ids: { radioButtons : radioButtonsId, radioName, radioButtonLabel },
@@ -4191,18 +4397,29 @@
                       ["Approve", "Improve edit", "Reject and edit", "Reject"]
                           .map(label => makeRadio(label, radioButtonLabel));
 
+
             const fieldset = document.createElement("fieldset");
-            fieldset.classList.add(container, negative, zeroY);
+            fieldset.classList.add(container, negative);
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
-            standardStyling(fieldset, { padding: "10px" });
-            fieldset.style.zoom = "91%";
+            standardStyling(fieldset, { padding: "10px 0px" });
+            // fieldset.style.zoom = "91%";
+            fieldset.style.transform = "scale(0.91)";
 
             const fieldsetContainer = document.createElement("div");
             fieldsetContainer.style.paddingTop = "3px";
             fieldsetContainer.style.paddingBottom = "7px";
+            fieldsetContainer.style.backgroundColor = "var(--white)";
             fieldsetContainer.append(fieldset);
+
+            // make Opera not eat "Approved"
+            fieldsetContainer.classList.add(container);
+            fieldsetContainer.style.justifyContent = "flex-end";
+            fieldset.style.justifyContent = "flex-end";
+            fieldset.style.whiteSpace = "nowrap";
+            fieldset.style.marginLeft =  "-20px";
+            fieldset.style.marginRight =  "-12px";
 
             const imageContainer = createPreviewImage();
             standardStyling(imageContainer);
@@ -4263,13 +4480,12 @@
             const clickImage   = clickElement.lastElementChild;
             const tooltipImage = tooltipElement.lastElementChild;
 
-            const radioVsButtons   = deepGet(tempUserConfig, "options.radioVsButtons");
-            // no guard for radioVsButtons being undefined..
-            const moveRadioBox     = radioVsButtons.moveRadioBox === "Yes";
-            const keepRadios       = radioVsButtons.keepRadios === "Yes";
-            const radioWithBorders = radioVsButtons.radioWithBorders === "Yes";
-            const largeClickArea   = radioVsButtons.largerClickArea === "Yes";
-            const tooltips         = radioVsButtons.tooltips === "Yes";
+            const radioVsButtons = deepGet(tempUserConfig, "options.radioVsButtons");
+            const moveRadioBox     = radioVsButtons?.moveRadioBox === "Yes";
+            const keepRadios       = radioVsButtons?.keepRadios === "Yes";
+            const radioWithBorders = radioVsButtons?.radioWithBorders === "Yes";
+            const largeClickArea   = radioVsButtons?.largerClickArea === "Yes";
+            const tooltips         = radioVsButtons?.tooltips === "Yes";
 
             const { classes: { desktopHide } } = config;
 
@@ -4430,8 +4646,8 @@
 
         // -------------------------------
         function previewEditorStatistics() {
-            const { classes: { grid: { container } } } = config;
-            const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
+            const { classes: { display: { container } } } = config;
+            const { sizes: { editorAvatar: { width, height } } } = modalConfig;
 
             const previewContainer = createPreviewContainer();
 
@@ -4440,7 +4656,7 @@
 
             const imageContainer = document.createElement("div");
             imageContainer.style.width = width;
-            imageContainer.style.heigth = heigth;
+            imageContainer.style.height = height;
             imageContainer.append(image);
 
             const previewEditorStatisticsGrid = document.createElement("div");
@@ -4472,8 +4688,8 @@
             const editorImage = editorElement.querySelector("img");
 
             const configUserCards  = deepGet(tempUserConfig, "options.userCards");
-            const userCards        = configUserCards.getUserCards === "Yes";
-            const editorStatistics = configUserCards.withEditiorStats === "Yes";
+            const userCards        = configUserCards?.getUserCards === "Yes";
+            const editorStatistics = configUserCards?.withEditiorStats === "Yes";
 
             const lightMap = [
                 [["0N0gd.png","ABwF9.png"], userCards, editorStatistics],
@@ -4594,7 +4810,7 @@
 
         // -------------------------------
         function previewProgressBar() {
-            const { classes: { grid: { container : flex } } } = config;
+            const { classes: { display: { container : flex } } } = config;
             const { classes: { naviagations: { base : navigationBase, item : nativationItem, selected },
                                padding: { Y : paddingY },
                                title: { base : title } }
@@ -4648,20 +4864,20 @@
 
         // -------------------------------
         function stackProgressBar() {
-            const { classes: { grid: { cell } } } = config;
+            const { classes: { display: { cell } } } = config;
 
             const container = document.createElement("div");
             container.classList.add(cell);
 
             // I know.. I cheated here, but this is bound to break and copy'n'pasting is easy.
             const content = `
-                    <div class="grid ai-center sm:fd-column">
-                        <div class="grid--cell mr12 ws-nowrap">
+                    <div class="d-flex ai-center sm:fd-column">
+                        <div class="flex--item mr12 ws-nowrap">
                             <span>Your daily reviews</span>
                             <span class="js-reviews-done mrn2">20</span>
                             <span class="js-reviews-per-day" data-reviews-per-day="40">/40</span>
                         </div>
-                        <div class="grid--cell">
+                        <div class="flex--item">
                             <div class="s-progress wmn1 h8 bar-pill">
                                 <div class="s-progress--bar bar-pill js-review-progress"
                                      role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
@@ -4875,7 +5091,7 @@
 
             function addDiffDelete(text) {
                 const diffDelete = document.createElement("span");
-                diffDelete.classList.add(diff); // ${config.lineThrough}
+                diffDelete.classList.add(diff);
                 diffDelete.id = lineThroughId;
                 diffDelete.textContent = text;
                 return diffDelete;
@@ -4904,7 +5120,7 @@
 
         // -------------------------------
         function previewMessage() {
-            const { classes: { grid: { container, cell },
+            const { classes: { display: { container, cell },
                                buttons: { button, primary }
                              }
                   } = config;
@@ -4919,7 +5135,7 @@
 
             const standardMessageNotice = document.createElement("div");
 
-            const dummyElement = document.createElement("div");  // needed since highlightMessageHelper wants an element.
+            const dummyElement = document.createElement("div");  // needed since highlightMessageDoIt wants an element.
             dummyElement.classList.add(container, negativeMargin, paddingTop);
             const dummyButton = createModalButton("Next task", [button, primary, cell]);
             dummyButton.disabled = true;
@@ -4950,7 +5166,7 @@
                         size: {message : size }
                       } = tempUserConfig;
 
-                highlightMessageHelper(info, colour, backGroundColour, size);
+                highlightMessageDoIt(info, colour, backGroundColour, size);
             } else {
                 if (info.firstChild.nodeValue === "") {
                     info.firstElementChild.remove();
@@ -5013,7 +5229,7 @@
                         size: { summary : size }
                       } = tempUserConfig;
 
-                highlightSummaryHelper(editSummary, colour, size, summaryRed);
+                highlightSummaryDoIt(editSummary, colour, size, summaryRed);
             } else {
                 const textContent = editSummary.textContent;
                 editSummary.textContent = (textContent || "").trim().replace(/^Summary/, "Comment");
@@ -5081,6 +5297,41 @@
                 p.innerHTML = p.innerHTML.replace(/\(remaining: \d+\)/, `(remaining: ${limit})`);
         }
 
+        // -------------------------------
+        function previewFilterListUpdate(tabMenu, elementName, element) {
+            if (!element) {
+                element = getElement(tabMenu, elementName);
+            }
+            const image = element.lastElementChild;
+
+            const reviewFilters = deepGet(tempUserConfig, "options.reviewFilters");
+            const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";
+            const putAlertIcon      = reviewFilters?.putAlertIcon === "Yes";
+            const keepFilterList    = reviewFilters?.keepFilterList === "Yes";
+
+            const lightMap = [
+                ["hDRdU.png", !removeTextFilters],
+                ["nDJK9.png",  putAlertIcon &&  keepFilterList],
+                ["XsHYT.png",  putAlertIcon && !keepFilterList],
+                ["4P4Qo.png", !putAlertIcon &&  keepFilterList],
+                ["WPs4c.png", !putAlertIcon && !keepFilterList],
+            ];
+            const darkMap = [
+                ["KREUM.png", !removeTextFilters],
+                ["9Cbil.png",  putAlertIcon &&  keepFilterList],
+                ["OJqle.png",  putAlertIcon && !keepFilterList],
+                ["oI6NR.png", !putAlertIcon &&  keepFilterList],
+                ["JDNgn.png", !putAlertIcon && !keepFilterList],
+            ];
+
+            const screenShotMap = isLIGHT ? lightMap : darkMap;
+
+            const [filterImage] =
+                      screenShotMap
+                          .find(([_, condition]) => condition);
+
+            image.src = `${imgHOST}${filterImage}`;
+        }
     }
 
     // ---- End of the GUI with the icon on the top right -----------------------------------------
