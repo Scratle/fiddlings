@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.37-beta-merge
+// @version      0.38-beta-mergeCustom
 // @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
 // @author       Scratte
@@ -13,7 +13,7 @@
 // ==/UserScript==
 
 (function() {
-    "use strict";
+    'use strict';
 
     // --------------------------------------------------------------------------------------------
     // ---- User Options --------------------------------------------------------------------------
@@ -23,11 +23,11 @@
 
     const defaultUserConfig = {
             colour: {
-                postType: "var(--red)",
-                summary: "var(--orange)",
+                postType: "#d1383d",                         // Previously "var(--red)". Maybe now "var(--red-500)"
+                summary: "#f48024",                          // Previously "var(--orange)". Maybe now "var(--orange-400)"
                 radioSeperator: "var(--blue-200)",
-                progressDone: "var(--theme-primary-color)",  // orange-y
-                progressNotDone: "var(--black-075)",         // gray-ish
+                progressDone: "#f48024",                     // orange-y. Previously var(--theme-primary-color). Maybe now "var(--theme-primary-400)"
+                progressNotDone: "var(--black-075)",         // "#e4e6e8" gray-ish
                 progressTextColour: "var(--black-600)",
                 editorHeader: "hotpink",                     // "#FF69B4" You may want to change this ;)
                 editorApproved: "var(--green-600)",
@@ -85,17 +85,19 @@
 
     const USERSCRIPTNAME = "Stack Review Suggested Edits Rework";
     const PREFIX = USERSCRIPTNAME.replaceAll(" ","");
+    const GMsExists = !!window.GM_getValue && !!window.GM_setValue && !!window.GM_deleteValue;
 
     /* OPTION 1:
        Required for the GUI to work.
-       Makes use of the userscript manager's storage or localStorage if the user doesn't use a userscript manager.
+       Makes use of the userscript manager's storage
+       ..or localStorage in case there's no userscript manager or GM_..Values are unavailable
        Manual changes to defaultUserConfig will only apply using the GUI (Restore button). */
     const userConfig = getUserConfig();           // <-- OPTION 1
 
     /* OPTION 2:
        If you don't want the GUI.
        NOTE: If using this, the GUI will have NO effect on the applied settings.
-       Avoids the userscript manager's storage and localStorage.
+       Avoids both the userscript manager's storage and localStorage.
        Manual changes to defaultUserConfig will apply directly to the script. */
     // const userConfig = defaultUserConfig;         // <-- OPTION 2
 
@@ -104,31 +106,39 @@
     // ---- Local Storage  ------------- Needed with GUI ------------------------------------------
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+
     // NOTE: these are from ViolentMonkey's docs, but TamperMonkey works in a similar way
     // https://violentmonkey.github.io/api/gm/#gm_getvalue
     // https://violentmonkey.github.io/api/gm/#gm_setvalue
     // https://violentmonkey.github.io/api/gm/#gm_deletevalue
 
     function getUserConfig() {
-        let userConfig = getValueFromStorage(PREFIX);
-        if (!userConfig) updateValueFromStorage(PREFIX, defaultUserConfig);
-        userConfig = getValueFromStorage(PREFIX);
+        let userConfig = getFromStorage();
+        if (!userConfig) {
+            updateStorage(defaultUserConfig);
+            userConfig = getFromStorage();
+        }
 
         return userConfig;
     }
 
-    function getValueFromStorage(cacheKey) {
-        return window.GM_getValue ? window.GM_getValue(cacheKey) : JSON.parse(localStorage.getItem(cacheKey));
+    function getFromStorage() {
+        return GMsExists
+                   ? window.GM_getValue(PREFIX)
+                   : JSON.parse(localStorage.getItem(PREFIX));
     }
 
-    function removeValueFromStorage(cacheKey) {
-        window.GM_deleteValue ? window.GM_deleteValue(cacheKey) : localStorage.removeItem(cacheKey);
+    function removeFromStorage() {
+        GMsExists
+            ? window.GM_deleteValue(PREFIX)
+            : localStorage.removeItem(PREFIX);
     }
 
-    function updateValueFromStorage(cacheKey, cacheValue) {
+    function updateStorage(userConfig) {
         // GM_setValue accepts an object as the second parameter, so we don't need to stringify it
-        window.GM_setValue ? window.GM_setValue(cacheKey, cacheValue) : localStorage.setItem(cacheKey, JSON.stringify(cacheValue));
-        console.log("updateValueFromCache - config", cacheValue);
+        GMsExists
+            ? window.GM_setValue(PREFIX, userConfig)
+            : localStorage.setItem(PREFIX, JSON.stringify(userConfig));
     }
 
 
@@ -142,7 +152,8 @@
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/test
     const reviewRegex = /^\/review\/(next-task|task-reviewed)/;
 
-    $(document).ajaxComplete((event, request, settings) => {
+    $(document)
+        .ajaxComplete((event, request, settings) => {
                           // Just that first response with the review information
                           if (reviewRegex.test(settings.url)) {
                               if (request.responseJSON) {
@@ -156,14 +167,15 @@
                                   }
                               }
                           }
-    });
+         });
 
     // ---------------------------
     // Lots of elements are not ready when the page is loaded. These .ajax method
     // ensures that a foonction is not fired until the page got a response
 
     function ajaxCompleteWrapper(foonction) {
-        $(document).ajaxComplete((event, request, { url }) => {
+        $(document)
+            .ajaxComplete((event, request, { url }) => {
                               if (reviewRegex.test(url)) {
                                   if (reviewResponse.error) {
                                       console.error(USERSCRIPTNAME + " - " + reviewResponse.error);
@@ -171,7 +183,7 @@
                                   }
                                   foonction();
                               }
-        });
+             });
     }
 
 
@@ -276,10 +288,9 @@
             return;
 
         const { ids: { custom: { diffChoices } },
-                classes: { filterDiff },
+                classes: { filterDiff, buttons: { small, xsmall } },
                 selectors: { fullReview }
               } = config;
-        const { small, xsmall } = config.classes.buttons;
 
         removeElement(`#${diffChoices}`);
 
@@ -288,8 +299,8 @@
             return;
 
         const choices = theReview.querySelector("." + filterDiff); // ".js-diff-choices"
-
-        if (!choices) return;
+        if (!choices)
+            return;
 
         moveToFilterLine(choices, true);
         choices.id = diffChoices;
@@ -805,7 +816,8 @@
 
         const { ids: { custom: { buttons : buttonsId } },
                 classes: { choiceRadios: { widget },
-                           display: { container : flexContainer, gap4px } },
+                           display: { container : flexContainer, cell, gap4px },
+                           buttons : buttonClasses },
                 selectors: { actions, buttons : buttonSelectors }
               } = config;
 
@@ -945,8 +957,6 @@
         // -------    createButton    --------------------
         // https://stackoverflow.design/product/components/buttons/
         function createButton(content, realButtons) {
-            const { buttons : buttonClasses, display: { cell } } = config.classes;
-
             const button = document.createElement("button");
             button.type = "button";
             button.classList.add(buttonClasses.button, cell);
@@ -1014,126 +1024,6 @@
         }
     }
 
-    // -------    createUserCard    --------------------
-    // official Stacks documentation: https://stackoverflow.design/product/components/user-cards/
-    function createUserCard({ isUserOwner,
-                              actionText,
-                              actionISO,
-                              profileUrl,
-                              profileImage,
-                              username,
-                              reputation,
-                              badges,
-                              isMinimal,
-                              isMod }) {
-
-        const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
-        const anonymousUsername = "anonymous user";
-
-        const { base: cardsBase,
-                time: timeClass,
-                avatar: cardsAvatar,
-                stacksInfo,
-                link: linkClass,
-                reputation: reputationClass,
-                awards,
-                awardBling,
-                gold: goldClass,
-                silver: silverClass,
-                bronze: bronzeClass,
-                highlighted,
-                deleted: userDeletedClass,
-                minimal,
-              } = config.classes.userCards;
-        const {
-                display: { container: flexContainer, cell: flexItem, gap4px },
-                minWidth2,
-                fsBody1
-              } = config.classes;
-
-        const { base: avatarsBase, avatar32px, avatarImage } = config.classes.avatars;
-        const { gold: goldBadges, silver: silverBadges, bronze: bronzeBadges } = badges;
-
-
-        const isUserAnonymous = !profileImage; // anonymous users do not have profile images :)
-        const imageWrapperElementType = isUserAnonymous ? "div" : "a"; // gravatar and username must not be clickable
-        const finalActionText = actionText
-            .replace(" by an anonymous user", "")
-            .replace("Proposed", "proposed");
-
-        const userCardsContainer = document.createElement("div");
-        userCardsContainer.classList.add(cardsBase, minWidth2);
-        if (isUserAnonymous) userCardsContainer.classList.add(userDeletedClass);
-        if (isUserOwner)     userCardsContainer.classList.add(highlighted);
-        if (isMinimal)       userCardsContainer.classList.add(minimal);
-
-
-        const actionTime = document.createElement("time");
-        actionTime.classList.add(timeClass);
-        actionTime.innerHTML = finalActionText;
-        actionTime.dateTime = actionISO;
-        Stacks.setTooltipText(actionTime, actionISO, { placement: "top" }); // add Stacks tooltip
-
-
-        const profileWrapper = document.createElement(imageWrapperElementType);
-        profileWrapper.href = profileUrl || "";
-        profileWrapper.classList.add(avatarsBase, cardsAvatar);
-        if (!isMinimal) profileWrapper.classList.add(avatar32px);
-
-        const profileImageElement = document.createElement("img");
-        profileImageElement.src = profileImage || deletedUserImage; // guard against anonymous users image being null
-        profileImageElement.classList.add(avatarImage);
-        profileWrapper.append(profileImageElement);
-
-
-        const userCardInformation = document.createElement("div");
-        userCardInformation.classList.add(stacksInfo);
-
-        const usernameWrapper = document.createElement(imageWrapperElementType);
-        usernameWrapper.classList.add(linkClass);
-        usernameWrapper.href = profileUrl || "";
-        if (profileUrl && isMod) usernameWrapper.classList.add(flexContainer, gap4px); // ensure user isn't anonymous
-
-        const usernameLink = document.createElement("div");
-        usernameLink.classList.add(flexItem);
-        usernameLink.innerHTML = username || anonymousUsername;
-
-        const modFlair = document.createElement("div");
-        modFlair.classList.add(flexItem, fsBody1); // increase the size a bit
-        modFlair.innerHTML = "♦";
-        if (!isMod) modFlair.style.display = "none";
-
-        usernameWrapper.append(usernameLink, modFlair);
-
-        const awardsWrapper = document.createElement("ul");
-        awardsWrapper.classList.add(awards);
-
-        const reputationElement = document.createElement("li");
-        reputationElement.classList.add(reputationClass);
-        reputationElement.textContent = reputation;
-
-        const goldBadgeElement = createBadgeListElement(goldClass, goldBadges);
-        const silverBadgeElement = createBadgeListElement(silverClass, silverBadges);
-        const bronzeBadgeElement = createBadgeListElement(bronzeClass, bronzeBadges);
-
-        awardsWrapper.append(reputationElement, goldBadgeElement, silverBadgeElement, bronzeBadgeElement);
-        userCardInformation.append(usernameWrapper, awardsWrapper);
-        userCardsContainer.append(actionTime, profileWrapper, userCardInformation);
-
-        return userCardsContainer;
-
-        function createBadgeListElement(badgeClass, badgeCount) {
-            const badgeElement = document.createElement("li");
-            badgeElement.classList.add(awardBling, badgeClass);
-            badgeElement.textContent = badgeCount;
-
-            // hide the element if there are 0 badges
-            if (!badgeCount)
-                badgeElement.style.display = "none";
-
-            return badgeElement;
-        }
-    }
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -1149,17 +1039,17 @@
         if (document.getElementById(userCards))
             return; // One is quite enough :)
 
-        const originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex
+        const originalEditorUserCardContainerMadeIntoOverallUserCardContainer
                   = document.querySelector(`${reviewPost} > .${container}`); // ".postcell > .d-flex"
 
-        if (!originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex)
+        if (!originalEditorUserCardContainerMadeIntoOverallUserCardContainer)
             return;
 
-        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
-        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
+        originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
+        editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
 
         // -------    originalPostUserCards    --------------------
-        async function originalPostUserCards(userCardsContainerAll) {
+        function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
             const { selectors: { content: { originalPost } },
                     classes: { answers, userCards: { signature } }
@@ -1178,95 +1068,66 @@
             userCardsContainerAll.style.justifyContent = "space-between";
 
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-            try {
-                const userCardRequest = await fetch(postlink);
-                const userCardResponse = await userCardRequest.text();
+            fetch(postlink)
+                .then((response) => {
+                     // https://chat.stackoverflow.com/transcript/message/52286535#52286535
+                     const { status } = response;
 
-                // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
-                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-                const userCards =
-                    [...new DOMParser()
-                        .parseFromString(userCardResponse, "text/html")
-                        // .querySelectorAll(`${thePost} .post-signature`)
-                        .querySelectorAll(`${thePost} .${signature}`)
-                        // .querySelectorAll(".post-signature.fl0")];   // <-- answer
-                        // .querySelectorAll(".post-signature.owner")]; // <-- question
-                    ];
+                     const responseMap = {
+                         200: (response) =>  // Status: OK
+                                  response
+                                      .text()
+                                      .then((data) => {
+                                           // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
+                                           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+                                           const userCards =
+                                               [...new DOMParser()
+                                                   .parseFromString(data, "text/html")
+                                                   // .querySelectorAll(`${thePost} .post-signature.d-flex`)
+                                                   .querySelectorAll(`${thePost} .${signature}`)
+                                                   // .querySelectorAll(".post-signature.d-flex.fl0")];   // <-- answer
+                                                   // .querySelectorAll(".post-signature.owner.d-flex")]; // <-- question
+                                               ];
 
-                const postUserCardContainer = createNewDiv();
-                // userCards.forEach(node => userCardDiv.appendChild(node));
-                const stacksifiedUserCards = userCards
-                    // if the avatar has no children, then the OP edited the post
-                    // so we don't need to stacksify the user card
-                    .map((card) => card.querySelector("img") ? stacksifyUserCards(card) : card);
+                                           const postUserCardContainer = createNewDiv();
+                                           // userCards.forEach(node => userCardDiv.appendChild(node));
+                                           postUserCardContainer.append(...userCards);
 
-                let requestStatus = userCardRequest.status;
-                // if we handle a suggested edit on a deleted answer on a question that hasn't been deleted,
-                // the request to the latter will be successful (200) yet the user cards wouldn't be found
-                // in this case, we need to show the errorNotFound message
-                requestStatus = requestStatus === 200 && !stacksifiedUserCards.length ? 404 : requestStatus;
-                const messages = {
-                    errorNotFound: [
-                                     "The original post is unavailable.",
-                                     "User cards cannot be retrieved."
-                                   ],
-                    responseNotOk: [
-                                     "Tried to fetch usercards, but",
-                                     `Stack responsed with status: ${requestStatus}`
-                                   ]
-                };
+                                           userCardsContainerAll.appendChild(postUserCardContainer);
+                                       }),
 
-                if (requestStatus === 200 && stacksifiedUserCards.length)
-                    postUserCardContainer.append(...stacksifiedUserCards);
+                         404: () => {  // Status: Not Found
+                                  const messages = [
+                                                    "The original post is unavailable.",
+                                                    "User cards cannot be retrieved."
+                                                   ]
+                                  userCardsContainerAll.appendChild(missingCards(messages));
+                              },
 
-                const responseMap = {
-                    200: postUserCardContainer, // response successful => append the usercards
-                    404: missingCards(messages.errorNotFound) // 404 => not found => question deleted
-                };
+                         default : () => {  // Status: Don't know
+                                  const messages = [
+                                                    "Tried to fetch usercards, but",
+                                                    `Stack responsed with status: ${status}`
+                                                   ]
+                                  userCardsContainerAll.appendChild(missingCards(messages));
+                              }
+                     };
 
-                const elementToAppend = responseMap[requestStatus] || missingCards(messages.responseNotOk);
-                userCardsContainerAll.append(elementToAppend);
-            } catch (error) {
-                const messages = [
-                    "Something is blocking fetching user cards",
-                    "Could be your ad-blocker or your network connection. Check the console."
-                ];
+                     (responseMap[status.toString()] || responseMap.default)(response);
 
-                console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
-                userCardsContainerAll.appendChild(missingCards(messages));
-            }
+                     // Only necessary when keeping the Radio Button Box
+                     if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
+                         userCardsContainerAll.style.width = adjustUserCardsWidth();
+                 })
+                .catch((error) => {
+                     // console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
+                     const messages = [
+                                       "Something is blocking fetching user cards",
+                                       "Could be your ad-blocker. Check the console."
+                                      ];
 
-            // Only necessary when keeping the Radio Button Box
-            if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
-                userCardsContainerAll.style.width = adjustUserCardsWidth();
-
-
-            // -------    stacksifyUserCards    --------------------
-            function stacksifyUserCards(original) {
-                const userActionTime = original.querySelector(config.selectors.userCards.actionTime);
-
-                // e.g. asked 4 hours ago, edited Sep 9 '19 at 10:25
-                // if it's the edited user card, then the element needs to be an anchor pointing to the revision history
-                const { innerText: actionInnerText, outerHTML: actionOuterHtml } = userActionTime;
-                const [gold, silver, bronze] = config.selectors.userCards.badges
-                    .map((selector) => original.querySelector(selector)?.nextElementSibling?.innerText);
-
-                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
-                const usernameContainer = original.querySelector(config.selectors.userCards.userDetails);
-                const userCardConfig = {
-                    isUserOwner: original.classList.contains("owner"),
-                    actionText: actionInnerText.includes("edited") ? actionOuterHtml : actionInnerText,
-                    actionISO: userActionTime.querySelector("span").title, // YYYY-MM-DD HH:MM:SSZ
-                    profileUrl: original.querySelector(config.selectors.userCards.profileUrl)?.href,
-                    profileImage: original.querySelector("img")?.src,
-                    username: usernameContainer.querySelector("a")?.innerHTML || usernameContainer.innerText,
-                    reputation: original.querySelector(config.selectors.userCards.reputation)?.innerText,
-                    badges: { gold, silver, bronze },
-                    isMod: !!original.querySelector(config.selectors.userCards.modFlair)
-                };
-
-                return createUserCard(userCardConfig);
-            }
+                     userCardsContainerAll.appendChild(missingCards(messages));
+                 });
 
             // -------    adjustUserCardsWidth    --------------------
             function adjustUserCardsWidth() { // Only when NOT moving the radioButtonBox
@@ -1326,18 +1187,11 @@
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
             const minimalUserCard = userCardsContainerAll.querySelector("." + config.classes.sUserCards.cardMinimal);
-            if (!editProposedTime)
+
+            if (!editProposedTime || !minimalUserCard) // !(editProposedTime && minimalUserCard)
                 return;
 
-            // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
-            if (!minimalUserCard) {
-                const editorUserCard = createSuggestorsUserCard(null, editProposedTime);
-                editProposedTime.replaceWith(editorUserCard);
-                return;
-            }
-
-            minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue FIXME! config..
-            // Getting the editor user id
+            // Getting the editor userid
             const userLink = minimalUserCard.querySelector("a");
             if (!userLink)
                 return;
@@ -1357,7 +1211,7 @@
                  })
                 .then(data => {
                     const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
+                    const editorUserCard = createUserCard(editorReviewStats, editProposedTime);
 
                     // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
                     minimalUserCard.before(editorUserCard);
@@ -1373,31 +1227,6 @@
                     console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
                  });
 
-            // -------    createSuggestorsUserCard    --------------------
-            function createSuggestorsUserCard(editorReviewStats, editProposedTime) {
-                // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
-                // https://stackoverflow.design/product/components/user-cards/
-
-                const [gold, silver, bronze] = config.selectors.userCards.badges
-                    .map((selector) => editorReviewStats?.querySelector(selector)?.nextElementSibling?.innerText);
-
-                // according to { isUserOwner, actionText, actionISO, profileUrl, profileImage, username, reputation, badges }
-                const userCardConfig = {
-                    isUserOwner: false,
-                    actionText: editProposedTime.innerText, // e.g. 4 hours ago
-                    actionISO: editProposedTime.firstElementChild.title, // YYYY-MM-DD HH:MM:SSZ
-                    profileUrl: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).href,
-                    profileImage: editorReviewStats?.querySelector("img").src,
-                    username: editorReviewStats?.querySelector(config.selectors.userCards.um.userLink).innerHTML,
-                    reputation: editorReviewStats?.querySelector(config.selectors.userCards.reputation).innerText,
-                    badges: { gold, silver, bronze },
-                    isMod: editorReviewStats?.querySelector(config.selectors.userCards.modFlair)
-                };
-
-                return createUserCard(userCardConfig);
-            } // createSuggestorsUserCard
-
-/*
             // -------    createUserCard    --------------------
             function createUserCard(editorReviewHover, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
@@ -1463,7 +1292,7 @@
 
                 return editorCardContainer;
             } // createUserCard
-*/
+
         } // editorUserCard
     }
 
@@ -2195,11 +2024,11 @@
             classes: {
                 // https://stackoverflow.design/product/base/display/
                 display: {
+                    container: "d-flex",
+                    // https://stackoverflow.design/product/base/flex/
+                    cell: "flex--item",
                     center: "ai-center",
                     spaceBetween: "jc-space-between",
-                    // https://stackoverflow.design/product/base/flex/
-                    container: "d-flex",
-                    cell: "flex--item",
                     // https://stackoverflow.design/product/base/flex/#gutter-classes
                     gap4px: "gs4",
                 },
@@ -2240,28 +2069,7 @@
                         header: "um-header-info",
                         flair: "um-flair",
                     },
-// FIXME! Remove duplicate entries
-                    // https://stackoverflow.design/product/components/user-cards/
-                    base: "s-user-card",
-                    deleted: "s-user-card__deleted",
-                    highlighted: "s-user-card__highlighted",
-                    time: "s-user-card--time",
-                    avatar: "s-user-card--avatar",
-                    stacksInfo: "s-user-card--info",
-                    link: "s-user-card--link",
-                    awards: "s-user-card--awards",
-                    awardBling: "s-award-bling",
-                    reputation: "s-user-card--rep",
-                    gold: "s-award-bling__gold",
-                    silver: "s-award-bling__silver",
-                    bronze: "s-award-bling__bronze",
                 },
-                avatars: {
-                    base: "s-avatar",
-                    avatar32px: "s-avatar__32",
-                    avatarImage: "s-avatar--image"
-                },
-// END OF FIXME! Remove duplicate entries
                 badges: {
                     base: "s-badge",
                     small: "s-badge__sm",
@@ -2318,8 +2126,6 @@
                 negativeMargin: "mxn12",
                 filterDiff: "js-diff-choices",
                 navigation: "s-navigation-tablist",
-                minWidth2: "wmn2",            // https://stackoverflow.design/product/base/width-height/#min-width-classes
-                fsBody1: "fs-body1",          // https://stackoverflow.design/product/base/typography/#sizes
             },
             size: {
                 gravatarSmall: "32",
@@ -2355,26 +2161,6 @@
                     title: ".s-page-title--text",
                     header: ".s-page-title--header",
                 },
-// FIXME! Remove duplicate entries. Also compare with classes
-                userCards: {
-                    default: ".s-user-card",
-                    minimal: ".s-user-card__minimal",
-                    reputation: ".reputation-score",
-                    badges: [
-                        ".badge1", // gold
-                        ".badge2", // silver
-                        ".badge3"  // bronze
-                    ],
-                    um: {
-                        userLink: ".um-user-link"
-                    },
-                    gravatarSmall: ".user-gravatar32",
-                    userDetails: ".user-details",
-                    profileUrl: ".user-details a",
-                    actionTime: ".user-action-time", // action = asked/answered/edited
-                    modFlair: ".mod-flair"
-                },
-// END OF FIXME! Remove duplicate entries. Also compare with classes
                 content: {
                     content: ".js-review-content",
                     originalPost: ".js-question-title-link",
@@ -2484,8 +2270,8 @@
         if (deepGet(userConfig, "options.movePageTitleLink") !== "Yes")
             return;
 
-        // -------    createFlexItem    --------------------
-        const createFlexItem = (cnf) => {
+        // -------    createGridCell    --------------------
+        const createCell = (cnf) => {
             const elem = document.createElement("div");
             elem.classList.add(cnf.classes.display.cell);
             return elem;
@@ -2508,7 +2294,7 @@
                 return false;
             titleWrap.classList.add(container);
             const header = document.querySelector(titleHeader);
-            const titleCell = createFlexItem(cnf);
+            const titleCell = createCell(cnf);
             titleCell.classList.add(titleSpace); // "ml12"
             if (header)
                 titleCell.append(header);
@@ -2592,42 +2378,54 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
-    async function makeApiCall(apiEndpointUrl, page) {
-        // FIXME! Handle backoff
-        try {
-            const apiCall = await fetch(`${apiEndpointUrl.toString()}&page=${page}`);
-            if (!apiCall.ok) return [];
-            return await apiCall.json();
-        } catch (error) {
-            console.error(USERSCRIPTNAME + " - error fetching editor stats from the API - makeApiCall", error);
-        }
-    }
-
     function insertEditorStatistics(editorUserCard, editorUserid) {
 
         // -------    getSuggestionsUserStats    --------------------
         const getSuggestionsUserStats = async (id) => {
-            // FIXME! Check the backoff and make the checkAPIResult(result) work
+            // https://chat.stackoverflow.com/transcript/message/52688684#52688684
             // See https://api.stackexchange.com/docs ("users/{ids}/suggested-edits")
 
             const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
-                site: window.location.hostname, // "stackoverflow.com"
-                filter: "!3xgWlhxc4ZsL1tY5Y",   // only include approval_date and rejection_date
-                key: config.apiKey,
-                pagesize: 100
+                site     : window.location.hostname, // "stackoverflow.com"
+                filter   : "!3xgWlhxc4ZsL1tY5Y",     // only include approval_date and rejection_date
+                key      : config.apiKey,
+                pagesize : 100
             };
             apiEndpointUrl.search = new URLSearchParams(params).toString();
 
+            const wait = (milliseconds) => {
+                return new Promise(resolve => setTimeout(resolve, milliseconds));
+            };
+
+            async function makeApiCall(apiEndpointUrl, page) {
+                try {
+                    const apiCall = await fetch(`${apiEndpointUrl.toString()}&page=${page}`);
+                    return apiCall.ok
+                               ? apiCall.json()
+                               : { };
+                } catch (error) {
+                    console.error(USERSCRIPTNAME + " - error fetching editor stats from the API - makeApiCall", error);
+                }
+            }
+
             const allApiItems = [];
-            let hasMore = true, pageNumber = 1;
+            let hasMore = true
+            let pageNumber = 1;
+            let backoffSeconds = 0;
 
             while (hasMore) {
-                // eslint-disable-next-line no-await-in-loop
-                const { items, has_more } = await makeApiCall(apiEndpointUrl, pageNumber);
-                allApiItems.push(...items);
+                const result = await makeApiCall(apiEndpointUrl, pageNumber);
+                const { items = [], has_more, backoff = 0} = result;
+
                 hasMore = has_more;
                 pageNumber++;
+
+                allApiItems.push(...items);
+
+                checkAPIResult(result);
+
+                await wait(backoff * 1000);
             }
             return allApiItems;
         };
@@ -3715,7 +3513,7 @@
         // ---- Just insert the icon --------------------------------------------------------------
 
         let tempUserConfig;
-        // removeValueFromStorage(PREFIX)  // For testing purposes
+        // removeFromStorage()  // For testing purposes
 
         // Just add the icon. Then wait until it's clicked.
         // insertIcon();                    // No Svg..
@@ -3762,15 +3560,14 @@
 
             // loads the GUI for the settings
             settingsItem.addEventListener("click", () => {
-
                 const aside = createModalAside(loadIt());
                 settingsItem.append(aside);
                 settingsLink.dataset.action = show;
                 settingsItem.dataset.controller = modal;
 
-                // Alternative: Stacks.showModal(settingsItem);
                 // The GUI needs to load first..
                 setTimeout(() => settingsLink.click(), 0);
+                                 // Stacks.showModal(settingsItem);
             }, { once: true });
 
         }
@@ -3856,7 +3653,7 @@
             const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
             const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
 
-            saveButton.addEventListener("click", () => updateValueFromStorage(PREFIX, tempUserConfig));
+            saveButton.addEventListener("click", () => updateStorage(tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
@@ -4382,7 +4179,6 @@
 
         // ----------------------------------------------------------------------------------------
         // ---- Colour convertion -----------------------------------------------------------------
-
         function getCSSVariableValue(variable) {
             if (!variable)
                 return null;
@@ -4474,12 +4270,11 @@
 
                 if (entryItem.dependents) {
                     const on = deepGet(tempUserConfig, entryItem.configKey);
-                    const shouldDisable = disable || (on !== "Yes");
                     entryItem
                         .dependents
                         .forEach(newEntry =>
                                      recurseOnEntries(objectFromName(tab, newEntry),
-                                                      shouldDisable,
+                                                      disable || (on !== "Yes"),
                                                       level + 1));
                 }
             }
@@ -4647,8 +4442,7 @@
 
 
             const fieldset = document.createElement("fieldset");
-//            fieldset.classList.add(container, negative);
-            fieldset.classList.add(container, negative, "jc-end");
+            fieldset.classList.add(container, negative);
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
@@ -4657,8 +4451,8 @@
             fieldset.style.transform = "scale(0.91)";
 
             const fieldsetContainer = document.createElement("div");
-//            fieldsetContainer.style.paddingTop = "3px";
-//            fieldsetContainer.style.paddingBottom = "7px";
+            fieldsetContainer.style.paddingTop = "3px";
+            fieldsetContainer.style.paddingBottom = "7px";
             fieldsetContainer.style.backgroundColor = "var(--white)";
             fieldsetContainer.append(fieldset);
 
@@ -4933,7 +4727,7 @@
 
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
             const userCardImage = userCardsElement.lastElementChild; // from the preview element
-            const editorFlex  = editorElement.lastElementChild;      // from the preview element
+            const editorBox   = editorElement.lastElementChild;      // from the preview element
             const editorImage = editorElement.querySelector("img");
 
             const configUserCards  = deepGet(tempUserConfig, "options.userCards");
@@ -4966,24 +4760,24 @@
 
             if (on) {
                 // Do not add another statistics element! Important on restore
-                if (editorFlex.children.length > 1) {
+                if (editorBox.children.length > 1) {
                     previewEditorStatisticsUpdate(null, null, editorElement);
                     return;
                 }
 
                 const sampleApiResponse = [
-                                 { approval_date: 1 },
-                                 { rejection_date: 1 }, { rejection_date: 1 },
-                                 { }, { }, { } // pending
-                               ];
+                                            { approval_date: 1 },
+                                            { rejection_date: 1 }, { rejection_date: 1 },
+                                            { }, { }, { } // pending
+                                          ];
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
-                // editorFlex.append(createEditorStatisticsItem(sample, colour, fontSize));
+                // editorBox.append(createEditorStatisticsItem(sample, colour, fontSize));
                 const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
-                editorFlex.append(editorStatsTable);
+                editorBox.append(editorStatsTable);
             } else {
-                if (editorFlex.children.length > 1)
-                    editorFlex.lastElementChild.remove();
+                if (editorBox.children.length > 1)
+                    editorBox.lastElementChild.remove();
             }
         }
 
@@ -5388,9 +5182,13 @@
         }
 
         // -------------------------------
-        function previewMessageUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+        function previewMessageUpdate(tabMenu, elementName, element) {
             if (deepGet(tempUserConfig, "options.prominentReviewMessage") !== "Yes")
                 return;
+
+            if (!element) {
+                element = getElement(tabMenu, elementName);
+            }
 
             const info = element.lastElementChild;
             const textElement = info.firstElementChild;
@@ -5463,10 +5261,7 @@
         }
 
         // -------------------------------
-        function previewStackSummaryOnf(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
+        function previewStackSummaryOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const image = element.lastElementChild;
 
             previewUpdateImage(image,
@@ -5491,11 +5286,7 @@
         }
 
         // -------------------------------
-        function previewNoticeUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
-
+        function previewNoticeUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const p = element.querySelector("#" + modalConfig.ids.quotaNotice);
             const limit = deepGet(tempUserConfig, "size.apiQuotaLimit");
 
@@ -5504,10 +5295,7 @@
         }
 
         // -------------------------------
-        function previewFilterListUpdate(tabMenu, elementName, element) {
-            if (!element) {
-                element = getElement(tabMenu, elementName);
-            }
+        function previewFilterListUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const image = element.lastElementChild;
 
             const reviewFilters = deepGet(tempUserConfig, "options.reviewFilters");
