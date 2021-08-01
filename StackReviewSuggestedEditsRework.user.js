@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.5-beta
+// @version      0.37-beta-merge
 // @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
 // @author       Scratte
@@ -35,31 +35,47 @@
                 editorTotal: "var(--powder-700)",            // blue-ish
                 message: "var(--yellow-700)",
                 messageBackground: "var(--powder-200)",      // use --powder-100 to "get rid of it"
+                diffChoices: "orchid",                       // #DA70D6
             },
             size: {
                 editorStatistics: "96%",
                 summary: "150%",
                 radioSeperator: "2",
                 message: "150%",
+                apiQuotaLimit: "500",
             },
             // All these are "Yes"/"No" options, and anything other than "Yes" is a "No"
             options: {
                 radioVsButtons: {
                     moveRadioBox: "Yes",
-                    keepRadios: "Yes",            // Only valid when moveRadioBox is "Yes"
+                    tooltips: "No",               // Only valid when moveRadioBox is "Yes"
+                    keepRadios: "No",             // ^ Same
                     radioWithBorders: "Yes",      // Only for radio buttons! No effect when turnRadioIntoButtons is "Yes"
+                    largerClickArea: "Yes",       // ^ Same
                 },
                 moveProgressBar: "Yes",
                 movePageTitleLink: "Yes",
                 AnswerQuestionOnTop: "Yes",
-                highlightSummary: "Yes",
+                highlightSummary: "No",
                 prominentReviewMessage: "Yes",
-                moveDiffChoices: "Yes",
+                keepDiffChoices: "Yes",
+                moveDiffChoices: "No",
+                moveNextButtons: "No",
                 userCards: {
                     getUserCards: "Yes",
                     withEditiorStats: "No",       // Note: This uses the Stack API and has a daily quota (of max 10,000 :-)
                 },
+                postSummary: {
+                    useStackSummary: "No",
+                    useAPI: "No",                 // Only apllies when useStackSummary is "Yes"
+                },
+                reviewFilters: {
+                    removeTextFilters: "Yes",
+                    putAlertIcon: "Yes",          // Only apllies when useStackSummary is "Yes"
+                    keepFilterList: "No",         // ^ Same
+                },
                 removeLineThrough: "Yes",
+                linksOnTitles: "No",
             },
     };
 
@@ -119,7 +135,7 @@
     // --------------------------------------------------------------------------------------------
     // ---- Everything ajax -----------------------------------------------------------------------
 
-    let reviewResponse = { };  // Holds the ajax response about the review
+    let reviewResponse = { }; // Holds the ajax response about the review
 
     // https://chat.stackoverflow.com/transcript/message/52227058#52227058
     // suggestion from https://chat.stackoverflow.com/users/10607772/double-beep
@@ -127,18 +143,19 @@
     const reviewRegex = /^\/review\/(next-task|task-reviewed)/;
 
     $(document).ajaxComplete((event, request, settings) => {
-        // Just that first response with the review information
-        if (reviewRegex.test(settings.url)) {
-            if (request.responseJSON) {
-                reviewResponse = request.responseJSON;
-            } else {
-               try {
-                    reviewResponse = JSON.parse(request.responseText);
-                } catch (e) {
-                    console.error(USERSCRIPTNAME + " - error parsing JSON", request.responseText);
-                }
-            }
-        }
+                          // Just that first response with the review information
+                          if (reviewRegex.test(settings.url)) {
+                              if (request.responseJSON) {
+                                  reviewResponse = request.responseJSON;
+                              } else {
+                                  try {
+                                       reviewResponse = JSON.parse(request.responseText);
+                                  } catch (e) {
+                                      // console.error(USERSCRIPTNAME + " - error parsing JSON", request.responseText);
+                                      reviewResponse.error = config.error;
+                                  }
+                              }
+                          }
     });
 
     // ---------------------------
@@ -147,28 +164,53 @@
 
     function ajaxCompleteWrapper(foonction) {
         $(document).ajaxComplete((event, request, { url }) => {
-            if (reviewRegex.test(url)) {
-                foonction();
-            }
+                              if (reviewRegex.test(url)) {
+                                  if (reviewResponse.error) {
+                                      console.error(USERSCRIPTNAME + " - " + reviewResponse.error);
+                                      return;
+                                  }
+                                  foonction();
+                              }
         });
     }
 
-    /*function ajaxStopWrapper(foonction) {
-        $(document).ajaxStop(() => foonction());
-    }*/
 
-    /*// https://chat.stackoverflow.com/transcript/message/52156286#52156286
-    const ajaxCompleteWrapperReturn = (foonction) => {
-        return new Promise((resolve) =>
-            $(document).ajaxComplete(() => resolve(foonction()))
-        );
-    };*/
+    // ----------------------------------------------------------------------------------------
+    // ---- Object Utility --------------------------------------------------------------------
 
-    /*const ajaxStopWrapperReturn = (foonction) => {
-        return new Promise((resolve) =>
-            $(document).ajaxStop(() => resolve(foonction()))
-        );
-    };*/
+    // https://attacomsian.com/blog/javascript-iterate-objects
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/find
+
+    const objectFromTabname = (obj, menuName) =>
+        obj.find(({ tabMenu }) => tabMenu === menuName);
+
+    const objectFromId = (obj, theId) =>
+        obj.find(({ id }) => id === theId);
+
+    const objectFromName = (obj, itemName) =>
+        obj.find(({ name }) => name === itemName);
+
+    const objectFromTabnItemname = (obj, menuName, itemName) =>
+        obj.find(({ tabMenu }) => tabMenu === menuName)
+           ?.items  // .items
+           .find(({ name }) => name === itemName);
+
+    // https://chat.stackoverflow.com/transcript/message/52355606#52355606
+    // https://chat.stackoverflow.com/transcript/message/52524265#52524265
+    const deepGet = (obj, path) => {
+        let temp = obj;
+        path.split(".").forEach(key => temp &&= temp[key]);
+        return temp;
+    };
+
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+    // https://chat.stackoverflow.com/transcript/message/52524354#52524354
+    const deepSet = (obj, path, value) => {
+        let temp = obj;
+        const keys = path.split(".");
+        keys.slice(0, -1).forEach(key => temp = temp[key] ||= {}); // ||= {} allows for new nested
+        temp[keys.slice(-1)] = value;
+    };
 
 
     // --------------------------------------------------------------------------------------------
@@ -184,7 +226,8 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function addSeparator() {
-        const { selectors: {content: {revision : reviewRevision, tabs} } } = config;
+        const { selectors: { content: { revision : reviewRevision, tabs } } } = config;
+
         const revision = document.querySelector(reviewRevision);
         if (!revision)
             return;
@@ -201,24 +244,23 @@
     function highlightSummary() { // must wait for ajax
         // https://chat.stackoverflow.com/transcript/message/52205392#52205392 (code-review)
 
-        const { options: {highlightSummary},
-                size: {summary : summarySize},
-                colour: {summary : summaryColour}
-              } = userConfig;
-
-        if (highlightSummary !== "Yes")
+        if (deepGet(userConfig, "options.highlightSummary") !== "Yes")
             return;
 
-        const {classes: {summary : summaryClass}} = config;
+        const { size: { summary : summarySize },
+                colour: { summary : summaryColour }
+              } = userConfig;
+
+        const { classes: { summary : summaryClass } } = config;
 
         const editSummary = document.querySelector(`.${summaryClass}`);
         if (!editSummary)
             return;
 
-        highlightSummaryHelper(editSummary, summaryColour, summarySize, summaryClass);
+        highlightSummaryDoIt(editSummary, summaryColour, summarySize, summaryClass);
     }
 
-    function highlightSummaryHelper(editSummary, summaryColour, summarySize, summaryClass) { // must wait for ajax
+    function highlightSummaryDoIt(editSummary, summaryColour, summarySize, summaryClass) {
         const { classList, style, textContent } = editSummary;
         editSummary.textContent = (textContent || "").trim().replace(/^Comment/, "Summary");
         style.fontSize = summarySize;
@@ -230,23 +272,107 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function moveDiffChoices() { // must wait for ajax
-        if (userConfig.options.moveDiffChoices !== "Yes")
+        if (deepGet(userConfig, "options.moveDiffChoices") !== "Yes")
             return;
 
-        const {ids: {custom: {diffChoices} }, selectors: {reviews: {filterDiff} } } = config;
-        const { small, extraSmall } = config.classes.buttons;
+        const { ids: { custom: { diffChoices } },
+                classes: { filterDiff },
+                selectors: { fullReview }
+              } = config;
+        const { small, xsmall } = config.classes.buttons;
+
         removeElement(`#${diffChoices}`);
 
-        const choices = document.querySelector(filterDiff); // ".js-diff-choices"
+        const theReview = document.getElementById(fullReview);
+        if (!theReview)
+            return;
+
+        const choices = theReview.querySelector("." + filterDiff); // ".js-diff-choices"
+
         if (!choices) return;
 
         moveToFilterLine(choices, true);
         choices.id = diffChoices;
         [...choices.children].forEach((button) => {
-            button.classList.remove(extraSmall);
+            button.classList.remove(xsmall);
             // see https://github.com/Scratle/fiddlings/pull/2#pullrequestreview-698140714, s-btn is just too large
             button.classList.add(small);
         });
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    function keepDiffChoices() { // must wait for ajax
+        if (deepGet(userConfig, "options.keepDiffChoices") !== "Yes")
+            return;
+
+        const { ids: { custom: { keepDiffChoices : keepDiffChoicesId } },
+                classes: { filterDiff },
+                selectors: { fullReview, content: { revision } }
+              } = config;
+
+        // document.querySelector("#content .js-diff-choices:not([id])");
+        const theReview = document.getElementById(fullReview);
+        if (!theReview)
+            return;
+        const presentfilterDiff = theReview.querySelector(`.${filterDiff}:not([id])`);
+        if (presentfilterDiff)
+            return;
+
+        const revisionElement = document.querySelector(revision);
+        if (!revisionElement)
+            return;
+
+        revisionElement.insertBefore(createDiffChoices(keepDiffChoicesId), revisionElement.firstChild);
+    }
+
+    function createDiffChoices(elementId, modal = false) { // must wait for ajax
+        const { classes: { buttons: { button : base, muted, outlined, xsmall, selected, group },
+                           filterDiff,
+                           navigation }
+              } = config;
+
+        const panels = document.querySelectorAll(".postcell > .diffs > [id]");
+        const buttons = [...panels].map(panel => createButton(getNiceName(panel.dataset.type),
+                                                              panel.getAttribute("aria-labelledby"),
+                                                              panel.id));
+
+        const buttonGroup = document.createElement("div");
+        if (!modal) buttonGroup.classList.add(filterDiff); // keep the GUI element from being found
+        buttonGroup.classList.add(group);
+        buttonGroup.dataset.controller = navigation;
+        buttonGroup.append(...buttons);
+        buttonGroup.setAttribute("role","tablist");
+
+        const buttonContainer = document.createElement("div");
+        buttonContainer.classList.add("mb16");
+        buttonContainer.id = elementId;
+        buttonContainer.append(buttonGroup);
+
+        return buttonContainer;
+
+        function getNiceName(text) {
+            const title = text.replace("Html","")
+                              .replace("SideBySide","Side-by-side")
+                              .replace("Markdown"," Markdown");
+            return title;
+        }
+
+        function createButton(content, id, control) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.classList.add(base, muted, outlined, xsmall);
+            if (content === "Inline")
+                button.classList.add(selected);
+            button.id = id;
+            if (!modal) // this will make them control the review.
+                button.setAttribute("aria-controls", control);
+            button.setAttribute("role","tab");
+            button.textContent = content;
+            button.style.color = userConfig.colour.diffChoices;
+            return button;
+        }
     }
 
 
@@ -255,18 +381,23 @@
     function moveRadio() { // must wait for ajax
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
-        const {ids : { custom : { actionRadios : actionRadiosId } },
-               selectors: {actions: {reviews : reviewActions, radioActionsBox} },
+        const { ids: { custom : { actionRadios : actionRadiosId } },
+                classes: { choiceRadios, displayBlock, negativeMargin, display: { cell, container, center } },
+                selectors: { actions: { reviews : reviewActions, radioActionsBox } },
+                tags: { radios : radiosTag },
+                size: { radio : radioSize }
               } = config;
-        const { choiceRadios,
-                textAlignCenter,
-                flex: { alignItemsCenter, marginXAxis, gap24px }
-              } = config.classes;
 
-        const {colour: { radioSeperator : radioSeperatorColour },
-               size: { radioSeperator : radioSeperatorSize },
-               options: { radioVsButtons: { radioWithBorders } },
+        const { colour: { radioSeperator : radioSeperatorColour },
+                size: { radioSeperator : radioSeperatorSize }
               } = userConfig;
+
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining
+        // https://chat.stackoverflow.com/transcript/message/52565757#52565757
+        const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
+        const radioWithBorders = radioVsButtons?.radioWithBorders;
+        const largerClickArea  = radioVsButtons?.largerClickArea;
+        const tooltips         = radioVsButtons?.tooltips;
 
         const oldActions = document.getElementById(actionRadiosId);
         // Stack seems to insert a new action box into the sidebar on every new task.
@@ -299,10 +430,11 @@
         actionBox.id = actionRadiosId;
 
         const { lastElementChild : buttonsWrapperParent,
-                classList        : fieldsetClassList
+                classList        : fieldsetClassList,
+                style            : fieldsetStyle
               } = fieldset;
-        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12", "gsx", "gs8"
-        fieldsetClassList.add(marginXAxis, gap24px, textAlignCenter, alignItemsCenter); // "gsx", "gs24", "ta-center", "ai-center"
+        fieldsetClassList.remove(...choiceRadios.fieldset); // "fd-column", "p12"
+        fieldsetStyle.textAlign = "center";
 
         // The Submit and Skip buttons
         if (!buttonsWrapperParent)
@@ -315,12 +447,11 @@
         if (!buttonsWrapper)
             return;
         const { firstElementChild : buttonsParent,
-                classList         : buttonsWrapperClassList
+                classList         : buttonsWrapperClassList,
+                style             : buttonsWrapperStyle
               } = buttonsWrapper;
         buttonsWrapperClassList.remove(choiceRadios.button); // "pt12"
-        // those styles no longer apply, since the Submit and Skip buttons have been moved
-        buttonsWrapperClassList.remove("px12");
-        buttonsWrapper.parentElement.classList.remove("mxn12");
+        buttonsWrapperStyle.marginLeft = "5px";
 
         if (!buttonsParent)
             return;
@@ -329,40 +460,80 @@
             .filter((button) => isSkip(button.innerText.trim()))
             .forEach((button) => button.style.minWidth = "70px");
 
+        // https://developer.mozilla.org/en-US/docs/Learn/CSS/Building_blocks/Selectors/Combinators
+        // https://drafts.csswg.org/selectors-4/#overview
+
         // The radios
-        // .slice() MDN: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
-        const fieldsetChildren = [...fieldset.children].slice(0, -1);
+        const fieldsetChildren = fieldset.querySelectorAll(`${reviewActions} > ${radiosTag} > div[class="${cell}"]`);
         if (!fieldsetChildren.length)
             return;
 
         fieldsetChildren
-            .forEach((radio) => {
-                         const { firstElementChild : flexContainer,
-                                 style             : radioStyle
+            .forEach(radio => {
+                         const { firstElementChild : gridContainer,
+                                 classList         : radioClassList,
+                                 style             : radiostyle
                                } = radio;
-                         const buttonDescription = radio.querySelector("p");
-                         const [radioButtonWrapper, labelWrapper] = [...flexContainer.children];
-
-                         if (!buttonDescription || !flexContainer) // !(buttonDescription && flexContainer)
+                         const p = radio.querySelector("p");
+                         if (!p || !gridContainer) // !(p && gridContainer)
                              return;
 
-                         if (radioButtonWrapper && labelWrapper) {
-                             const { parentElement } = radioButtonWrapper;
-                             parentElement.append(radioButtonWrapper); // Switch them
+                         const { firstElementChild : inputContainer,
+                                 lastElementChild  : labelContainer
+                               } = gridContainer;
+                         if (!inputContainer || !labelContainer)
+                             return;
+
+                         const label = labelContainer.firstElementChild;
+                         if (!label)
+                             return;
+
+                         if (largerClickArea === "Yes") {
+
+                             const input = inputContainer.firstElementChild;
+                             if (!input)
+                                 return;
+
+                             input.style.margin = "2.5px 0px 0px 0px";
+                             input.style.width = radioSize;
+                             input.style.height = radioSize;
+                             label.append(input);
+                             label.classList.add(container, center);
+                             label.classList.remove(displayBlock);
+                             label.style.flexDirection = "column";
+                             gridContainer.append(label);
+
+                             inputContainer.remove();
+                             labelContainer.remove();
+
+                         } else {
+
+                             const gridCells = radio.querySelectorAll("." + cell);
+
+                             if (gridCells && gridCells.length === 2) {
+                                 const { parentElement } = gridCells[0];
+                                 if (parentElement)
+                                     parentElement.append(gridCells[0]); // Switch them
+                             }
                          }
 
-                         // only interested in the js-* class here, so remove the flex-related ones
-                         flexContainer.className = "js-action-radio-parent";
-                         buttonDescription.remove();
-                         radio.className = ""; // remove the grid--cell/flex--item class
-                         radioStyle.padding = "4px";
+                         if (tooltips === "Yes")
+                             gridContainer.title = p.textContent;
+                         p.remove();
+                         gridContainer.classList.remove(container);
+                         radioClassList.remove(cell);
+                         radiostyle.padding = "4px";
 
-                         const label = radio.querySelector("label");
                          const text = label.textContent || "";
                          if (radioWithBorders === "Yes" && text.trim() !== "Approve") {
-                             radioStyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
+                             radiostyle.paddingLeft = "3px";
+                             radiostyle.borderLeft = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
                          }
-                    });
+             });
+
+        // order is important.. do not do this before handling radios.
+        buttonsWrapperParentClassList.remove(negativeMargin);
+        buttonsWrapperParent.style.marginRight = "-12px";
 
         moveToFilterLine(actionBox);
     }
@@ -370,13 +541,43 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
-    function highlightMessage() { // Only after ajax
-        if (userConfig.options.prominentReviewMessage !== "Yes")
+    function moveNoticeButtons() { // must wait for ajax
+        if (deepGet(userConfig, "options.moveNextButtons") !== "Yes")
             return;
 
-        const {colour: {message : messageColour, messageBackground},
-               size: {message : messageSize}
-              } =  userConfig;
+        const {classes: { desktopHide, display: { container } } } = config;
+
+                                              // "[role=status]"
+        const status = document.querySelector(config.selectors.reviews.banner);
+        if (!status || status.classList.contains(desktopHide))
+            return;
+
+        let buttonsContainer = status.querySelector("div > div");
+
+        if (!buttonsContainer) {
+            // after an audit, there's no container element.
+            const button = status.querySelector("button");
+            if (!button)
+                return;
+            buttonsContainer = document.createElement("div");
+            buttonsContainer.classList.add(container);
+            button.parentElement.append(buttonsContainer);
+            buttonsContainer.append(button);
+        }
+
+        // https://chat.stackoverflow.com/transcript/message/52553183#52553183
+        buttonsContainer.style.flexDirection = "row-reverse";
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    function highlightMessage() { // must wait for ajax
+        if (deepGet(userConfig, "options.prominentReviewMessage") !== "Yes")
+            return;
+
+        const { colour: { message : messageColour, messageBackground },
+                size: { message : messageSize }
+              } = userConfig;
 
         const status = document.querySelector(config.selectors.reviews.banner);
         if (!status)
@@ -386,11 +587,10 @@
         if (!info)
             return;
 
-        highlightMessageHelper(info, messageColour, messageBackground, messageSize);
+        highlightMessageDoIt(info, messageColour, messageBackground, messageSize);
     }
 
-    function highlightMessageHelper(info, messageColour, messageBackground, messageSize) { // Only after ajax
-
+    function highlightMessageDoIt(info, messageColour, messageBackground, messageSize) {
         const { firstChild : infoTextNode, firstElementChild } = info;
 
         if (!firstElementChild
@@ -413,7 +613,7 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
-    function isReviewActive() { // Only after ajax
+    function isReviewActive() { // must wait for ajax
         return reviewResponse.isUnavailable === false;
     }
 
@@ -427,33 +627,167 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
-    function moveToFilterLine(element, afterFirst = false) {
+    function reduceFilter() {
 
-        const filterDivSibling = document.querySelector(config.selectors.reviews.filterChoice);
+        const reviewFilters = deepGet(userConfig, "options.reviewFilters");
+        const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";
+        const putAlertIcon      = reviewFilters?.putAlertIcon === "Yes";
+        const keepFilterList    = reviewFilters?.keepFilterList === "Yes";
+
+        const { ids: { custom: { tagFilters : tagFiltersId, tagFilterIcon : tagFilterIconId } },
+                selectors: { filter: { button, choices } },
+                classes: { display: { container },
+                           desktopHide },
+              } = config;
+
+        const filter  = document.querySelector(button); // "js-review-filter-button"
+        if (!filter)
+            return;
+
+        // the "pointless empty space"
+        const filterchoices = document.querySelector(choices); // .js-review-filter-summary
+        if (!filterchoices)
+            return;
+
+        const filters = filterchoices.textContent.trim();
+
+        if (!removeTextFilters) {
+            keepTextFilters(filterchoices);
+            return;
+        } else {
+            // hide it away
+            if (!filterchoices.classList.contains(desktopHide))
+                filterchoices.classList.add(desktopHide);
+        }
+
+        const theAlertIcon = filter.querySelector(`#${tagFilterIconId}`);
+
+        if (filters) {  // there a filter present. Ensure there's an icon
+
+            if (putAlertIcon && !theAlertIcon) {
+                let icon;
+                if (typeof Svg !== "undefined") {
+                    icon = Svg.AlertCircle().get(0);
+                } else {
+                    icon = document.createElement("span");
+                    icon.textContent = "🛈"; // https://codepoints.net/U+1F6C8
+                    icon.style.fontSize = "175%";
+                    icon.style.verticalAlign = "sub";
+                    filter.style.paddingTop = "5px";
+                    filter.style.paddingBottom = "5px";
+                }
+                icon.id = tagFilterIconId;
+                filter.append(icon);
+            }
+        } else {        // there no filter. Ensure there's NO icon
+            if (theAlertIcon)
+                theAlertIcon.remove();
+        }
+
+        if (keepFilterList)
+            listTinyFilters();
+
+
+        // Notice how the constants are happily bleeding in here.. ;)
+        function listTinyFilters() {
+
+            const filteredTags = filters.split(" ");
+
+            const tags = filteredTags
+                             .filter(tagText => tagText !== "")
+                             .map(tagText => {
+                                      const tag = tagText
+                                              .replaceAll("[","")
+                                              .replaceAll("]","");
+                                      const taglink = document.createElement("a");
+                                      // taglink.classList.add("s-tag", "s-tag__xs");
+                                      taglink.classList.add("post-tag");
+                                      taglink.href = `https://stackoverflow.com/questions/tagged/${tag}`;
+                                      taglink.textContent = tag
+                                      taglink.style.padding = "1px 2px 1px 2px";
+
+                                      const span = document.createElement("span");
+                                      span.append(taglink);
+                                      return span;
+                          })
+
+            if (replace(tags))
+                return;
+
+            const filteredContainer = document.createElement("div");
+            filteredContainer.classList.add(container);
+            filter.replaceWith(filteredContainer);
+
+            const tagContainer = document.createElement("div");
+            tagContainer.classList.add(container);
+            tagContainer.id = tagFiltersId;
+            tagContainer.style.flexDirection = "column";
+            tagContainer.style.justifyContent = "center";
+            tagContainer.style.margin = "-12px";
+            tagContainer.style.marginLeft = "5px";
+            tagContainer.append(...tags);
+            filteredContainer.append(filter, tagContainer);
+        }
+
+        function replace(content) {
+            const existingTagContainer = document.getElementById(tagFiltersId);
+            if (existingTagContainer) {
+                [...existingTagContainer.children]
+                    .forEach(child => child.remove());
+                existingTagContainer.append(...content);
+                return true;
+            }
+            return false;
+        }
+
+        function keepTextFilters(filterchoices) {
+            if (replace([filterchoices]))
+                return;
+
+            const filteredContainer = document.createElement("div");
+            filteredContainer.classList.add(container);
+            filter.replaceWith(filteredContainer);
+
+            const tagContainer = document.createElement("div");
+            tagContainer.id = tagFiltersId;
+            tagContainer.append(filterchoices);
+
+            filteredContainer.style.alignItems = "center";
+            filteredContainer.append(filter, tagContainer);
+        }
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    function moveToFilterLine(element, afterFirst = false) {
+        const filterDivSibling = document.querySelector(config.selectors.filter.dialog);
         if (!filterDivSibling)
             return;
 
-        const { previousElementSibling: filterDiv } = filterDivSibling;
+        const { previousElementSibling : filterDiv } = filterDivSibling;
         if (!filterDiv)
             return;
 
         if (!afterFirst) {
             filterDiv.appendChild(element);
         } else {
-            const { firstElementChild: filter } = filterDiv;  // "js-review-filter-button"
+            const { firstElementChild : filter } = filterDiv;  // "js-review-filter-button"
             if (filter) filterDiv.insertBefore(element, filter.nextSibling);
         }
 
         filterDiv.style.justifyContent = "space-between";
 
-        // Remove a pointless empty space:
-        removeElement(".js-review-filter-summary");
+        // https://chat.stackoverflow.com/transcript/214345?m=52553973#52553973
+        // Remove a pointless empty space:  (turns out this isn't so pointless after all!)
+        // removeElement(".grid--cell.fl-grow1.js-review-filter-summary.fs-italic.fl1.ml8.mr12.v-truncate2");
     }
 
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     async function shadowRadiosToButtons() { // must wait for ajax
+        const tooltips = deepGet(userConfig, "options.radioVsButtons.tooltips") === "Yes";
 
         const state = {
             SKIP    : "skip",
@@ -469,46 +803,47 @@
             return;
         }
 
-        const { ids: { custom: {buttons : buttonsId} },
-                classes: { choiceRadios: { widget }, flex: { container: flexContainer, marginXAxis, gap4px } },
-                selectors: { actions , buttons : buttonSelectors},
+        const { ids: { custom: { buttons : buttonsId } },
+                classes: { choiceRadios: { widget },
+                           display: { container : flexContainer, gap4px } },
+                selectors: { actions, buttons : buttonSelectors }
               } = config;
 
         if (document.querySelector(`#${buttonsId}`)) {
-            let { actionDelay } = reviewResponse;
-            if (!actionDelay || isNaN(actionDelay))
-                actionDelay = 0;
-            await new Promise((resolve) => setTimeout(resolve, actionDelay));  // making the sidebar box catch up
             removeElement(`#${buttonsId}`);
+
         } else {  // We've not done this before.
 
-            // https://chat.stackoverflow.com/transcript/message/52234064#52234064 by https://stackoverflow.com/users/10607772/double-beep
-            document.body.addEventListener("click", (event) => {
-                if (event.target.type === "button" || event.target.nodeName === "BUTTON") {
-                    const buttonText = event.target.innerText.trim();
+            // https://chat.stackoverflow.com/transcript/message/52234064#52234064
+            // by https://stackoverflow.com/users/10607772/double-beep
+            document
+                .body
+                .addEventListener("click", event => {
+                    if (event.target.type === "button" || event.target.nodeName === "BUTTON") {
+                        const buttonText = event.target.innerText.trim();
 /*
-                    console.log(USERSCRIPTNAME + " - shadowRadiosToButtons - EventListener ------",
-                                {type : event.target.type,
-                                 nodeName : event.target.nodeName,
-                                 tagName : event.target.tagName,
-                                 buttonText,
-                                 length : buttonText.length,
-                                 innerHRML : event.target.innerHTML.trim(),
-                                });
+   // Do not remove this block. It's used to find the text of button elements that's yet unhandled.
+                        console.log(USERSCRIPTNAME + " - shadowRadiosToButtons - EventListener ------",
+                                    {type : event.target.type,
+                                     nodeName : event.target.nodeName,
+                                     tagName : event.target.tagName,
+                                     buttonText,
+                                     length : buttonText.length,
+                                     innerHRML : event.target.innerHTML.trim(),
+                                    });
 */
 
-                    // https://chat.stackoverflow.com/transcript/message/52273768#52273768
-                    const [buttonsActionEntry] =
-                            [
-                              ["Skip"         , isSkip],
-                              ["Other answers", (content) => /^(Other a|A)nswer/.test(content)],
-                            ].find(([_actionEntry, expr]) => expr(buttonText))
-                        || [buttonText];
+                        // https://chat.stackoverflow.com/transcript/message/52273768#52273768
+                        const [buttonsActionEntry] =
+                                [
+                                  ["Skip"         , isSkip],
+                                  ["Other answers", (content) => /^(Other a|A)nswer/.test(content)],
+                                ].find(([_actionEntry, expr]) => expr(buttonText))
+                            || [buttonText];
 
-                    // console.log(USERSCRIPTNAME + " - shadowRadiosToButtons ------", {buttonsActionEntry} );
-                    changeState(buttonsActions.get(buttonsActionEntry));
-                }
-            });
+                        changeState(buttonsActions.get(buttonsActionEntry));
+                    }
+                 });
                                                    // ".js-actions-sidebar" (has both mobile and desktop)
             const sidebar = document.querySelector(actions.radioActionsBox);
             if (sidebar) sidebar.style.display = "none";
@@ -527,22 +862,24 @@
         // add the radios as buttons
         const radioButtons =            // ".js-action-radio-parent"
             [...actionBox.querySelectorAll(actions.radioParent)]
-                .map((element) => {
-                    const radio = element.querySelector("input[type=radio]");
-                    const label = element.querySelector("label"); // The text part
+                .map(element => {
+                         const radio = element.querySelector("input[type=radio]");
+                         const label = element.querySelector("label"); // The text part
+                         const p = element.querySelector("p");         // The instruction tip
 
-                    // https://stackoverflow.com/a/50346460/12695027 by https://stackoverflow.com/users/2495645/anthony-rutledge
-                    if (radio
-                          && label
-                          && label.firstChild
-                          && label.firstChild.nodeType === Node.TEXT_NODE) {
-                        // const buttonContent = label.firstChild.nodeValue.trim();
-                        // return createButton(buttonContent, [radio, submitButton]);
-                        return createButton(label.firstChild.nodeValue.trim(), [radio, submitButton]);
-                    } else {
-                        console.error(USERSCRIPTNAME + " - " + config.error + " - shadowRadiosToButtons");
-                    }
-                });
+                         // https://stackoverflow.com/a/50346460/12695027
+                         // by https://stackoverflow.com/users/2495645/anthony-rutledge
+                         if (radio
+                               && p
+                               && label
+                               && label.firstChild
+                               && label.firstChild.nodeType === Node.TEXT_NODE) {
+                             return createButton({ value: label.firstChild.nodeValue.trim(), tip: p.textContent },
+                                                 [radio, submitButton]);
+                         } else {
+                             console.error(USERSCRIPTNAME + " - " + config.error + " - shadowRadiosToButtons");
+                         }
+                 });
         if (!radioButtons.length)
             return;
         container.append(...radioButtons);
@@ -554,14 +891,23 @@
         const skipContent = skipButton.textContent.trim();
         if (!isSkip(skipContent))
             return;
-        container.append(createButton(skipContent, [skipButton]));
+        container.append(createButton({ value: skipContent }, [skipButton]));
 
         // Put all the buttons on the filter line
         moveToFilterLine(container);
 
+        // start the new buttons as disabled until the actionDelay has passed. Except for Skip.
+        changeState(state.SKIP);
+        let { actionDelay } = reviewResponse;
+        if (!actionDelay || isNaN(actionDelay))
+            actionDelay = 0;
+        await new Promise((resolve) => setTimeout(resolve, actionDelay));  // making the sidebar box catch up
+        changeState(state.ENABLE);
+
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
         const buttonsActions =
-            new Map([["Reject", state.NOOP],                // Reject will open up a modal
+            new Map([
+                     ["Reject", state.NOOP],                // Reject will open up a modal
                      ["", state.NOOP],                      // The X on the top right of the modal
                      ["Submit", state.NOOP],
                      ["Skip", state.SKIP],
@@ -585,27 +931,29 @@
                      ["Reviewer stats", state.NOOP],        // Completed reviews
                      ["Restore tab settings", state.NOOP],  // From the GUI
                      ["Apply & Exit", state.NOOP],          // ^ same
+                     ["✖", state.NOOP],                    // GUI and Notice if Svg is unavailable
                    ]);
 
         // -------    createNewDiv    --------------------
         function createNewDiv() {
             const newDiv = document.createElement("div");
             newDiv.id = buttonsId;
-            newDiv.classList.add(flexContainer, marginXAxis, gap4px);
+            newDiv.classList.add(flexContainer, gap4px);
             return newDiv;
         }
 
         // -------    createButton    --------------------
         // https://stackoverflow.design/product/components/buttons/
         function createButton(content, realButtons) {
-            const { buttons: buttonClasses, flex: { item } } = config.classes;
+            const { buttons : buttonClasses, display: { cell } } = config.classes;
 
             const button = document.createElement("button");
             button.type = "button";
-            button.classList.add(buttonClasses.button, item);
-            button.textContent = content;
+            button.classList.add(buttonClasses.button, cell);
+            button.textContent = content.value;
+            if (tooltips && content.tip) button.title = content.tip;
 
-            if (isSkip(content)) {
+            if (isSkip(content.value)) {
                 button.style.minWidth = "70px";  // So the Skip button size doesn't change size when ".is_loading"
                 button.classList.add(buttonClasses.outlined);
             } else {
@@ -613,8 +961,8 @@
             }
 
             button.addEventListener("click", () => {
-                realButtons.forEach((realButton) => realButton.click());
-            });
+                                                 realButtons.forEach(real => real.click());
+                                    });
             return button;
         }
 
@@ -622,7 +970,7 @@
         function changeState(changeTo) {
             if (!changeTo) {
                 console.error(USERSCRIPTNAME + " - shadowRadiosToButtons - No such state");
-                return; // do a state.NOOP
+                return; // effectively do a state.NOOP
             }
 
             if (changeTo === state.NOOP)
@@ -639,18 +987,24 @@
 
             switch (changeTo) {
                 case state.SKIP    : [...buttonBox.children]
-                                        .forEach((button) => {
-                                                    button.disabled = true;
-                                                    if (isSkip(button.textContent)) { // "is-loading"
-                                                        button.classList.add(loading);
-                                                    }
-                                                });
+                                        .forEach(button => {
+                                                     if (isSkip(button.textContent)) { // "is-loading"
+                                                         button.classList.add(loading);
+                                                     } else {
+                                                         button.disabled = true;
+                                                     }
+                                         });
                     break;
                 case state.DISABLE : [...buttonBox.children]
-                                         .forEach((button) => button.disabled = true);
+                                         .forEach(button => button.disabled = true);
                     break;
                 case state.ENABLE  : [...buttonBox.children]
-                                         .forEach((button) => button.disabled = false);
+                                        .forEach(button => {
+                                                     button.disabled = false;
+                                                     if (isSkip(button.textContent)) {
+                                                         button.classList.remove(loading);
+                                                     }
+                                         });
                     break;
                 case state.HIDE    : buttonBox.classList.add(desktopHide);
                     break;
@@ -692,7 +1046,7 @@
                 minimal,
               } = config.classes.userCards;
         const {
-                flex: { container: flexContainer, item: flexItem, gap4px },
+                display: { container: flexContainer, cell: flexItem, gap4px },
                 minWidth2,
                 fsBody1
               } = config.classes;
@@ -784,19 +1138,22 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function getUserCards() { // must wait for ajax
-
-        if (userConfig.options.userCards.getUserCards !== "Yes")
+        if (deepGet(userConfig, "options.userCards.getUserCards") !== "Yes")
             return;
 
         const { ids: { custom: { userCards } },
                 selectors: { content: { reviewPost } },
+                classes: { display: { container } }
               } = config;
 
         if (document.getElementById(userCards))
             return; // One is quite enough :)
 
         const originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex
-                  = document.querySelector(reviewPost).children[2]; // ".postcell"
+                  = document.querySelector(`${reviewPost} > .${container}`); // ".postcell > .d-flex"
+
+        if (!originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex)
+            return;
 
         originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainerFlex);
@@ -805,11 +1162,11 @@
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
             const { selectors: { content: { originalPost } },
-                    classes: { answers, userCards: { signature } },
+                    classes: { answers, userCards: { signature } }
                   } = config;
 
             const originalPostLink = document.querySelector(`${originalPost} a`);
-            if (!originalPostLink) // This is null in case of a Tag Wiki edit
+            if (!originalPostLink) // This is undefined in case of a Tag Wiki edit
                 return false;
 
             const { href: postlink, hash, classList } = originalPostLink;
@@ -878,8 +1235,11 @@
                 console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
                 userCardsContainerAll.appendChild(missingCards(messages));
             }
-            if (userConfig.options.radioVsButtons.moveRadioBox !== "Yes")
+
+            // Only necessary when keeping the Radio Button Box
+            if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
                 userCardsContainerAll.style.width = adjustUserCardsWidth();
+
 
             // -------    stacksifyUserCards    --------------------
             function stacksifyUserCards(original) {
@@ -930,14 +1290,14 @@
                 NoUserCardDiv.style.margin = "6px";
 
                 const messageElements =
-                          messages.map((message) => {
-                              const info = document.createElement("h4");
-                              info.textContent = message;
-                              info.style.color = "var(--theme-body-font-color)";
-                              // info.style.color = "var(--black-750)";
-                              info.style.padding = "2px";
-                              return info;
-                          });
+                    messages
+                        .map(message => {
+                                 const info = document.createElement("h4");
+                                 info.textContent = message;
+                                 info.style.color = "var(--theme-body-font-color)";
+                                 info.style.padding = "2px";
+                                 return info;
+                         });
                 NoUserCardDiv.append(...messageElements);
 
                 return NoUserCardDiv;
@@ -945,8 +1305,8 @@
 
             // -------    createNewDiv    --------------------
             function createNewDiv(horizontal = true) {
-                const { ids: {custom: {userCards} },
-                        classes: {flex: {container} }
+                const { ids: { custom: { userCards } },
+                        classes: { display: { container } }
                       } = config;
 
                 const newDiv = document.createElement("div");
@@ -959,10 +1319,13 @@
         } // originalPostUserCards
 
         // -------    editorUserCard    ---------------------
-        async function editorUserCard(userCardsContainerAll) {
+        function editorUserCard(userCardsContainerAll) {
+            if (!userCardsContainerAll)
+                return;
+
             const editProposedTime = userCardsContainerAll.querySelector("span");
                                                                          // ".s-user-card.s-user-card__minimal
-            const minimalUserCard = userCardsContainerAll.querySelector(config.selectors.userCards.minimal);
+            const minimalUserCard = userCardsContainerAll.querySelector("." + config.classes.sUserCards.cardMinimal);
             if (!editProposedTime)
                 return;
 
@@ -973,7 +1336,7 @@
                 return;
             }
 
-            minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue
+            minimalUserCard.parentElement.classList.add("ai-center"); // spacing issue FIXME! config..
             // Getting the editor user id
             const userLink = minimalUserCard.querySelector("a");
             if (!userLink)
@@ -983,26 +1346,32 @@
             const queueNumber = 1; // there must be a "1" queue-number :)
             const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
 
-            try {
-                const userInfoRequest = await fetch(userInformationUrl);
-                if (!userInfoRequest.ok) throw new Error("Response status was: " + userInfoRequest.status);
-                const userInformation = await userInfoRequest.text();
+            // Oleg says to change to async and use "await fetch" and "await reponse" instead
+            // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
+            fetch(userInformationUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Response status was: " + response.status);
+                    }
+                    return response.text();
+                 })
+                .then(data => {
+                    const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
+                    const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
 
-                const editorReviewStats = new DOMParser().parseFromString(userInformation, "text/html");
-                const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
+                    // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
+                    minimalUserCard.before(editorUserCard);
 
-                // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
-                minimalUserCard.before(editorUserCard);
+                    minimalUserCard.remove();
+                    editProposedTime.remove();
 
-                minimalUserCard.remove();
-                editProposedTime.remove();
-
-                if (userConfig.options.userCards.withEditiorStats === "Yes") {
-                    insertEditorStatistics(editorUserCard, editorUserid);
-                }
-            } catch (error) {
-                console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
-            }
+                    if (deepGet(userConfig, "options.userCards.withEditiorStats") === "Yes") {
+                        insertEditorStatistics(editorUserCard, editorUserid);
+                    }
+                 })
+                .catch((error) => {
+                    console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
+                 });
 
             // -------    createSuggestorsUserCard    --------------------
             function createSuggestorsUserCard(editorReviewStats, editProposedTime) {
@@ -1028,6 +1397,73 @@
                 return createUserCard(userCardConfig);
             } // createSuggestorsUserCard
 
+/*
+            // -------    createUserCard    --------------------
+            function createUserCard(editorReviewHover, editProposedTime) {
+                // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
+
+                const { classes: { display: { cell } , userCards },
+                           size: { gravatarSmall },
+                            ids: { custom: { editorCard : editorCardId } }
+                      } = config;
+
+                const editorCardContainer = document.createElement("div");
+                editorCardContainer.id = editorCardId;
+                editorCardContainer.classList.add(userCards.signature,              // "post-signature"
+                                                  cell);                            // "grid--cell"
+
+                const editorCardDiv = document.createElement("div");
+                editorCardDiv.classList.add(userCards.info);                        // "user-info"
+
+                const actionTime = document.createElement("div");
+                actionTime.classList.add(userCards.actionTime);                     // "user-action-time"
+                actionTime.textContent = "proposed "; // editProposedTime.textContent;
+                actionTime.appendChild(editProposedTime.firstElementChild);
+
+                const editorGravatar
+                    = editorReviewHover.querySelector(`.${userCards.um.gravatar}`);
+                if (!editorGravatar)
+                    return;
+                const { classList : editorGravatarClassList } = editorGravatar;
+                editorGravatarClassList.remove(userCards.um.gravatar);             // "um-gravatar"
+                editorGravatarClassList.add(userCards.gravatarSmall);              // "user-gravatar32"
+
+                const editorGravatarDiv
+                    = editorGravatar.querySelector(`.${userCards.gravatarWrap}`);
+                if (!editorGravatarDiv)
+                    return;
+                const { classList : editorGravatarDivClassList } = editorGravatarDiv;
+                editorGravatarDivClassList.remove(userCards.gravatarWrap);         // "gravatar-wrapper-64"
+                editorGravatarDivClassList.add(userCards.gravatarSmallWrap);       // "gravatar-wrapper-32"
+
+                const editorGravatarImg = editorGravatarDiv.querySelector("img");
+                if (!editorGravatarImg)
+                    return;
+                editorGravatarImg.style.height
+                    = editorGravatarImg.style.width
+                    = gravatarSmall; // "32"
+
+                const editorFlairDiv = document.createElement("div");
+                editorFlairDiv.classList.add(userCards.details);                    // "user-details"
+                const editorUserNameLink
+                    = editorReviewHover.querySelector(`.${userCards.um.header} a`); // "um-header-info"
+                if (!editorUserNameLink)
+                    return;
+
+                const editorFlair = editorReviewHover.querySelector(`.${userCards.um.flair}`);
+                if (!editorFlair)
+                    return;
+                const { classList : editorFlairClassList } = editorFlair;
+                editorFlairClassList.remove(userCards.um.flair);                   // "um-flair"
+                editorFlairClassList.add(userCards.flair);                         // "-flair"
+
+                editorFlairDiv.append(editorUserNameLink, editorFlair);
+                editorCardDiv.append(actionTime, editorGravatar, editorFlairDiv);
+                editorCardContainer.appendChild(editorCardDiv);
+
+                return editorCardContainer;
+            } // createUserCard
+*/
         } // editorUserCard
     }
 
@@ -1037,13 +1473,11 @@
     function removeLineThrough() {
         // https://chat.stackoverflow.com/transcript/message/52312565#52312565 (code-review)
 
-        if (userConfig.options.removeLineThrough !== "Yes")
+        if (deepGet(userConfig, "options.removeLineThrough") !== "Yes")
             return;
 
         // https://www.rainbodesign.com/pub/css/css-javascript.html
         // https://usefulangle.com/post/39/adding-css-to-stylesheet-with-javascript
-
-        // text-decoration: initial !important;
 
         const style = document.createElement("style");
         document.head.appendChild(style);
@@ -1052,10 +1486,676 @@
             return;
 
         styleSheet.insertRule(`
-              ${config.lineThrough} {
+              ${config.selectors.diffs.diffDelete} {
                    text-decoration: initial;
               }`);
+    }
 
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    function addLinksToTitles() { // must wait for ajax
+        if (deepGet(userConfig, "options.linksOnTitles") !== "Yes")
+            return;
+
+        const { selectors: { postTitleFontSize },
+                classes: { postSummary: { base, title } } } = config;
+
+        // Possibly needs to be updated according to double-beep's suggestion
+        // here: https://chat.stackoverflow.com/transcript/message/52466958#52466958
+
+        const titles = document.querySelectorAll(`h1${postTitleFontSize}`);
+        if (titles.length > 0) {
+            const link = document.querySelector(`.${base} .${title} a`);
+            if (!link)
+                return;
+            const href = link.href;
+            if (href)
+                [...titles]
+                    .forEach(title => {
+                                 const containingLink = document.createElement("a");
+                                 containingLink.href = href;
+                                 title.replaceWith(containingLink);
+                                 containingLink.append(title);
+                     });
+        }
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    async function StackSummary() { // must wait for ajax
+        if (deepGet(userConfig, "options.postSummary.useStackSummary") !== "Yes")
+            return;
+
+        // https://stackoverflow.design/product/components/post-summary/
+        // https://stackoverflow.design/product/components/badges/
+
+        const { classes: { postSummary: { base : summaryBase, item, stats, hasAnswers, hasAccepted,
+                                          content, title : summaryTitle, contentTitle, link,
+                                          warm, hot, supernova,
+                                          summaryStat, summaryAnswers, summaryAccepted },
+                           tags: { meta, metaTag, tag : sTag, },
+                           badges: { base : badgeBase,  small : badgeSmall, green, red, grey },
+                           sUserCards: { card, carlSmall, cardTime, cardAwards, cardRep, cardLink,
+                                         avatar, cardAvatar, image : cardImage, cardDeleted } },
+               selectors: { postSummary, diffs: { diffAdd }, badges : existingBadges, content: { task } },
+               ids: { custom: { postSummary : postSummaryId } }
+              } = config;
+
+        const viewHeatMap = [
+                  [supernova, 100000, () => Svg.FireSm.With("va-text-bottom mrn2").get(0)],
+                  [hot,       10000],
+                  [warm,      1000],
+        ];
+        // https://chat.stackoverflow.com/transcript/214345?m=52503624#52503624
+                                               // in case I forget that it needs to be sorted
+        const getHeat = (views) => viewHeatMap.sort(([_heatThis,tis],[_heatThat,tat]) => tat - tis)
+                                              .find(([_heat, amount]) => views >= amount)
+                                   || [];
+
+        const badgeMap = [
+                  [grey,  (score) => score === 0],
+                  [green, (score) => score > 0],
+                  [red,   (score) => score < 0],
+        ];
+
+        const existingPostSummary = document.querySelector(`.${summaryBase}`);
+        if (!existingPostSummary)
+            return;
+        const existingTitleLink = existingPostSummary.querySelector(`.${summaryTitle} a`);
+        if (!existingTitleLink)
+            return;
+
+        let usingAPI = deepGet(userConfig, "options.postSummary.useAPI") === "Yes";
+        const questionId = existingTitleLink.href.toString().split("/")[4];
+        const postAPI = usingAPI ? await getQuestion(questionId) : { };
+        if (!postAPI || Object.getOwnPropertyNames(postAPI).length === 0) {
+            usingAPI = false;
+        }
+
+        if (usingAPI) {
+
+            const { owner: { badge_counts, reputation,
+                             link : userAccountLink, profile_image, display_name },
+                    tags : postTags,
+                    creation_date : postEpocs,
+                    title : postTitle, closed_date, closed_reason,
+                    view_count, score : postScore,
+                    accepted_answer_id, answer_count
+                  } = postAPI;
+
+            const answers = createAnswers((answer_count !== 0), // postAPI.is_answered, <-- means no positive scored
+                                          accepted_answer_id,
+                                          answer_count + (answer_count !== 1 ? " answers" : " answer"));
+
+            const score = createScore(postScore);
+            const views = createViews(view_count);
+            const leftContainer = createLeftContainer(answers, score, views);
+
+            const titleText = postTitle
+                                 + (closed_date
+                                      ? closed_reason === "Duplicate"
+                                          ? " [duplicate]"
+                                          : " [closed]"
+                                      : "");
+
+            // postAPI.postLink is never the Answer link.
+            const title = createTitle(existingTitleLink.href, titleText);
+
+            const tags = [...postTags]
+                             .map(tag => {
+                                      const newTag = document.createElement("a");
+                                      newTag.href = `https://stackoverflow.com/questions/tagged/${tag}`;
+                                      newTag.classList.add(sTag);
+                                      newTag.textContent = tag;
+                                      newTag.title = `show questions tagged '${tag}'`;
+                                      return newTag;
+                              });
+            const tagContainer = createTags(tags);
+
+            const achievements = { };
+            if (reputation) {
+                achievements.reputation = { amount: formatAmount(reputation, "reputation"),
+                                            title : "reputation score" };
+                if (badge_counts)
+                    achievements.badges = badge_counts;
+            }
+
+            const postedTime = { dateDiff : customPrettyDateDiff(postEpocs),
+                                 timeUTC  : absoluteTime(postEpocs) };
+
+            const user = createUser(userAccountLink, display_name, profile_image, achievements, postedTime);
+
+            const rightContainer = createRightContainer (title, tagContainer, user);
+            attachToReview(existingPostSummary, leftContainer, rightContainer);
+
+        } else { // not usingAPI. This always applies to deleted posts.
+
+            const existingStats = existingPostSummary.querySelectorAll(`.${summaryStat}`);
+
+            if (existingStats.length < 2)
+                return;
+            const existingAnswers = existingStats[1];
+            const existingVotes   = existingStats[0];
+
+            const answers = createAnswers(existingAnswers.classList.contains(summaryAnswers),
+                                          existingAnswers.classList.contains(summaryAccepted),
+                                          existingAnswers.textContent.trim());
+
+            const existingScore = existingVotes.textContent.trim().replace(" votes","").replace(" vote","");
+            const score = createScore(existingScore);
+
+            const existingUser = document.querySelector(postSummary.user);
+            if (!existingUser)
+                return;
+            const existingViews = existingUser.lastElementChild;
+            const viewsItem = existingViews.querySelector("span[title]");
+            if (!viewsItem)
+                return;
+            const totalViews = viewsItem.title.replace("Viewed ","").replace(" times","").replace(",","");
+            const views = createViews(totalViews);
+
+            const leftContainer = createLeftContainer(answers, score, views);
+
+            const title = createTitle(existingTitleLink.href, existingTitleLink.textContent);
+
+            const existingtags = document.querySelectorAll(`${task} ${postSummary.tags}`); // ".post-tag"
+            const tags = [...existingtags]
+                             .filter(tag => !tag.querySelector(diffAdd)) // remove edit added tags
+                             .map(tag => {
+                                      const newTag = tag.cloneNode();
+                                      newTag.className = sTag;
+                                      newTag.textContent = tag.textContent;
+                                      return newTag;
+                              });
+            const tagContainer = createTags(tags);
+
+            const existingUserCard = existingUser.firstElementChild;
+            if (!existingUserCard)
+                return;
+                                                                    // ".pr8"
+            const existingUserSpan = existingUserCard.querySelector(postSummary.userLink);
+            if (!existingUserSpan)
+                return;
+            const existingUserLink = existingUserSpan.querySelector("a");
+                                                                    // ".pr4"
+            const existingUserAvatarSpan = existingUserCard.querySelector(postSummary.userAvatar);
+            if (!existingUserAvatarSpan)
+                return;
+
+            const existingUserAvatarImage = existingUserCard.querySelector(postSummary.userAvatar + " img");
+
+            // - reputation and badges                              // ".pr16"
+            const existingUserAwards = existingUserCard.querySelector(postSummary.userAwards);
+            if (!existingUserAwards)
+                return;
+
+            const achievements = { };
+                                                                    // ".reputation-score"
+            const existingUserScore = existingUserAwards.querySelector(postSummary.userReputation);
+            if (existingUserScore) {
+                achievements.reputation = { amount : existingUserScore.textContent,
+                                            title  : existingUserScore.title.trim() };
+                const existsBadges = existingUserAwards.querySelector(existingBadges);
+                if (existsBadges) {
+                    achievements.badges = { };
+                    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
+                    for (const bling of ["gold","silver","bronze"]) {
+                        const award = existingUserAwards.querySelector(`[title~=${bling}]`);
+                        achievements.badges[bling] = award ? parseInt(award.textContent) : 0;
+                    }
+                }
+            }
+
+            const existingTime = existingUserCard.nextElementSibling;
+            if (!existingTime)
+                return;
+            const existingDetails = existingTime.querySelector("span[title]");
+            if (!existingDetails)
+                return;
+            const postedTime = { dateDiff : existingDetails.textContent,
+                                 timeUTC  : existingDetails.title };
+
+            const user = createUser(existingUserLink ? existingUserLink.href : false,
+                                    existingUserLink
+                                                ? existingUserLink.textContent
+                                                : existingUserSpan.textContent,
+                                    existingUserAvatarImage
+                                                ? existingUserAvatarImage.src
+                                                : false,
+                                    achievements,
+                                    postedTime);
+
+            const rightContainer = createRightContainer (title, tagContainer, user);
+            attachToReview(existingPostSummary, leftContainer, rightContainer);
+        }
+
+        // ---  answers ---
+        function createAnswers(isAnswered, hasAcceptedAnswer, text) {
+            const answers = document.createElement("div");
+            answers.classList.add(item);
+            if (isAnswered) {
+                answers.classList.add(hasAnswers);
+            }
+            if (hasAcceptedAnswer) {
+                answers.classList.add(hasAnswers, hasAccepted);
+                if (typeof Svg !== "undefined") {
+                    answers.append(Svg.CheckmarkSm.With("va-text-bottom").get(0));
+                } else {
+                    answers.textContent = "✓"; // https://codepoints.net/U+2713
+                }
+            }
+            // do NOT use answers.textContent when having an svg appended.
+            answers.append(EMPTY + text);
+            return answers;
+        }
+
+        // ---  score ---
+        function createScore(postScore) {
+            const scoreBox = document.createElement("div");
+            scoreBox.classList.add(badgeBase, badgeSmall);
+            scoreBox.classList.add(badgeMap.find(([_colour, handle]) => handle(parseInt(postScore)))[0]);
+            scoreBox.textContent = postScore;
+            scoreBox.style.paddingTop = "2px";
+            scoreBox.style.marginTop = "-1px";
+
+            const score = document.createElement("div");
+            score.classList.add(item);
+            score.textContent = "score ";
+            score.append(scoreBox);
+            return score;
+        }
+
+        // ---  views ---
+        function createViews(viewCount) {
+            const view = document.createElement("div");
+            view.classList.add(item);
+            const heat = getHeat(viewCount);
+            if (heat.length > 0) {
+                view.classList.add(heat[0]);
+                if (heat[2]) {
+                    if (typeof Svg !== "undefined") {
+                        view.append(heat[2]());
+                    } else {
+                        view.append("🔥"); // https://codepoints.net/U+1F525
+                    }
+                }
+            }
+            view.append(EMPTY + formatAmount(viewCount, "views") + " views");
+            if (viewCount > 1000) view.title = viewCount;
+            view.style.marginTop = "-4px";
+            return view;
+        }
+
+        // first container
+        function createLeftContainer (answers, score, view) {
+            const leftContainer = document.createElement("div");
+            leftContainer.classList.add(stats);
+            leftContainer.style.flexDirection = "column";
+            leftContainer.style.flexWrap = "wrap";
+            leftContainer.style.alignItems = "flex-end";
+            leftContainer.style.marginTop = "8px";
+            leftContainer.style.paddingRight = "10px";
+            leftContainer.append(answers, score, view);
+            return leftContainer;
+        }
+
+
+        // ---  Posttitle and link ---
+        function createTitle(link, text) {
+            const title = document.createElement("a");
+            title.classList.add(contentTitle, link);
+            title.href = link;
+            title.innerText = text;
+            return title;
+        }
+
+        // ---  tags ---
+        function createTags(tags) {
+            const metaTags = document.createElement("div");
+            metaTags.classList.add(metaTag);
+            metaTags.append(...tags);
+            const metaContainer = document.createElement("div");
+            metaContainer.classList.add(meta);
+            metaContainer.append(metaTags);
+            return metaContainer;
+        }
+
+        // ---  just the displayName ---
+        function createUserName(userAccountLink, userDisplayName) {
+            const userName = userAccountLink
+                                  ? document.createElement("a")
+                                  : document.createElement("span");
+            if (userAccountLink) {
+                userName.classList.add(cardLink); // "s-user-card--link"
+                userName.href = userAccountLink;
+            }
+            userName.textContent = userDisplayName;
+            userName.style.fontSize = "100%";
+            userName.style.paddingLeft = "5px";
+            return userName;
+        }
+
+        // ---  just the avatar ---
+        function createUserAvatar(userAccountLink, profileImage) {
+            const userAvatarImage = document.createElement("img");
+            userAvatarImage.classList.add(cardImage); // "s-avatar--image"
+            userAvatarImage.src = userAccountLink
+                                     ? profileImage
+                                     : "https://i.stack.imgur.com/2Ajgx.png"; // anonymous
+                                     // <span class="anonymous-gravatar"></span>
+            userAvatarImage.style.width = "20px";
+            userAvatarImage.style.height = "20px";
+            const userAvatar = userAccountLink
+                                  ? document.createElement("a")
+                                  : document.createElement("span");
+            userAvatar.classList.add(avatar, cardAvatar); // "s-avatar","s-user-card--avatar"
+            userAvatar.style.backgroundColor = "var(--white)";
+            if (userAccountLink) userAvatar.href = userAccountLink;
+            userAvatar.append(userAvatarImage);
+            return userAvatar;
+        }
+
+        // ---  just the score and badges ---
+        function createUserAchievements(achievements) {
+            const userScore = document.createElement("li");
+            userScore.classList.add(cardRep); // "s-user-card--rep"
+            userScore.textContent = achievements.reputation.amount;
+            userScore.title = achievements.reputation.title;
+
+            const userAwards = document.createElement("ul");
+            userAwards.classList.add(cardAwards); // "s-user-card--awards"
+            userAwards.append(userScore);
+
+            const { badges } = achievements;
+            if (badges) {
+                addBling(userAwards, badges.gold, "gold");
+                addBling(userAwards, badges.silver, "silver");
+                addBling(userAwards, badges.bronze, "bronze");
+            }
+            return userAwards;
+        }
+
+        // --- asked x time ago
+        function createPostedTime({ dateDiff, timeUTC }) {
+            const time = document.createElement("time");
+            time.classList.add(cardTime); //"s-user-card--time"
+            time.textContent = "asked " + dateDiff;
+            time.title = timeUTC;
+            time.style.fontSize = "100%";
+            time.style.paddingLeft = "15px";
+            return time;
+        }
+
+        // --- the entire user element with "x time ago" appended
+        function createUser(userAccountLink, userDisplayName, profileImage, achievements, postedTime) {
+            const userName = createUserName(userAccountLink, userDisplayName);
+            const userAvatar = createUserAvatar(userAccountLink, profileImage);
+
+            const user = document.createElement("div");
+            user.classList.add(card, carlSmall); // "s-user-card","s-user-card__small"
+            user.style.alignItems = "baseline";
+            user.style.paddingLeft = "0px";
+            user.style.paddingTop = "6px";
+
+            user.append(userAvatar, userName);
+            if (!achievements || Object.getOwnPropertyNames(achievements).length === 0) {
+               user.classList.add(cardDeleted);
+            } else {
+               user.append(createUserAchievements(achievements));
+            }
+            user.append(createPostedTime(postedTime));
+
+            return user;
+        }
+
+        // second container
+        function createRightContainer (title, metaContainer, userNtime) {
+            const rightContainer = document.createElement("div");
+            rightContainer.classList.add(content);
+            rightContainer.append(title, metaContainer, userNtime);
+            return rightContainer;
+        }
+
+        // both containers - this is the new summary
+        function attachToReview(existingPostSummary, leftContainer, rightContainer) {
+            const container = document.createElement("div");
+            container.classList.add(summaryBase);
+            container.append(leftContainer, rightContainer);
+            container.id = postSummaryId;
+
+            existingPostSummary.before(container);
+            existingPostSummary.remove();
+
+            const parent = container.parentElement;
+            if (parent) parent.style.marginTop = "-5px";
+        }
+
+        // --- badges
+        function addBling(awardElement, amount, bling) {
+            const { sUserCards } = config.classes;
+
+            if (amount > 0) {
+                const userBling = document.createElement("li");
+                userBling.classList.add(sUserCards.bling, sUserCards[bling]);
+                userBling.textContent = amount;
+                awardElement.append(userBling);
+            }
+        }
+
+        // --- apiRequest
+        async function getQuestion(questionId) {
+            const site      = window.location.hostname; // "stackoverflow.com"
+            // const apiFilter = "!)Q0(GDAJF0rK.NSRF4Z.*)8J";  // safe filter. Will escape HTML tags and stuff.
+            const apiFilter = "2Sh2Sk4rekX3O-Gbo7h.)Glw";  // unsafe to make it equvalent to taking it from the page itself.
+            const apiKey    = config.apiKey;
+            const apiUrl = `${API_BASE}/${API_VER}/questions/${questionId}?filter=${apiFilter}&site=${site}&key=${apiKey}`;
+
+            const apiResponse = await fetch(apiUrl);
+            if (!apiResponse.ok)
+                return { };
+            const result = await apiResponse.json();
+
+            checkAPIResult(result);
+            // console.log("APIresult", result);
+            // console.log("APIresultPost", result.items[0]);
+            return result.items[0];
+        };
+
+        // https://stackoverflow.com/a/17633552/12695027 by https://stackoverflow.com/users/69083/guffa
+        function formatAmount(n, type = "views") {
+            const ranges = [
+                { divider: 1e9, suffix: "g", views: 0, reputation: 1 },
+                { divider: 1e6, suffix: "m", views: 1, reputation: 1 },
+                { divider: 1e3, suffix: "k", views: 0, reputation: 1 },
+            ];
+
+            const rouding = {
+                views: [
+                    [1e6, 1e5],
+                    [1e3, 1e3]
+                ],
+                reputation: [
+                    [1e6, 1e5],
+                    [1e5, 1e3],
+                    [1e4, 100],
+                ],
+            };
+
+            if (type === "reputation" && n < 10000)
+                return n.toLocaleString("en-US");
+
+            if (n > 1000) {
+                const round = rouding[type].find(([limit, roundTo]) => n > limit)[1];
+                n = (Math.round(n / round) * round);
+            }
+
+            // https://chat.stackoverflow.com/transcript/message/52517093#52517093
+            const range = ranges.find(({ divider }) => n >= divider);
+            if (range) return +(n / range.divider).toFixed(range[type]) + range.suffix;
+
+            return n.toString();
+        }
+
+        // https://dev.stackoverflow.com/content/Js/full.en.js
+        function customPrettyDateDiff(epocSeconds, months = false) {
+            if (!epocSeconds) return;
+
+            const diff = (((new Date()).getTime() / 1000) - epocSeconds)
+                              + StackExchange.options.serverTimeOffsetSec;
+
+            if (isNaN(diff) || diff < 0)
+                return;
+
+            return (
+                !months && diff < 2 && "just now"                         ||
+                !months && diff < 60 &&
+                    (function(n){return n.seconds === 1
+                                          ? n.seconds + " sec ago"
+                                          : n.seconds + " secs ago"
+                    })({seconds: Math.floor(diff)})                       ||
+                !months && diff < 120 && "1 min ago"                      ||
+                !months && diff < 3600 &&
+                    (function(n){return n.minutes === 1
+                                          ? n.minutes + " min ago"
+                                          : n.minutes + " mins ago"
+                    })({minutes: Math.floor(diff / 60)})                  ||
+                !months && diff < 7200 && "1 hour ago"                    ||
+                !months && diff < (86400 / 2) &&
+                    (function(n){return n.hours === 1
+                                          ? n.hours + " hour ago"
+                                          : n.hours + " hours ago"
+                    })({hours: Math.floor(diff / 3600)})                  ||
+                !months && diff < 86400 && "today"                        ||
+                !months && diff < (86400 * 2) && "yesterday"              ||
+                !months && diff < (86400 * 7) &&
+                    (function(n){return n.days + " days ago"
+                    })({days: Math.floor(diff / 86400)})                  ||
+                !months && diff < (86400 * 30) &&
+                    (function(n){return n.weeks === 1
+                                          ? n.weeks + " week ago"
+                                          : n.weeks + " weeks ago"
+                    })({weeks: Math.floor(diff / (86400 * 7))})           ||
+                diff < (86400 * 365) &&
+                    (function(n){return n.months === 0
+                                          ? "" // this is false
+                                          : n.months === 1
+                                              ? n.months + " month ago"
+                                              : n.months + " months ago"
+                    })({months: Math.floor(diff / (86400 * 30.5))})       ||
+                !months && (function(n){
+                              const months =
+                                        customPrettyDateDiff(epocSeconds +       // add the years
+                                                               Math.floor(diff / (86400 * 365)) * (86400 * 365),
+                                                             true);
+                              return ((n.years === 1 ? n.years + " year" : n.years + " years")
+                                       + (months ? ", " + months : " ago"));
+                           })({years: Math.floor(diff / (86400 * 365))})
+            );
+        }
+
+        // https://dev.stackoverflow.com/content/Js/full.en.js
+        function absoluteTime(epocSeconds) {
+            var date = new Date();
+            date.setTime(epocSeconds * 1000);
+
+            return [
+                date.getUTCFullYear(),
+                "-", pad(date.getUTCMonth() + 1),
+                "-", pad(date.getUTCDate()),
+                " ", pad(date.getUTCHours()),
+                ":", pad(date.getUTCMinutes()),
+                ":", pad(date.getUTCSeconds()),
+                "Z"
+            ].join("");
+
+            function pad(n) {
+                return n < 10 ? "0" + n : n;
+            }
+        }
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+    function checkAPIResult(result) {
+        let limit = parseInt(deepGet(userConfig, "size.apiQuotaLimit"));
+        if (isNaN(limit)) limit = deepGet(defaultUserConfig, "size.apiQuotaLimit");
+
+        const { quota_remaining, backoff, error_message } = result;
+
+        if (quota_remaining <= limit)
+            showToast(quota_remaining, "quota");
+        if (backoff)
+            showToast(backoff, "throttle");
+        if (error_message)
+            showToast(error_message, "error");
+    }
+
+    function showToast(detail, type, guiID) {
+        const apiOptions = `<ul><li>"with editor statistics" under "Add user cards" </li>
+                                <li>"using Stack API" under "Stack Design post summary"</li></ul>`;
+        const inludeID = guiID ? ` id=${guiID}` : ""; // used in the preview
+
+        const toastMessage = {
+                 quota: `<p>${EMPTY}${USERSCRIPTNAME}.</p>
+                          <p${inludeID}>${EMPTY}You're low on API quota (remaining: ${detail}).<br/>
+                            ${EMPTY}Consider turning both of these off:</p>`
+                        + apiOptions,
+                 error: `<p>${USERSCRIPTNAME}</p>Stack API says: <p>${detail}</p>`,
+                 throttle: `<p>${EMPTY}${USERSCRIPTNAME}</p>
+                            <p>${EMPTY}Stack API says:<br/>
+                               ${EMPTY}Wait <b>${detail}</b> seconds before making another API request!</p>
+                            <p>${EMPTY}You can avoid this by turning both of these off:</p>`
+                        + apiOptions,
+        };
+
+        const { display: { container, cell, spaceBetween },
+                buttons: { button : buttonBase, notice : buttonNotice },
+                notice: { toast : sToast, base : noticeBase, warning, padding }
+              } = config.classes;
+
+        // https://stackoverflow.design/product/components/notices/
+        const button = document.createElement("button");
+        button.classList.add(buttonBase, buttonNotice);
+        button.type = "button";
+        if (typeof Svg !== "undefined") {
+            button.append(Svg.ClearSm().get(0));
+        } else {
+            button.textContent = "✖"; // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
+        }
+
+        const buttonContainer = document.createElement("div");
+        buttonContainer.classList.add(container);
+        buttonContainer.style.marginTop = "-4px";
+        buttonContainer.style.marginRight = "-2px";
+        buttonContainer.append(button);
+
+        const message = document.createElement("div");
+        message.classList.add(cell);
+        message.innerHTML = toastMessage[type];
+
+        const flexContainer = document.createElement("div");
+        flexContainer.classList.add(container, spaceBetween);
+        flexContainer.style.alignItems = "flex-start";
+        flexContainer.append(message, buttonContainer);
+
+        const aside = document.createElement("aside");
+        aside.classList.add(noticeBase, warning, padding);
+        aside.append(flexContainer);
+        if (guiID) return aside;
+
+        const toast = document.createElement("div");
+        toast.classList.add(sToast);
+        toast.setAttribute("aria-hidden", "false");
+        toast.append(aside);
+
+        button.addEventListener("click", (event) => {
+                   toast.setAttribute("aria-hidden", "true");
+               });
+
+        document.body.append(toast);
     }
 
 
@@ -1072,15 +2172,20 @@
     const EMPTY = "\u00A0"; // NO-BREAK SPACE https://codepoints.net/U+00A0
 
     const config = {
+            apiKey: "YeacD0LmoUvMwthbBXF7Lw((",//:-)) Registered Key
             ids: {
                 custom: {
-                    userCards:    PREFIX + "-UserCards",
-                    editorCard:   PREFIX + "-EditorCard",
-                    buttons:      PREFIX + "-RealButtons",
-                    postType:     PREFIX + "-PostType",
-                    actionRadios: PREFIX + "-ActionRadios",
-                    diffChoices:  PREFIX + "-DiffChoices",
-                    progressBar:  PREFIX + "-Progressbar",
+                    userCards:        PREFIX + "-UserCards",
+                    editorCard:       PREFIX + "-EditorCard",
+                    buttons:          PREFIX + "-RealButtons",
+                    postType:         PREFIX + "-PostType",
+                    actionRadios:     PREFIX + "-ActionRadios",
+                    diffChoices:      PREFIX + "-DiffChoices",
+                    keepDiffChoices:  PREFIX + "-KeepDiffChoices",
+                    progressBar:      PREFIX + "-Progressbar",
+                    postSummary:      PREFIX + "-postSummary",
+                    tagFilters:       PREFIX + "-tagFilters",
+                    tagFilterIcon:    PREFIX + "-tagFilterIcon",
                 },
             },
             error: "Oh No! Oh no-no-no-no-no! Arrrrrrrgh!...",
@@ -1088,22 +2193,38 @@
                 radios: "fieldset",
             },
             classes: {
-                flex: {
+                // https://stackoverflow.design/product/base/display/
+                display: {
+                    center: "ai-center",
+                    spaceBetween: "jc-space-between",
+                    // https://stackoverflow.design/product/base/flex/
                     container: "d-flex",
-                    item: "flex--item",
+                    cell: "flex--item",
                     // https://stackoverflow.design/product/base/flex/#gutter-classes
-                    marginXAxis: "gsx",
-                    marginYAxis: "gsy",
                     gap4px: "gs4",
-                    gap24px: "gs24",
-                    alignItemsCenter: "ai-center", // https://stackoverflow.design/product/base/flex/#align-items-classes
-                    justifyContentFlexEnd: "jc-end" // https://stackoverflow.design/product/base/flex/#justify-content
                 },
                 choiceRadios: {
-                    fieldset: ["fd-column", "p12", "gsy", "gs24"],
+                    fieldset: ["fd-column", "p12"],
                     submits: ["bt", "bc-black-3"],
                     button: "pt12",
                     widget: "s-sidebarwidget",
+                },
+                sUserCards: {
+                    card: "s-user-card",
+                    cardMinimal: "s-user-card__minimal",
+                    carlSmall: "s-user-card__small",
+                    cardTime: "s-user-card--time",
+                    cardAwards: "s-user-card--awards",
+                    cardRep: "s-user-card--rep",
+                    cardLink: "s-user-card--link",
+                    cardDeleted: "s-user-card__deleted",
+                    avatar: "s-avatar",
+                    image: "s-avatar--image",
+                    cardAvatar: "s-user-card--avatar",
+                    bling: "s-award-bling",
+                    gold: "s-award-bling__gold",
+                    silver: "s-award-bling__silver",
+                    bronze: "s-award-bling__bronze",
                 },
                 userCards: {
                     signature: "post-signature",
@@ -1119,6 +2240,7 @@
                         header: "um-header-info",
                         flair: "um-flair",
                     },
+// FIXME! Remove duplicate entries
                     // https://stackoverflow.design/product/components/user-cards/
                     base: "s-user-card",
                     deleted: "s-user-card__deleted",
@@ -1139,29 +2261,72 @@
                     avatar32px: "s-avatar__32",
                     avatarImage: "s-avatar--image"
                 },
+// END OF FIXME! Remove duplicate entries
+                badges: {
+                    base: "s-badge",
+                    small: "s-badge__sm",
+                    green: "s-badge__rep",
+                    red: "s-badge__rep-down",
+                    grey: "s-badge__votes",
+                },
                 buttons: {
                     button: "s-btn",
                     primary: "s-btn__primary",
                     outlined: "s-btn__outlined",
                     danger: "s-btn__danger",
                     muted: "s-btn__muted",
-                    small: "s-btn__sm",
-                    extraSmall: "s-btn__xs",
                     loading: "is-loading",
+                    small: "s-btn__sm",
+                    xsmall: "s-btn__xs",
+                    selected: "is-selected",
+                    group: "s-btn-group",
+                    notice: "s-notice--btn",
+                    },
+                tags: {
+                    meta: "s-post-summary--meta",
+                    metaTag: "s-post-summary--meta-tags",
+                    tag: "s-tag",
                 },
+                notice: {
+                    toast: "s-toast",
+                    base: "s-notice",
+                    warning: "s-notice__warning",
+                    padding: "p8",
+                },
+                postSummary: {
+                    base: "s-post-summary",
+                    title: "s-post-summary--title",
+                    stats: "s-post-summary--stats",
+                    item: "s-post-summary--stats-item",
+                    content: "s-post-summary--content",
+                    contentTitle: "s-post-summary--content-title",
+                    hasAnswers: "has-answers",
+                    hasAccepted: "has-accepted-answer",
+                    supernova: "is-supernova",
+                    hot: "is-hot",
+                    warm: "is-warm",
+                    link: "s-link",
+                    summaryStat: "s-post-summary--stat",
+                    summaryAnswers: "s-post-summary--has-answer",
+                    summaryAccepted: "s-post-summary--has-accepted-answer",
+                    },
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
                 desktopHide: "d-none",
-                visibilityHidden: "v-hidden", // https://stackoverflow.design/product/base/visibility/#content
                 titleSpace: "ml12",
-                textAlignCenter: "ta-center", // https://stackoverflow.design/product/base/typography/#layout-classes
+                displayBlock: "d-block",
+                negativeMargin: "mxn12",
+                filterDiff: "js-diff-choices",
+                navigation: "s-navigation-tablist",
                 minWidth2: "wmn2",            // https://stackoverflow.design/product/base/width-height/#min-width-classes
                 fsBody1: "fs-body1",          // https://stackoverflow.design/product/base/typography/#sizes
             },
             size: {
                 gravatarSmall: "32",
+                radio: "0.905em",
             },
             selectors: {
+                postTitleFontSize: ".fs-title",
                 actions: {
                     reviewTask: ".s-page-title--actions a",
                     radioActionsBox: ".js-actions-sidebar",
@@ -1175,9 +2340,12 @@
                 reviews: {
                     done: ".js-reviews-done",
                     daily: ".js-reviews-per-day",
-                    filterChoice: "#js-review-filter-id",
-                    filterDiff: ".js-diff-choices",
                     banner: "[role=status]",
+                },
+                filter: {
+                    button: ".js-review-filter-button",
+                    choices: ".js-review-filter-summary",
+                    dialog: "#js-review-filter-id",
                 },
                 title: {
                     divwrapper: ".s-page-title",
@@ -1187,6 +2355,7 @@
                     title: ".s-page-title--text",
                     header: ".s-page-title--header",
                 },
+// FIXME! Remove duplicate entries. Also compare with classes
                 userCards: {
                     default: ".s-user-card",
                     minimal: ".s-user-card__minimal",
@@ -1205,6 +2374,7 @@
                     actionTime: ".user-action-time", // action = asked/answered/edited
                     modFlair: ".mod-flair"
                 },
+// END OF FIXME! Remove duplicate entries. Also compare with classes
                 content: {
                     content: ".js-review-content",
                     originalPost: ".js-question-title-link",
@@ -1213,16 +2383,30 @@
                     reviewMargin: ".votecell",
                     revision: "#panel-revision",
                     tabs: ".js-review-tabs",
+                    task: ".js-review-task",
                 },
+                postSummary: {
+                    user: ".d-flex.fw-wrap.ai-center.gs12",
+                    userAvatar: ".pr4", // ".pr4 a"
+                    userLink: ".pr8", // ".pr8 a"
+                    userAwards: ".pr16",
+                    userReputation: ".reputation-score",
+                    tags: ".post-tag",
+                },
+                diffs: {
+                    diffDelete: "span.diff-delete",
+                    diffAdd: "span.diff-add",
+                },
+                badges: ".v-visible-sr",
+                fullReview: "content", // <-- no #. to be used with getElementById.
             },
-            lineThrough: "span.diff-delete",
     };
 
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function moveProgress() { // must wait for ajax
-        if (userConfig.options.moveProgressBar !== "Yes")
+        if (deepGet(userConfig, "options.moveProgressBar") !== "Yes")
             return;
 
         // -------    selectActions    --------------------
@@ -1240,7 +2424,7 @@
         moveProgressToElement(action, colour, dailyElem, reviewedElem);
     }
 
-    function moveProgressToElement(element, colour, dailyElem, reviewedElem, hide = true) { // must wait for ajax
+    function moveProgressToElement(element, colour, dailyElem, reviewedElem, hide = true) {
 
         // -------    trimNumericString    ----------------
         const trimNumericString = (text) => text.replace(/\D/g, "");
@@ -1271,7 +2455,6 @@
 
         // -------    moveProgressToTabs    ---------------
         const moveProgressToTabs = (action) => {
-
             if (!dailyElem || !reviewedElem)
                 return false;
             const daily = trimNumericString(dailyElem.textContent || "0");
@@ -1298,33 +2481,38 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function changePageTitle() {
-        if (userConfig.options.movePageTitleLink !== "Yes")
+        if (deepGet(userConfig, "options.movePageTitleLink") !== "Yes")
             return;
 
         // -------    createFlexItem    --------------------
-        const createFlexItem = () => {
+        const createFlexItem = (cnf) => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.flex.item); // "flex--item"
+            elem.classList.add(cnf.classes.display.cell);
             return elem;
         };
 
         // -------    removeTitleLines    --------------------
-        const removeTitleLines = (cnf, wrapper) => (wrapper || document)
-            .querySelectorAll(cnf.selectors.title.description)
-            .forEach((elem) => elem.remove());
+        const removeTitleLines = (cnf, wrapper) =>
+            (wrapper || document)
+                .querySelectorAll(cnf.selectors.title.description)
+                .forEach((elem) => elem.remove());
 
         // -------    optimizePageTitle    --------------------
         const optimizePageTitle = (cnf) => {
-            const titleWrap = document.querySelector(cnf.selectors.title.title);
+            const { selectors: { title: { title, header: titleHeader, learnMore } },
+                    classes: { titleSpace, display: { container } }
+                  } = cnf;
+
+            const titleWrap = document.querySelector(title);
             if (!titleWrap)
                 return false;
-            titleWrap.classList.add(config.classes.flex.container); // "d-flex"
-            const header = document.querySelector(cnf.selectors.title.header);
-            const titleCell = createFlexItem();
-            titleCell.classList.add(config.classes.titleSpace); // "ml12"
+            titleWrap.classList.add(container);
+            const header = document.querySelector(titleHeader);
+            const titleCell = createFlexItem(cnf);
+            titleCell.classList.add(titleSpace); // "ml12"
             if (header)
                 titleCell.append(header);
-            const learnMoreBtn = titleWrap.querySelector(cnf.selectors.title.learnMore);
+            const learnMoreBtn = titleWrap.querySelector(learnMore);
             const linkCell = titleCell.cloneNode();
             if (learnMoreBtn)
                 linkCell.append(learnMoreBtn);
@@ -1340,26 +2528,31 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function movePostTypeUp() { // must wait for ajax
-        if (userConfig.options.AnswerQuestionOnTop !== "Yes")
+        if (deepGet(userConfig, "options.AnswerQuestionOnTop") !== "Yes")
             return;
 
         // -------    movePosttype    -------------------------
         const movePosttype = (cnf) => {
-            const oldPostType = document.getElementById(cnf.ids.custom.postType);
+            const { ids: {custom: { postType : postTypeId } },
+                    selectors: { title: { divwrapper, header : titleHeader, actionsTabs },
+                                 content: { content } }
+                  } = cnf;
+
+            const oldPostType = document.getElementById(postTypeId);
             if (oldPostType)
                 oldPostType.remove();
 
-            const titleDivWrap = document.querySelector(cnf.selectors.title.divwrapper);
+            const titleDivWrap = document.querySelector(divwrapper);
             if (!titleDivWrap)
                 return false;
 
-            const posttype = document.querySelector(`${cnf.selectors.content.content} h2`);
-            const header = document.querySelector(cnf.selectors.title.header);
+            const posttype = document.querySelector(`${content} h2`);
+            const header = titleDivWrap.querySelector(titleHeader);
             if (!posttype || !header)
                 return false;
 
             const postCell = header.cloneNode();
-            postCell.id = config.ids.custom.postType;
+            postCell.id = postTypeId;
             postCell.style.paddingRight = "80px";
             postCell.style.color = userConfig.colour.postType;
 
@@ -1386,17 +2579,21 @@
                                            .join(" ");
             }
 
-            const tabs = document.querySelector(cnf.selectors.title.actionsTabs);
+            const tabs = titleDivWrap.querySelector(actionsTabs);
             if (!tabs)
                 return false;
-            titleDivWrap.insertBefore(postCell,tabs);
+            titleDivWrap.insertBefore(postCell, tabs);
             posttype.parentNode.removeChild(posttype);
         };
 
         movePosttype(config);
     }
 
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
     async function makeApiCall(apiEndpointUrl, page) {
+        // FIXME! Handle backoff
         try {
             const apiCall = await fetch(`${apiEndpointUrl.toString()}&page=${page}`);
             if (!apiCall.ok) return [];
@@ -1406,19 +2603,18 @@
         }
     }
 
-    // --------------------------------------------------------------------------------------------
-    // --------------------------------------------------------------------------------------------
     function insertEditorStatistics(editorUserCard, editorUserid) {
 
         // -------    getSuggestionsUserStats    --------------------
         const getSuggestionsUserStats = async (id) => {
+            // FIXME! Check the backoff and make the checkAPIResult(result) work
             // See https://api.stackexchange.com/docs ("users/{ids}/suggested-edits")
 
             const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
-                site: window.location.hostname,  // "stackoverflow"
-                filter: "!3xgWlhxc4ZsL1tY5Y",    // only include approval_date and rejection_date
-                key: "YeacD0LmoUvMwthbBXF7Lw((", //:-)) Registered Key
+                site: window.location.hostname, // "stackoverflow.com"
+                filter: "!3xgWlhxc4ZsL1tY5Y",   // only include approval_date and rejection_date
+                key: config.apiKey,
                 pagesize: 100
             };
             apiEndpointUrl.search = new URLSearchParams(params).toString();
@@ -1438,31 +2634,36 @@
 
         // Create a container div and put the editorUserCard into it. Then add the stats into it too.
         const superDiv = document.createElement("div");
-        superDiv.classList.add(config.classes.flex.container); // "d-flex"
-        // editorUserCard.parentNode.insertBefore(superDiv, editorUserCard);
+        superDiv.classList.add(config.classes.display.container);
         editorUserCard.before(superDiv);
         superDiv.appendChild(editorUserCard);
 
-        const {colour : displayColours} = userConfig;
+        const { colour : displayColours } = userConfig;
         const relativeFontSize = userConfig.size.editorStatistics;
 
         if (editorUserid < 0) { // https://stackoverflow.com/users/-1/community
-            superDiv.appendChild(createEditorStatisticsItem([], displayColours, relativeFontSize, true));
+            superDiv.appendChild(createEditorStatisticsItem([], displayColours, relativeFontSize, -1));
         } else {
             getSuggestionsUserStats(editorUserid)
-                .then((result) => superDiv.appendChild(createEditorStatisticsItem(result, displayColours, relativeFontSize)));
+                .then((result) => superDiv.appendChild(
+                                               createEditorStatisticsItem(result,
+                                                                          displayColours,
+                                                                          relativeFontSize,
+                                                                          editorUserid)
+                 ));
         }
     }
 
 
     // --------------------------------------------------------------------------------------------
     // ---- Workaround for splitting up "insertEditorStatistics" into two functions ---------------
-    function createEditorStatisticsItem(suggestions, displayColours, relativeFontSize, community = false) {
+    function createEditorStatisticsItem(suggestions, displayColours, relativeFontSize, userId = 0) {
 
         // -------    createEditorStatsItem    --------------------
-        const createEditorStatsItem = (suggestions, displayColours, relativeFontSize, community) => {
-            const { approved, rejected, total, ratio: { approvedToRejected, ofApproved, ofRejected }, }
-                = getSuggestionTotals(suggestions);
+        const createEditorStatsItem = (suggestions, displayColours, relativeFontSize, userId) => {
+            const { approved, rejected, total,
+                   ratio: { approvedToRejected, ofApproved, ofRejected }
+                  } = getSuggestionTotals(suggestions);
 
             // https://chat.stackoverflow.com/transcript/message/52203332#52203332 (code-review)
             // https://chat.stackoverflow.com/transcript/message/52203389#52203389 (...spreading)
@@ -1470,17 +2671,17 @@
 
             const itemParams = {
                 relativeFontSize: relativeFontSize,
-                header: { ...commonColour, items: ["Editor Statistics (non-deleted posts)"]},
+                header: { ...commonColour, items: ["Editor Statistics (non-deleted posts)"], userId: userId},
                 rows: [],
             };
 
-            if (community) {
+            if (userId < 0) {
                 itemParams.rows.push({ ...commonColour, items: [EMPTY]});
                 itemParams.rows.push({ ...commonColour, items: ["This user does not suggest edits :)"]});
                 return createItem(makeTable(itemParams));
             }
 
-            if (!total) {        // also check that if it's a Tag
+            if (!total) {
                 const postType = document.getElementById(config.ids.custom.postType);
                 if (postType && ["Question","Answer"].indexOf(postType.textContent) < 0) {
                     itemParams.rows.push({ ...commonColour, items: [EMPTY]});
@@ -1511,6 +2712,7 @@
         // -------    getSuggestionTotals    --------------------
         const getSuggestionTotals = (suggestions) => {
             const stats = {
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get
                 get ratio() {
                     const { approved, rejected, total } = this;
                     return {
@@ -1524,13 +2726,15 @@
                 rejected: 0,
                 total: 0,
             };
-            suggestions.forEach(({ approval_date, rejection_date }) => {
-                stats.total += 1;
-                if (approval_date)
-                    stats.approved += 1;
-                if (rejection_date)
-                    stats.rejected += 1;
-            });
+
+            suggestions
+                .forEach(({ approval_date, rejection_date }) => {
+                             stats.total += 1;
+                             if (approval_date)
+                                 stats.approved += 1;
+                             if (rejection_date)
+                                 stats.rejected += 1;
+                 });
             return stats;
         };
 
@@ -1544,26 +2748,47 @@
         };
 
         // -------    makeCells    --------------------
-        const makeCells = (cells, isHead = false) => {
-            return cells.map((content) => {
-                const cell = document.createElement(isHead ? "th" : "td");
-                if (isHead) {
-                    cell.colSpan = 4;
-                    const bold = document.createElement("b");
-                    cell.append(bold);
-                    bold.innerText = content;
-                } else {
-                    cell.innerText = content;
-                }
-                return cell;
-            });
+        const makeCells = (cells) => {
+            return cells
+                       .map((content) => {
+                                const cell = document.createElement("td");
+                                cell.innerText = content;
+                                return cell;
+                        });
+        };
+
+        // -------    makeHead    --------------------
+        const makeHead = (header) => {
+            const bold = document.createElement("b");
+            bold.innerText = header.items[0];
+
+            const cell = document.createElement("th");
+            cell.colSpan = 4;
+
+            if (header.userId > 0) { // it's a valid userId
+                const link = document.createElement("a");
+                link.style.color = header.colour;
+                const originSite = window.location.origin;
+                if (originSite)
+                    link.href = `${originSite}/users/${header.userId}?tab=activity&sort=suggestions`;
+                link.append(bold);
+                cell.append(link);
+            } else {
+                cell.append(bold);
+            }
+
+            return cell;
         };
 
         // -------    makeRow    --------------------
         const makeRow = (row, isHead = false) => {
             const tr = document.createElement("tr");
             tr.style.color = row.colour;
-            tr.append(...makeCells(row.items, isHead));
+            if (isHead) {
+               tr.append(makeHead(row));
+            } else {
+               tr.append(...makeCells(row.items));
+            }
             return tr;
         };
 
@@ -1576,7 +2801,7 @@
                 const headrow = makeRow(header,true);
                 tab.append(headrow);
             }
-            const listItems = rows.map((subArray) => makeRow(subArray));
+            const listItems = rows.map(subArray => makeRow(subArray));
             tab.append(...listItems);
             return tab;
         };
@@ -1584,12 +2809,12 @@
         // -------    createItem    --------------------
         const createItem = (...contents) => {
             const elem = document.createElement("div");
-            elem.classList.add(config.classes.flex.item); // "flex--item"
+            elem.classList.add(config.classes.display.cell);
             elem.append(...contents);
             return elem;
         };
 
-        return createEditorStatsItem(suggestions, displayColours, relativeFontSize, community);
+        return createEditorStatsItem(suggestions, displayColours, relativeFontSize, userId);
     }
 
 
@@ -1600,7 +2825,11 @@
 
     const almostAll = () => {
         // Hides the Big Box with review radio options..
-        const { moveRadioBox, keepRadios } = userConfig.options.radioVsButtons;
+
+        const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
+        const moveRadioBox = radioVsButtons?.moveRadioBox;
+        const keepRadios   = radioVsButtons?.keepRadios;
+
         if (moveRadioBox === "Yes") {
             if (keepRadios !== "Yes") {
                 shadowRadiosToButtons();  // ..and replaces them with buttons on the Filter button level.
@@ -1613,9 +2842,14 @@
         movePostTypeUp();     // Removes "Review the following answer/question edit"
         highlightSummary();   // Makes the edit summary noticeable
         highlightMessage();   // Makes a review message to the reviewer more noticeable
+        keepDiffChoices();    // Restore diff choices for title diffs.
         moveDiffChoices();    // Moves the "Inline | Side-by-side | Side-by-side markdown"
         getUserCards();       // Gets back the user cards! :)
         addSeparator();       // Adds a border separator between the post summary and the review
+        reduceFilter();       // Do not fill up the filter div line with text.
+        moveNoticeButtons();  // Moves the "Reviewer stats" and "Next task" buttons on notices.
+        addLinksToTitles();   // Adds link to all Question titles.
+        StackSummary();       // Changes the post summary to comply with Stack Design.
     };
 
     changePageTitle();        // Removes redundant information and moves the "Learn more"
@@ -1636,6 +2870,7 @@
         // ----------------------------------------------------------------------------------------
         const imgHOST = "https://i.stack.imgur.com/";
         const isLIGHT = getCSSVariableValue("var(--white)") === "#fff";
+        const PREFIXMODAL = PREFIX + "-modal-";
 
         // ----------------------------------------------------------------------------------------
         // ---- Config and map for modal elements -------------------------------------------------
@@ -1645,14 +2880,16 @@
         const modalConfig = {
                 headerNtooltip: USERSCRIPTNAME + " - Settings",
                 ids: {
-                    icon:              PREFIX + "-modal-" + "icon",
-                    header:            PREFIX + "-modal-" + "title",
-                    body:              PREFIX + "-modal-" + "body",
-                    aside:             PREFIX + "-modal-" + "base",
-                    radioName:         PREFIX + "-modal-" + "radioName",
-                    radioButtons:      PREFIX + "-modal-" + "RadioStyleChange",
-                    radioButtonLabel:  PREFIX + "-modal-" + "radioLabel",
-                    lineThrough:       PREFIX + "-modal-" + "previewLineThough",
+                    icon:              PREFIXMODAL + "icon",
+                    header:            PREFIXMODAL + "title",
+                    body:              PREFIXMODAL + "body",
+                    aside:             PREFIXMODAL + "base",
+                    radioName:         PREFIXMODAL + "radioName",
+                    radioButtons:      PREFIXMODAL + "RadioStyleChange",
+                    radioButtonLabel:  PREFIXMODAL + "radioLabel",
+                    lineThrough:       PREFIXMODAL + "previewLineThough",
+                    keepDiffChoices:   PREFIXMODAL + "keepDiffChoices",
+                    quotaNotice:       PREFIXMODAL + "quotaNotice",
                 },
                 classes: {
                     icon: {
@@ -1670,7 +2907,6 @@
                     margins: {
                         negative: "gs8",
                         zeroX: "gsx",
-                        zeroY: "gsy",
                         top: "mt8",
                     },
                     naviagations: {
@@ -1704,7 +2940,6 @@
                         diff: "diff-delete",
                     },
                     scroll: "overflow-y-scroll",
-                    center: "ai-center",
                     select: "s-select",
                     input: "s-input",
                     label: "s-label",
@@ -1714,8 +2949,12 @@
                     // https://stackoverflow.design/product/base/interactivity/#pointer-events
                     pointerEventsNone: "pe-none"
                 },
+                attributes: {
+                    draggableTarget: "data-se-draggable-target",
+                    modalTarget: "data-s-modal-target",
+                },
                 colours: {
-                    background: "var(--white)",  // #fff or #2d2d2d;
+                    background: "var(--white)", // #fff or #2d2d2d;
                     toggleMutedOn: "var(--green-050)",
                     toggleMutedoff: "var(--black-150)",
                     muted: "var(--mp-muted-color)",
@@ -1728,7 +2967,7 @@
                 sizes: {
                     editorAvatar: {
                         width: "200px",
-                        heigth: "66px",
+                        height: "66px",
                     },
                     labels: {
                         fontSizeSmaller: "1.10rem",
@@ -1746,14 +2985,16 @@
         const modalElements = [
                {
                  tabMenu: "Radios or Buttons",
-                 id: PREFIX +"-modal-" + "RadiosOrButtons",
+                 id: PREFIXMODAL + "RadiosOrButtons",
                  tabDefault: true,
                  previewUpdates: {
                      radiosButtons:
                          (tabName) => previewRadiosOrButtonsOnf(
                                           tabName,
                                           "None, radios or buttons",
-                                          "Box, radios or buttons"),
+                                          "Box, radios or buttons",
+                                          "Click Area",
+                                          "Tooltips"),
                      radiosButtonsDetails:
                          (tabName) => previewRadiosOrButtonsUpdate(
                                           tabName,
@@ -1771,33 +3012,47 @@
                      {
                       name: "None, radios or buttons",
                       type: "preview",
-                      create: () => previewRadiosOrButtonsContainer(),
-                      displayOrder: 7,
+                      create: () => previewRadiosOrButtons(),
+                      displayOrder: 9,
+                     },
+                     {
+                      name: "Click Area",
+                      type: "preview",
+                      create: () => createPreviewStyledBackground(),
+                      displayOrder: 11,
+                     },
+                     {
+                      name: "Tooltips",
+                      type: "preview",
+                      create: () => createPreviewStyledBackground(),
+                      displayOrder: 4,
                      },
                      {
                       name: "Move review actions",
-                      id: PREFIX + "-modal-" + "moveReviewActions",
+                      id: PREFIXMODAL + "moveReviewActions",
                       configKey: "options.radioVsButtons.moveRadioBox",
                       type: "toggle",
                       toggleEntry: "Move review actions",
-                      dependents: ["Keep radio buttons"],
+                      dependents: ["Keep radio buttons",
+                                   "Add tooltips"],
                       refPreviewUpdates: ["radiosButtons"],
                       displayOrder: 1,
                      },
                      {
                       name: "Keep radio buttons",
-                      id: PREFIX + "-modal-" + "keepRadioButtons",
+                      id: PREFIXMODAL + "keepRadioButtons",
                       configKey: "options.radioVsButtons.keepRadios",
                       type: "toggle",
                       indents: 1,
                       toggleEntry: "Move review actions",
-                      dependents: ["with borders"],
+                      dependents: ["with borders",
+                                   "Large click area"],
                       refPreviewUpdates: ["radiosButtons"],
-                      displayOrder: 3,
+                      displayOrder: 5,
                      },
                      {
                       name: "with borders",
-                      id: PREFIX + "-modal-" + "radiosWithBorders",
+                      id: PREFIXMODAL + "radiosWithBorders",
                       configKey: "options.radioVsButtons.radioWithBorders",
                       type: "toggle",
                       indents: 1,
@@ -1805,33 +3060,53 @@
                       dependents: ["Border colour",
                                    "Border width"],
                       refPreviewUpdates: ["radiosButtons"],
-                      displayOrder: 4,
+                      displayOrder: 6,
                      },
                      {
                       name: "Border colour",
-                      id: PREFIX + "-modal-" + "radiosBordersColour",
+                      id: PREFIXMODAL + "radiosBordersColour",
                       configKey: "colour.radioSeperator",
                       type: "colour",
                       indents: 2,
                       refPreviewUpdates: ["radiosButtonsDetails"],
-                      displayOrder: 5,
+                      displayOrder: 7,
                      },
                      {
                       name: "Border width",
-                      id: PREFIX + "-modal-" + "radiosSizeColour",
+                      id: PREFIXMODAL + "radiosSizeColour",
                       configKey: "size.radioSeperator",
                       type: "select",
                       postfix : "px",
                       values: [1,2,3,4,5],
                       indents: 2,
                       refPreviewUpdates: ["radiosButtonsDetails"],
-                      displayOrder: 6,
+                      displayOrder: 8,
+                     },
+                     {
+                      name: "Large click area",
+                      id: PREFIXMODAL + "largeClickArea",
+                      configKey: "options.radioVsButtons.largerClickArea",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Move review actions",
+                      refPreviewUpdates: ["radiosButtons"],
+                      displayOrder: 10,
+                     },
+                     {
+                      name: "Add tooltips",
+                      id: PREFIXMODAL + "Tooltips",
+                      configKey: "options.radioVsButtons.tooltips",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Move review actions",
+                      refPreviewUpdates: ["radiosButtons"],
+                      displayOrder: 3,
                      },
                  ],
                },
                {
                  tabMenu: "User Cards",
-                 id: PREFIX + "-modal-" + "UserCards",
+                 id: PREFIXMODAL + "UserCards",
                  previewUpdates: {
                      userCards:
                          (tabName) => previewUserCardsStatisticsOnf(
@@ -1849,18 +3124,18 @@
                      {
                       name: "All user Cards",
                       type: "preview",
-                      create: () => previewUserCardsContainer(),
+                      create: () => previewUserCards(),
                       displayOrder: 3,
                      },
                      {
                       name: "Editor Statistics",
                       type: "preview",
-                      create: () => previewEditorStatisticsContainer(),
+                      create: () => previewEditorStatistics(),
                       displayOrder: 10,
                      },
                      {
                       name: "Add user cards",
-                      id: PREFIX + "-modal-" + "addUserCards",
+                      id: PREFIXMODAL + "addUserCards",
                       configKey: "options.userCards.getUserCards",
                       type: "toggle",
                       toggleEntry: "Add user cards",
@@ -1870,7 +3145,7 @@
                      },
                      {
                       name: "with editor statistics",
-                      id: PREFIX + "-modal-" + "withEditorStatistics",
+                      id: PREFIXMODAL + "withEditorStatistics",
                       configKey: "options.userCards.withEditiorStats",
                       type: "toggle",
                       indents: 1,
@@ -1886,7 +3161,7 @@
                      },
                      {
                       name: "Editor statistics options:",
-                      id: PREFIX + "-modal-" + "editorStatisticsOptions",
+                      id: PREFIXMODAL + "editorStatisticsOptions",
                       type: "header",
                       indents: 1,
                       refPreviewUpdates: ["editorStatistics"],
@@ -1894,7 +3169,7 @@
                      },
                      {
                       name: "Header colour",
-                      id: PREFIX + "-modal-" + "editorStatisticsHeaderColour",
+                      id: PREFIXMODAL + "editorStatisticsHeaderColour",
                       configKey: "colour.editorHeader",
                       type: "colour",
                       indents: 2,
@@ -1903,7 +3178,7 @@
                      },
                      {
                       name: "Approved colour",
-                      id: PREFIX + "-modal-" + "editorStatisticsApprovedColour",
+                      id: PREFIXMODAL + "editorStatisticsApprovedColour",
                       configKey: "colour.editorApproved",
                       type: "colour",
                       indents: 2,
@@ -1912,7 +3187,7 @@
                      },
                      {
                       name: "Rejected colour",
-                      id: PREFIX + "-modal-" + "editorStatisticsRejectedColour",
+                      id: PREFIXMODAL + "editorStatisticsRejectedColour",
                       configKey: "colour.editorRejected",
                       type: "colour",
                       indents: 2,
@@ -1921,7 +3196,7 @@
                      },
                      {
                       name: "Total colour",
-                      id: PREFIX + "-modal-" + "editorStatisticsTotalColour",
+                      id: PREFIXMODAL + "editorStatisticsTotalColour",
                       configKey: "colour.editorTotal",
                       type: "colour",
                       indents: 2,
@@ -1930,7 +3205,7 @@
                      },
                      {
                       name: "Editor statistics text size",
-                      id: PREFIX + "-modal-" + "editorStatisticsSize",
+                      id: PREFIXMODAL + "editorStatisticsSize",
                       configKey: "size.editorStatistics",
                       type: "size",
                       postfix: "%",
@@ -1942,7 +3217,7 @@
                },
                {
                  tabMenu: "Move",
-                 id: PREFIX + "-modal-" + "Move",
+                 id: PREFIXMODAL + "Move",
                  previewUpdates: {
                      progressBar:
                          (tabName) => previewProgressBarOnfUpdate(
@@ -1964,44 +3239,56 @@
                          (tabName) => previewMovePostTypeColourUpdate(
                                           tabName,
                                           "Post Type Colour Preview"),
+                     moveNextButton:
+                         (tabName) => previewMoveNextButtonsOnf(
+                                          tabName,
+                                          "Move Next Buttons"),
                  },
+                 needIntiliatize: ["moveNextButton"],
                  topSpaceSeparator: ["Move diff choices",
                                      "Rework page title",
-                                     "Move post type up"],
+                                     "Move post type up",
+                                     "Move notice buttons"],
                  items: [
                      {
                       name: "Progress Bar",
                       type: "preview",
-                      create: () => previewProgressBarContainer(),
+                      create: () => previewProgressBar(),
                       displayOrder: 5,
                      },
                      {
                       name: "Diff Choices",
                       type: "preview",
-                      create: () => previewDiffChoicesContainer(),
+                      create: () => previewDiffChoices(),
                       displayOrder: 7,
                      },
                      {
                       name: "Page Title Link",
                       type: "preview",
-                      create: () => previewPageTitleLinkContainer(),
+                      create: () => previewPageTitleLink(),
                       displayOrder: 9,
                      },
                      {
                       name: "Post Type",
                       type: "preview",
-                      create: () => previewMovePostTypeContainer(),
+                      create: () => previewMovePostType(),
                       displayOrder: 11,
                      },
                      {
                       name: "Post Type Colour Preview",
                       type: "preview",
-                      create: () => previewMovePostTypeColourContainer(),
+                      create: () => previewMovePostTypeColour(),
                       displayOrder: 13,
                      },
                      {
+                      name: "Move Next Buttons",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 15,
+                     },
+                     {
                       name: "Move progress bar",
-                      id: PREFIX + "-modal-" + "moveProgressBar",
+                      id: PREFIXMODAL + "moveProgressBar",
                       configKey: "options.moveProgressBar",
                       type: "toggle",
                       toggleEntry: "Move progress bar",
@@ -2013,7 +3300,7 @@
                      },
                      {
                       name: "Progress \"done\" colour",
-                      id: PREFIX + "-modal-" + "progressDoneColour",
+                      id: PREFIXMODAL + "progressDoneColour",
                       configKey: "colour.progressDone",
                       type: "colour",
                       refPreviewUpdates: ["progressBar"],
@@ -2021,7 +3308,7 @@
                      },
                      {
                       name: "Progress \"not done\" colour",
-                      id: PREFIX + "-modal-" + "progressNotDoneColour",
+                      id: PREFIXMODAL + "progressNotDoneColour",
                       configKey: "colour.progressNotDone",
                       type: "colour",
                       refPreviewUpdates: ["progressBar"],
@@ -2029,7 +3316,7 @@
                      },
                      {
                       name: "Progress text colour",
-                      id: PREFIX + "-modal-" + "progressTextColour",
+                      id: PREFIXMODAL + "progressTextColour",
                       configKey: "colour.progressTextColour",
                       type: "colour",
                       refPreviewUpdates: ["progressBar"],
@@ -2037,7 +3324,7 @@
                      },
                      {
                       name: "Move diff choices",
-                      id: PREFIX + "-modal-" + "movePageTitleLink",
+                      id: PREFIXMODAL + "movePageTitleLink",
                       configKey: "options.moveDiffChoices",
                       type: "toggle",
                       refPreviewUpdates: ["diffChoices"],
@@ -2045,7 +3332,7 @@
                      },
                      {
                       name: "Rework page title",
-                      id: PREFIX + "-modal-" + "movePageTitleLink",
+                      id: PREFIXMODAL + "movePageTitleLink",
                       configKey: "options.movePageTitleLink",
                       type: "toggle",
                       refPreviewUpdates: ["pageTitleLink"],
@@ -2053,7 +3340,7 @@
                      },
                      {
                       name: "Move post type up",
-                      id: PREFIX + "-modal-" + "AnswerQuestionOnTop",
+                      id: PREFIXMODAL + "AnswerQuestionOnTop",
                       configKey: "options.AnswerQuestionOnTop",
                       type: "toggle",
                       toggleEntry: "Move post type up",
@@ -2063,17 +3350,26 @@
                      },
                      {
                       name: "Post type colour",
-                      id: PREFIX + "-modal-" + "postTypeColour",
+                      id: PREFIXMODAL + "postTypeColour",
                       configKey: "colour.postType",
                       type: "colour",
                       refPreviewUpdates: ["postTypeColour"],
                       displayOrder: 12,
                      },
+                     {
+                      name: "Move notice buttons",
+                      id: PREFIXMODAL + "moveNoticeButtons",
+                      configKey: "options.moveNextButtons",
+                      type: "toggle",
+                      toggleEntry: "Move notice buttons",
+                      refPreviewUpdates: ["moveNextButton"],
+                      displayOrder: 14,
+                     },
                  ],
                },
                {
                  tabMenu: "Highlight",
-                 id: PREFIX + "-modal-" + "Highlight",
+                 id: PREFIXMODAL + "Highlight",
                  previewUpdates: {
                      summaryPreview:
                          (tabName) => previewSummaryOnf(
@@ -2105,24 +3401,24 @@
                      {
                       name: "Summary Preview",
                       type: "preview",
-                      create: () => previewSummaryContainer(),
+                      create: () => previewSummary(),
                       displayOrder: 4,
                      },
                      {
                       name: "Message Preview",
                       type: "preview",
-                      create: () => previewMessageContainer(),
+                      create: () => previewMessage(),
                       displayOrder: 9,
                      },
                      {
                       name: "Line through",
                       type: "preview",
-                      create: () => previewLineThoughContainer(),
+                      create: () => previewLineThough(),
                       displayOrder: 11,
                      },
                      {
                       name: "Highlight edit summary",
-                      id: PREFIX + "-modal-" + "highlightsummary",
+                      id: PREFIXMODAL + "highlightsummary",
                       configKey: "options.highlightSummary",
                       type: "toggle",
                       toggleEntry: "Highlight edit summary",
@@ -2133,7 +3429,7 @@
                      },
                      {
                       name: "Edit summary colour",
-                      id: PREFIX + "-modal-" + "summaryColour",
+                      id: PREFIXMODAL + "summaryColour",
                       configKey: "colour.summary",
                       type: "colour",
                       refPreviewUpdates: ["summaryUpdate"],
@@ -2141,7 +3437,7 @@
                      },
                      {
                       name: "Edit summary size",
-                      id: PREFIX + "-modal-" + "summarySize",
+                      id: PREFIXMODAL + "summarySize",
                       configKey: "size.summary",
                       postfix: "%",
                       type: "size",
@@ -2150,7 +3446,7 @@
                      },
                      {
                       name: "Prominent review message",
-                      id: PREFIX + "-modal-" + "prominentReviewMessage",
+                      id: PREFIXMODAL + "prominentReviewMessage",
                       configKey: "options.prominentReviewMessage",
                       type: "toggle",
                       toggleEntry: "Prominent review message",
@@ -2162,7 +3458,7 @@
                      },
                      {
                       name: "Review message colour",
-                      id: PREFIX + "-modal-" + "reviewMessageColour",
+                      id: PREFIXMODAL + "reviewMessageColour",
                       configKey: "colour.message",
                       type: "colour",
                       refPreviewUpdates: ["messageUpdate"],
@@ -2170,7 +3466,7 @@
                      },
                      {
                       name: "Review message size",
-                      id: PREFIX + "-modal-" + "reviewMessageSize",
+                      id: PREFIXMODAL + "reviewMessageSize",
                       configKey: "size.message",
                       postfix: "%",
                       type: "size",
@@ -2179,7 +3475,7 @@
                      },
                      {
                       name: "Review message background colour",
-                      id: PREFIX + "-modal-" + "reviewMessageBackgroundColour",
+                      id: PREFIXMODAL + "reviewMessageBackgroundColour",
                       configKey: "colour.messageBackground",
                       type: "colour",
                       refPreviewUpdates: ["messageUpdate"],
@@ -2187,7 +3483,7 @@
                      },
                      {
                       name: "Remove LineThrough",
-                      id: PREFIX + "-modal-" + "removeLineThrough",
+                      id: PREFIXMODAL + "removeLineThrough",
                       configKey: "options.removeLineThrough",
                       type: "toggle",
                       refPreviewUpdates: ["lineThrough"],
@@ -2195,48 +3491,167 @@
                      },
                  ],
                },
+               {
+                 tabMenu: "Extras",
+                 id: PREFIXMODAL + "Extras",
+                 previewUpdates: {
+                     titleLinks:
+                         (tabName) => previewTitleLinksOnf(
+                                          tabName,
+                                          "Title links"),
+                     keepDiffs:
+                         (tabName) => previewKeepDiffChoicesUpdate(
+                                          tabName,
+                                          "Keep Diff Choices"),
+                     newSummary:
+                         (tabName) => previewStackSummaryOnf(
+                                          tabName,
+                                          "Stack Summary"),
+                     quota:
+                         (tabName) => previewNoticeUpdate(
+                                          tabName,
+                                          "Quota Notice Limit"),
+                     filters:
+                         (tabName) => previewFilterListUpdate(
+                                          tabName,
+                                          "Filter Options"),
+                 },
+                 needIntiliatize: ["titleLinks",
+                                   "newSummary",
+                                   "filters"],
+                 topSpaceSeparator: ["Always diff choices",
+                                     "Stack Design post summary",
+                                     "API quota warning:",
+                                     "Remove plain filters"],
+                 bottomSpace: ["Stack Design post summary",
+                               "Remove plain filters",
+                               "Insert alert icon"],
+                 items: [
+                     {
+                      name: "Title links",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 2,
+                     },
+                     {
+                      name: "Keep Diff Choices",
+                      type: "preview",
+                      create: () => previewKeepDiffChoices(),
+                      displayOrder: 5,
+                     },
+                     {
+                      name: "Stack Summary",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 8,
+                     },
+                     {
+                      name: "Quota Notice Limit",
+                      type: "preview",
+                      create: () => previewNotice(),
+                      displayOrder: 11,
+                     },
+                     {
+                      name: "Filter Options",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 15,
+                     },
+                     {
+                      name: "Links in titles",
+                      id: PREFIXMODAL + "linksInTitles",
+                      configKey: "options.linksOnTitles",
+                      type: "toggle",
+                      refPreviewUpdates: ["titleLinks"],
+                      displayOrder: 1,
+                     },
+                     {
+                      name: "Always diff choices",
+                      id: PREFIXMODAL + "keepDiffChoices",
+                      configKey: "options.keepDiffChoices",
+                      type: "toggle",
+                      toggleEntry: "Always diff choices",
+                      dependents: ["added diff choices colour"],
+                      refPreviewUpdates: ["keepDiffs"],
+                      displayOrder: 3,
+                     },
+                     {
+                      name: "added diff choices colour",
+                      id: PREFIXMODAL + "keepDiffChoicesColour",
+                      configKey: "colour.diffChoices",
+                      type: "colour",
+                      refPreviewUpdates: ["keepDiffs"],
+                      displayOrder: 4,
+                     },
+                     {
+                      name: "Stack Design post summary",
+                      id: PREFIXMODAL + "StackPostSummary",
+                      configKey: "options.postSummary.useStackSummary",
+                      type: "toggle",
+                      toggleEntry: "Stack Design post summary",
+                      dependents: ["using Stack API"],
+                      refPreviewUpdates: ["newSummary"],
+                      displayOrder: 6,
+                     },
+                     {
+                      name: "using Stack API",
+                      id: PREFIXMODAL + "StackPostSummary",
+                      configKey: "options.postSummary.useAPI",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Stack Design post summary",
+                      displayOrder: 7,
+                     },
+                     {
+                      name: "API quota warning:",
+                      id: PREFIXMODAL + "quotaWarning",
+                      type: "header",
+                      indents: 0,
+                      displayOrder: 9,
+                     },
+                     {
+                      name: "show at (0 - 9999)",
+                      id: PREFIXMODAL + "quotaLimit",
+                      configKey: "size.apiQuotaLimit",
+                      type: "size",
+                      maxValue: 9999,
+                      refPreviewUpdates: ["quota"],
+                      displayOrder: 10,
+                     },
+                     {
+                      name: "Remove plain filters",
+                      id: PREFIXMODAL + "RemovePlainFilters",
+                      configKey: "options.reviewFilters.removeTextFilters",
+                      type: "toggle",
+                      toggleEntry: "Remove plain filters",
+                      dependents: ["Insert alert icon",
+                                   "Show TinyTags™"],
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 12,
+                     },
+                     {
+                      name: "Insert alert icon",
+                      id: PREFIXMODAL + "InsertAlertIcon",
+                      configKey: "options.reviewFilters.putAlertIcon",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Remove plain filters",
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 13,
+                     },
+                     {
+                      name: "Show TinyTags™",
+                      id: PREFIXMODAL + "InsertAlertIcon",
+                      configKey: "options.reviewFilters.keepFilterList",
+                      type: "toggle",
+                      indents: 1,
+                      toggleEntry: "Remove plain filters",
+                      refPreviewUpdates: ["filters"],
+                      displayOrder: 14,
+                     },
+                 ],
+               },
         ];
-
-
-        // ----------------------------------------------------------------------------------------
-        // ---- Object Utility --------------------------------------------------------------------
-
-        // https://attacomsian.com/blog/javascript-iterate-objects
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/find
-
-        const objectFromTabname = (obj, menuName) =>
-            obj.find(({ tabMenu }) => tabMenu === menuName);
-
-        const objectFromId = (obj, theId) =>
-            obj.find(({ id }) => id === theId);
-
-        const objectFromName = (obj, itemName) =>
-            obj.find(({ name }) => name === itemName);
-
-        // { const tab = obj.find(({ tabMenu }) => tabMenu === menuName);
-        //   return tab.items.find(({ name }) => name === itemName); }
-        // obj.find(tab => tab.tabMenu === menuName).items.find(item => item.name === itemName);
-        const objectFromTabnItemname = (obj, menuName, itemName) =>
-            obj.find(({ tabMenu }) => tabMenu === menuName)
-               .items  // ?.items
-               .find(({ name }) => name === itemName);
-
-        // https://chat.stackoverflow.com/transcript/message/52355606#52355606
-        // let defaultUserConfigValue = defaultUserConfig;
-        // key.split(".").forEach(key => defaultUserConfigValue = defaultUserConfigValue[key]);
-        const deepGet = (obj, path) => {
-            let temp = obj;
-            path.split(".").forEach((key) => temp = temp[key]);
-            return temp;
-        };
-
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
-        const deepSet = (obj, path, value) => {
-            let temp = obj;
-            const keys = path.split(".");
-            keys.slice(0, -1).forEach((key) => temp = temp[key]);
-            temp[keys.slice(-1)] = value;
-        };
 
 
         // ----------------------------------------------------------------------------------------
@@ -2247,29 +3662,29 @@
             if (cancel) {
 
                 modalElements                      // have to go through the modalElements
-                    .forEach((modalElement) => {   // since most of them are not in the DOM.
+                    .forEach(modalElement => {     // since most of them are not in the DOM.
                                  resetTab(modalElement, tempUserConfig); // reset to last saved settings.
-                            });
+                     });
 
             } else {                               // reset the tab to default values
 
                 const tabContent = document.querySelector(`#${modalConfig.ids.body} > div`);
                 const modalElement = objectFromId(modalElements, tabContent.id);
-                resetTab(modalElement, defaultUserConfig);               // reset to default.
+                resetTab(modalElement, defaultUserConfig); // reset to default.
 
             }
 
             function resetTab(modalConfigElement, configObject) {
                 modalConfigElement
                     .items
-                    .forEach((item) => {
+                    .forEach(item => {
                                  const element = item.element;
                                  const id = item.id;
-                                 if (id) {         // Preview elements may not have an id
+                                 if (id) {        // Not all elements have an id
                                      const valueElement = element.querySelector("#" + id);
                                      resetValue(valueElement, item, configObject);
                                  }
-                    });
+                     });
             }
 
             // (Oleg's nice solution) https://chat.stackoverflow.com/transcript/message/52354809#52354809
@@ -2282,7 +3697,8 @@
                 const actionMap = {
                     checkbox:     (el) => el.checked = (deepGet(configObject, key) === "Yes"),
                     color:        (el) => el.value   = getCSSVariableValue(deepGet(configObject, key)) || "#000000",
-                    text:         (el) => el.value   = deepGet(configObject, key).replace(item.postfix, ""),
+                    number:       (el) => el.value   = deepGet(configObject, key)?.replace(item.postfix, "")
+                                                       || deepGet(defaultUserConfig, key)?.replace(item.postfix, "") || "",
                     "select-one": (el) => el.value   = deepGet(configObject, key),
                 };
 
@@ -2314,7 +3730,7 @@
                     topMenuSelector,
                     headerNtooltip,
                     ids: { icon : iconId },
-                    classes: { smodals: { modal }, icon }
+                    classes: { icon, smodals: { modal } }
                   } = modalConfig;
 
             if (document.querySelector(`${topMenuSelector} #${iconId}`))
@@ -2361,15 +3777,16 @@
 
         // -------------------------------
         function createModalAside(linkToModal) {
-            const {ids: { aside : asideId },
-                   classes: { smodals: { modal } }
+            const { ids: { aside : asideId },
+                    classes: { smodals: { modal } },
+                    attributes: { modalTarget }
                   } = modalConfig;
 
             // aside holds the modal. Activates when clicking on the icon
             const modalAside = document.createElement("aside");
             modalAside.classList.add(modal);
             modalAside.id = asideId;
-            modalAside.dataset.target = `${modal}.modal`;
+            modalAside.setAttribute(modalTarget, "modal");
             modalAside.append(linkToModal);
 
             return modalAside;
@@ -2379,7 +3796,7 @@
         // ----------------------------------------------------------------------------------------
         // ---- This loads the GUI  ---------------------------------------------------------------
 
-        function loadIt() {  // fires on the first click on the icon.
+        function loadIt() { // fires on the first click on the icon.
             tempUserConfig = getUserConfig();
 
             const modalHeader = createModalHeader();
@@ -2400,8 +3817,8 @@
 
         // -------------------------------
         function createStackModal() {
-            const {draggable,
-                   classes: { smodals: { dialog } }
+            const { draggable,
+                    classes: { smodals: { dialog } }
                   } = modalConfig;
 
             const stackModal = document.createElement("div");
@@ -2412,16 +3829,16 @@
 
         // -------------------------------
         function createModalHeader() {
-            const {draggable,
-                   headerNtooltip,
-                   ids: { header : headerId },
-                   classes: { smodals: { header } }
+            const { headerNtooltip,
+                    ids: { header : headerId },
+                    classes: { smodals: { header } },
+                    attributes: { draggableTarget }
                   } = modalConfig;
 
             const modalHeader = document.createElement("h3");
             modalHeader.classList.add(header);
-            modalHeader.dataset.target = `${draggable}.handle`;
-            modalHeader.id = (headerId);
+            modalHeader.setAttribute(draggableTarget, "handle");
+            modalHeader.id = headerId;
             modalHeader.style.fontSize = "1.72rem";
             modalHeader.textContent = headerNtooltip;
             return modalHeader;
@@ -2429,23 +3846,23 @@
 
         // -------------------------------
         function createFooterButtons() {
-            const { flex : { container, item },
-                    buttons : { button : basebutton, primary, danger, outlined },
+            const { display: { cell, container },
+                    buttons: { button : basebutton, primary, danger, outlined }
                   } = config.classes;
-            const {hide,
-                   classes: { smodals: { footer }, margins: { negative,  zeroX } }
+            const { hide,
+                    classes: { smodals: { footer }, margins: { negative, zeroX } }
                   } = modalConfig;
 
-            const saveButton   = createModalButton("Apply & Exit", [item, basebutton, primary]);
-            const cancelButton = createModalButton("Cancel",       [item, basebutton]);
+            const saveButton   = createModalButton("Apply & Exit", [cell, basebutton, primary]);
+            const cancelButton = createModalButton("Cancel",       [cell, basebutton]);
 
             saveButton.addEventListener("click", () => updateValueFromStorage(PREFIX, tempUserConfig));
             saveButton.dataset.action = hide;
 
             cancelButton.addEventListener("click",
                                           () => {
-                                                      tempUserConfig = getUserConfig();
-                                                      reset(true); // true means Cancel back to userConfig.
+                                              tempUserConfig = getUserConfig();
+                                              reset(true); // true means Cancel back to userConfig.
                                           });
             cancelButton.dataset.action = hide;
 
@@ -2454,7 +3871,7 @@
             buttons.append(saveButton, cancelButton);
 
             const restoreButton = createModalButton("Restore tab settings", [basebutton, danger, outlined]);
-            restoreButton.addEventListener("click", () => reset(false)); // false means the tab to default.
+            restoreButton.addEventListener("click", (event) => reset(false)); // false means the tab to default.
 
             const allButtons = document.createElement("div");
             allButtons.classList.add(container, negative, zeroX, footer);
@@ -2466,7 +3883,7 @@
 
         // -------------------------------
         function createCloseXButton() {
-            const { buttons : { button : basebutton, muted } } = config.classes;
+            const { buttons: { button : basebutton, muted } } = config.classes;
             const { hide,
                     classes: { smodals: { close } }
                   } = modalConfig;
@@ -2494,8 +3911,8 @@
 
         // -------------------------------
         function createModalContentContainer() {
-            const {ids: { body : bodyId },
-                   classes: { scroll, smodals: { body } }
+            const { ids: { body : bodyId },
+                    classes: { scroll, smodals: { body } }
                   } = modalConfig;
 
             // https://css-tricks.com/the-current-state-of-styling-scrollbars/
@@ -2518,7 +3935,7 @@
 
         // -------------------------------
         function createNavigationContainer() {
-            const {classes: { naviagations: { base }, header } } = modalConfig;
+            const { classes: { naviagations: { base }, header } } = modalConfig;
 
             const navigation = document.createElement("ul");
             navigation.classList.add(base, header);
@@ -2527,7 +3944,9 @@
 
         // -------------------------------
         function createNavigationItem(textContent, selected = false) {
-            const {classes: { naviagations: { item : navigationItem, selected : navigationSelected } } } = modalConfig;
+            const { classes: { naviagations: { item : navigationItem,
+                                               selected : navigationSelected } }
+                  } = modalConfig;
 
             const item = document.createElement("li");
             item.classList.add(navigationItem);
@@ -2539,10 +3958,10 @@
 
         // -------------------------------
         function linkNavigationToContent(navigationContainer, navigationItem, modalContainer, modalContent) {
-            const {classes: { naviagations: { selected : navigationSelected } } } = modalConfig;
+            const { classes: { naviagations: { selected : navigationSelected } } } = modalConfig;
 
             navigationItem.addEventListener("click", () => {
-                [...navigationContainer.children].forEach((item) => item.classList.remove(navigationSelected));
+                [...navigationContainer.children].forEach(item => item.classList.remove(navigationSelected));
                 modalContainer.replaceChild(modalContent, modalContainer.firstElementChild);
                 navigationItem.classList.add(navigationSelected);
             });
@@ -2551,14 +3970,19 @@
         // -------------------------------
         function createContentnNavigationTabs(navigation, modalContentContainer) {
             const navigationItems =
-                      modalElements.map((tabItem) => {
-                          const contentTab = createTabBody(tabItem.tabMenu);
-                          const navigationItem = createNavigationItem(tabItem.tabMenu, tabItem.tabDefault);
-                          if (tabItem.tabDefault)
-                               modalContentContainer.append(contentTab);
-                          linkNavigationToContent(navigation, navigationItem, modalContentContainer, contentTab);
-                          return navigationItem;
-                      });
+                      modalElements
+                          .map(tabItem => {
+                                   const contentTab = createTabBody(tabItem.tabMenu);
+                                   const navigationItem = createNavigationItem(tabItem.tabMenu,
+                                                                               tabItem.tabDefault);
+                                   if (tabItem.tabDefault)
+                                        modalContentContainer.append(contentTab);
+                                   linkNavigationToContent(navigation,
+                                                           navigationItem,
+                                                           modalContentContainer,
+                                                           contentTab);
+                                   return navigationItem;
+                           });
             navigation.append(...navigationItems);
         }
 
@@ -2582,16 +4006,16 @@
             const elements = tab.items
                                  .sort((firstItem, secondItem) =>
                                             firstItem.displayOrder - secondItem.displayOrder)
-                                 .map((item) => elementFunctionMap[item.type](item.name, tabName));
+                                 .map(item => elementFunctionMap[item.type](item.name, tabName));
 
             (tab.needIntiliatize || [])
-               .forEach((initialise) => tab.previewUpdates[initialise](tabName));
+               .forEach(initialise => tab.previewUpdates[initialise](tabName));
 
             (tab.bottomSpace || [])
-               .forEach((itemName) => addBottomSpace(objectFromName(tab.items, itemName).element));
+               .forEach(itemName => addBottomSpace(objectFromName(tab.items, itemName).element));
 
             (tab.topSpaceSeparator || [])
-               .forEach((itemName) => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
+               .forEach(itemName => addTopSpaceSeparator(objectFromName(tab.items, itemName).element));
 
             initEnableDisable(tabName);
 
@@ -2605,23 +4029,22 @@
 
         // ----------------------------------------------------------------------------------------
         // ---- Element templates -----------------------------------------------------------------
+        const indentPIXELS = 15;
 
         // -------------------------------
         function getPreviewUpdateFunctions(item, tabMenu) {
             const previewFunctions = item.refPreviewUpdates || [];
             const tab = objectFromTabname(modalElements, tabMenu);
-            return previewFunctions.map((key) => tab.previewUpdates[key]);
+            return previewFunctions.map(key => tab.previewUpdates[key]);
         }
 
 
         // -------------------------------
         function createContainer() {
-            const { container: flexContainer } = config.classes.flex;
-            const { classes: { center } } = modalConfig;
+            const { container : flex, center } = config.classes.display;
 
             const container = document.createElement("div");
-            container.classList.add(flexContainer, center);
-
+            container.classList.add(flex, center);
             return container;
         }
 
@@ -2647,10 +4070,12 @@
             item.element = selectInput;
 
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
-            selectInput.addEventListener("change", (event) => {
-                deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
-            });
+            selectInput
+                .addEventListener("change",
+                                  (event) => {
+                                      deepSet(tempUserConfig, item.configKey, event.target.value);
+                                      previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                 });
             return selectInput;
         }
 
@@ -2665,20 +4090,21 @@
             const label = createLabel(labelText,
                                       selectInputId,
                                       {
-                                       fontSize:     fontSizeSmaller, //"1.10rem",
-                                       width:        "160px",
-                                       alignIndents: indents,
-                                       fontWeight:   fontWeightSmaller //"525"});
+                                        fontSize:     fontSizeSmaller,  //"1.10rem"
+                                        width:        "160px",
+                                        alignIndents: indents,
+                                        fontWeight:   fontWeightSmaller //"525"
                                       });
             const selectInputs = document.createElement("select");
             selectInputs.id = selectInputId;
             const selectOptions =
-                      options.map((selectOption) => {
-                          const selectInputOption = document.createElement("option");
-                          selectInputOption.value = selectOption;
-                          selectInputOption.textContent = selectOption;
-                          return selectInputOption;
-                      });
+                      options
+                          .map(selectOption => {
+                                   const selectInputOption = document.createElement("option");
+                                   selectInputOption.value = selectOption;
+                                   selectInputOption.textContent = selectOption;
+                                   return selectInputOption;
+                           });
             selectInputs.append(...selectOptions);
             selectInputs.value = defaultOption.replace(postfix, "");
             selectInputs.style.padding = ".4em .3em";
@@ -2691,7 +4117,7 @@
 
             const postlabel = createLabel(postfix,
                                           selectInputId,
-                                          {fontSize: fontSizeSmaller, fontWeight: fontWeightSmaller});
+                                          { fontSize: fontSizeSmaller, fontWeight: fontWeightSmaller });
 
             selectInputContainer.append(label, outerSelectInputs, postlabel);
 
@@ -2705,21 +4131,26 @@
             const sizeInput = createSizeInput(labelText,
                                               item.id,
                                               deepGet(tempUserConfig, item.configKey),
+                                              item.maxValue || 250,
                                               item.postfix,
                                               item.indents);
             item.element = sizeInput;
 
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
-            sizeInput.addEventListener("change", (event) => {
-                deepSet(tempUserConfig, item.configKey, event.target.value + item.postfix);
-                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
-            });
+            sizeInput
+                .addEventListener("change",
+                                  (event) => {
+                                      deepSet(tempUserConfig,
+                                              item.configKey,
+                                              event.target.value + (item.postfix ? item.postfix : ""));
+                                      previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                 });
 
             return sizeInput;
         }
 
         // -------------------------------
-        function createSizeInput(labelText, sizeInputId, option, postfix, indents = 1) {
+        function createSizeInput(labelText, sizeInputId, option, maxValue, postfix, indents = 1) {
             const { classes: { input },
                     sizes: { labels: { fontSizeSmaller, fontWeightSmaller } }
                   } = modalConfig;
@@ -2729,26 +4160,39 @@
             const label = createLabel(labelText,
                                       sizeInputId,
                                       {
-                                       fontSize:     fontSizeSmaller,
-                                       width:        "160px",
-                                       alignIndents: indents,
-                                       fontWeight:   fontWeightSmaller
+                                        fontSize:     fontSizeSmaller,
+                                        width:        "160px",
+                                        alignIndents: indents,
+                                        fontWeight:   fontWeightSmaller
                                       });
             label.style.marginRight = "10px";
 
             const sizeInput = document.createElement("input");
             sizeInput.classList.add(input);
-            sizeInput.type = "text";
+            sizeInput.type = "number";
+            sizeInput.min = "0";
+
+            sizeInput.max = maxValue;
             sizeInput.id = sizeInputId;
-            sizeInput.maxLength = "3";
-            sizeInput.value = option.replace(postfix, "");
-            sizeInput.style.width = "40px";
+            if (option) sizeInput.value = option.replace(postfix, "");
+                                     // 8 per digit, 16 offset, 12 for the arrows
+            sizeInput.style.width = (Math.ceil(Math.log10(maxValue)) * 8 + 16 + 12) + "px";
             sizeInput.style.textAlign = "right";
             sizeInput.style.padding = ".2em .3em";
 
+            // https://chat.stackoverflow.com/transcript/message/52534817#52534817
+            sizeInput
+                .addEventListener("input",
+                                  ({ target }) => {
+                                      const { valueAsNumber, max, min } = target;
+                                      target.value = Math.floor(valueAsNumber) || min;
+                                      valueAsNumber > +max && (target.value = max);
+                                      valueAsNumber < +min && (target.value = min);
+                 });
+
             const postlabel = createLabel(postfix,
                                           sizeInputId,
-                                          {fontSize : fontSizeSmaller, fontWeight : fontWeightSmaller});
+                                          { fontSize : fontSizeSmaller, fontWeight : fontWeightSmaller });
 
             sizeInputContainer.append(label, sizeInput, postlabel);
             return sizeInputContainer;
@@ -2765,10 +4209,12 @@
             item.element = colourPicker;
 
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
-            colourPicker.addEventListener("change", (event) => {
-                deepSet(tempUserConfig, item.configKey, event.target.value);
-                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
-            });
+            colourPicker
+                .addEventListener("change",
+                                  (event) => {
+                                      deepSet(tempUserConfig, item.configKey, event.target.value);
+                                      previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                 });
 
             return colourPicker;
         }
@@ -2781,7 +4227,7 @@
 
             const label = createLabel(labelText,
                                       colourPickerId,
-                                      {fontSize : fontSizeSmaller, fontWeight : fontWeightSmaller});
+                                      { fontSize : fontSizeSmaller, fontWeight : fontWeightSmaller });
 
             // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/color
             const colour = getCSSVariableValue(option) || "#000000";
@@ -2790,7 +4236,7 @@
             colourPicker.id = colourPickerId;
             colourPicker.value = colour;
             colourPicker.style.margin = "2px";
-            colourPicker.style.marginLeft = (indents * 15) + "px";
+            colourPicker.style.marginLeft = (indents * indentPIXELS) + "px";
             colourPicker.style.marginRight = "10px";
             colourPicker.style.borderRadius = "5px";
             colourPicker.style.height = "25px";
@@ -2813,16 +4259,17 @@
 
         // -------------------------------
         function createOptionHeader(labelText, headerId, indents = 0) {
-            const { flex: { item } } = config.classes;
+            const { display: { cell } } = config.classes;
             const { classes: { label } } = modalConfig;
 
             const optionHeaderContainer = createContainer();
 
             const optionHeader = document.createElement("p");
-            optionHeader.classList.add(item, label);
+            optionHeader.classList.add(cell, label);
             optionHeader.id = headerId;
             optionHeader.textContent = labelText;
-            optionHeader.style.marginLeft = (indents * 15) + "px";
+            optionHeader.style.marginBottom = "10px";
+            optionHeader.style.marginLeft = (indents * indentPIXELS) + "px";
             optionHeaderContainer.append(optionHeader);
 
             return optionHeaderContainer;
@@ -2839,18 +4286,20 @@
             item.element = toggle;
 
             const previewUpdateFunctions = getPreviewUpdateFunctions(item, tabMenu);
-            toggle.addEventListener("change", (event) => {
-                deepSet(tempUserConfig, item.configKey, (event.target.checked ? "Yes" : "No"));
-                toggleEnableDisable(tabMenu, labelText);
-                previewUpdateFunctions.forEach((foonction) => foonction(tabMenu));
-            });
+            toggle
+                .addEventListener("change",
+                                  (event) => {
+                                      deepSet(tempUserConfig, item.configKey, (event.target.checked ? "Yes" : "No"));
+                                      toggleEnableDisable(tabMenu, labelText);
+                                      previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
+                 });
 
             return toggle;
         }
 
         // -------------------------------
         function createStackToggle(labelText, toggleId, option, indents = 0) {
-            const { flex: { item } } = config.classes;
+            const { display: { cell } } = config.classes;
             const { classes: { toggle: { sweetch, indicator } } } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
@@ -2862,7 +4311,7 @@
             const label = createLabel(labelText, toggleId, { indents });
 
             const toggle = document.createElement("div");
-            toggle.classList.add(item, sweetch);
+            toggle.classList.add(cell, sweetch);
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
@@ -2870,10 +4319,8 @@
             // https://chat.stackoverflow.com/transcript/message/52410313#52410313
             checkbox.checked = (option === "Yes");
 
-            // const toggleButton = document.createElement("div");
             const toggleButton = document.createElement("span");
             toggleButton.classList.add(indicator);
-            // toggleButton.id = toggleId + "-toggleButton";
 
             toggle.append(checkbox, toggleButton);
             toggleContainer.append(label, toggle);
@@ -2884,7 +4331,7 @@
 
         // -------------------------------
         function createLabel(labelText, forElementId, options) {
-            const { classes: { label : stackLabel} } = modalConfig;
+            const { classes: { label : stackLabel } } = modalConfig;
 
             const label = document.createElement("label");
             label.classList.add(stackLabel);
@@ -2895,9 +4342,9 @@
             if (fontSize)      label.style.fontSize   = options.fontSize;
             if (fontWeight)    label.style.fontWeight = fontWeight;
             if (width)         label.style.width      = width;
-            if (indents)       label.style.marginLeft = (indents * 15) + "px";
-            if (alignIndents)  label.style.marginLeft = `${(alignIndents * 15) + 10 + 44}px`;
-                                   // ^ from colourPicker: marginLeft + marginRight + width
+            if (indents)       label.style.marginLeft = (indents * indentPIXELS) + "px";
+            if (alignIndents)  label.style.marginLeft = `${(alignIndents * indentPIXELS) + 10 + 44}px`;
+                                                // ^ from colourPicker: marginLeft + marginRight + width
             return label;
         }
 
@@ -2921,13 +4368,14 @@
         // -------------------------------
         function standardStyling(element, options = {}) {
             const { colours: { background } } = modalConfig;
-            const { padding, paddingTop, paddingBottom, marginBottom } = options;
+            const { padding, paddingTop, paddingLeft, paddingBottom, marginBottom } = options;
 
             element.style.backgroundColor = background;
 
             if (padding)       element.style.padding       = padding;
+            if (paddingLeft)   element.style.paddingLeft   = paddingLeft;
             if (paddingTop)    element.style.paddingTop    = paddingTop;
-            if (paddingBottom) element.style.paddingBottom = paddingTop;
+            if (paddingBottom) element.style.paddingBottom = paddingBottom;
             if (marginBottom)  element.style.marginBottom  = marginBottom;
         }
 
@@ -2936,6 +4384,9 @@
         // ---- Colour convertion -----------------------------------------------------------------
 
         function getCSSVariableValue(variable) {
+            if (!variable)
+                return null;
+
             if (variable.startsWith("#"))
                 return variable;
 
@@ -2954,14 +4405,14 @@
             const dummy = document.createElement("div");
             dummy.style.color = variable;
             document.body.appendChild(dummy);
-            const colour = window.getComputedStyle(dummy).color;  //Color in RGB
+            const colour = window.getComputedStyle(dummy).color; //Color in RGB
             dummy.remove();
             return rgbToHex(colour);
 
             // https://stackoverflow.com/questions/36721830/convert-hsl-to-rgb-and-hex/44134328#44134328
             // by https://stackoverflow.com/users/1376947/icl7126
             function hslToHex(hsl) {
-                // const isHSL = hsl.match(/^hsl\(([\d\.]+),\s?([\d\.]+)%,\s?([\d\.]+)%\)$/i);
+                // const matchHSL = hsl.match(/^hsl\(([\d\.]+),\s?([\d\.]+)%,\s?([\d\.]+)%\)$/i);
                 const matchHSL = hsl.match(/^hsl\(([\d.]+),\s?([\d.]+)%,\s?([\d.]+)%\)$/i);
                 if (!matchHSL)
                     return;
@@ -2970,7 +4421,7 @@
                 const f = (n) => {
                     const k = (n + h / 30) % 12;
                     const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                    return Math.round(255 * color).toString(16).padStart(2, "0");   // convert to Hex and prefix "0" if needed
+                    return Math.round(255 * color).toString(16).padStart(2, "0"); // convert to Hex and prefix "0" if needed
                 };
                 return `#${f(0)}${f(8)}${f(4)}`;
             }
@@ -2993,33 +4444,29 @@
         // ---- Disable / Enable of elemetents on Toggle choices ----------------------------------
 
         function initEnableDisable(tabName) {
-            const entries = [];
             const tab = objectFromTabname(modalElements, tabName).items;
-            tab.forEach(({ toggleEntry }) => {
-                if (toggleEntry && !entries.includes(toggleEntry))
-                    entries.push(toggleEntry);
-            });
 
-            entries.forEach((entry) => toggleEnableDisable(tabName, entry));
+            // https://chat.stackoverflow.com/transcript/message/52499177#52499177
+            const entries = new Set(tab.map(({ toggleEntry }) => toggleEntry));
+            entries.forEach((entry) => entry && toggleEnableDisable(tabName, entry));
         }
 
         // -------------------------------
         function toggleEnableDisable(tabName, labelText) {
-
             const tab = objectFromTabname(modalElements, tabName).items;
             let item = objectFromName(tab, labelText);
 
             if (!item.toggleEntry) // toggle does not control other options.
                 return;
 
-            if (labelText !== item.toggleEntry) {  // this isn't the top controlling toggle.
+            if (labelText !== item.toggleEntry) { // this isn't the top controlling toggle.
                item = objectFromName(tab, item.toggleEntry);
             }
 
             recurseOnEntries(item, false, 0);
 
             function recurseOnEntries(entryItem, disable, level) {
-                if (level > 5) return;  // safetySwitch :)
+                if (level > 5) return; // safetySwitch :)
 
                 if (level > 0) { // first level cannot be enabled/disabled
                     disableModalOption(entryItem, disable);
@@ -3030,7 +4477,10 @@
                     const shouldDisable = disable || (on !== "Yes");
                     entryItem
                         .dependents
-                        .forEach((newEntry) => recurseOnEntries(objectFromName(tab, newEntry), shouldDisable, level + 1));
+                        .forEach(newEntry =>
+                                     recurseOnEntries(objectFromName(tab, newEntry),
+                                                      shouldDisable,
+                                                      level + 1));
                 }
             }
         }
@@ -3050,42 +4500,42 @@
 
             if (disable) {
                 [...containerElement.children]
-                    .forEach((element) => {
-                        if (item.type === "toggle"
-                              && element.classList.contains(sweetch)) {
-                            const checkbox = element.firstElementChild;
-                            const toggle = element.lastElementChild;
-                            checkbox.disabled = true;
-                            if (checkbox.checked) {
-                                toggle.style.background = toggleMutedOn;
-                            } else {
-                                toggle.style.background = toggleMutedoff;
-                            }
-                        } else {
-                            element.disabled = true;
-                            element.style.color = muted;
-                            if (item.type === "select"
-                                  && element.classList.contains(select))
-                                element.firstElementChild.disabled = true;
-                        }
-                    });
-            } else {
+                    .forEach(element => {
+                                 if (item.type === "toggle"
+                                       && element.classList.contains(sweetch)) {
+                                     const checkbox = element.firstElementChild;
+                                     const toggle = element.lastElementChild;
+                                     checkbox.disabled = true;
+                                     if (checkbox.checked) {
+                                         toggle.style.background = toggleMutedOn;
+                                     } else {
+                                         toggle.style.background = toggleMutedoff;
+                                     }
+                                 } else {
+                                     element.disabled = true;
+                                     element.style.color = muted;
+                                     if (item.type === "select"
+                                           && element.classList.contains(select))
+                                         element.firstElementChild.disabled = true;
+                                 }
+                     });
+            } else { // enable
                 [...containerElement.children]
-                    .forEach((element) => {
-                        if (item.type === "toggle"
-                              && element.classList.contains(sweetch)) {
-                            const checkbox = element.firstElementChild;
-                            const toggle   = element.lastElementChild;
-                            checkbox.disabled = false;
-                            toggle.removeAttribute("style");
-                        } else {
-                            element.disabled = false;
-                            element.style.color = active;
-                            if (item.type === "select"
-                                  && element.classList.contains(select))
-                                element.firstElementChild.disabled = false;
-                        }
-                    });
+                    .forEach(element => {
+                                 if (item.type === "toggle"
+                                       && element.classList.contains(sweetch)) {
+                                     const checkbox = element.firstElementChild;
+                                     const toggle   = element.lastElementChild;
+                                     checkbox.disabled = false;
+                                     toggle.removeAttribute("style");
+                                 } else {
+                                     element.disabled = false;
+                                     element.style.color = active;
+                                     if (item.type === "select"
+                                           && element.classList.contains(select))
+                                         element.firstElementChild.disabled = false;
+                                 }
+                     });
             }
         }
 
@@ -3122,25 +4572,11 @@
             return previewContainer;
         }
 
-        /*function getWidth(element) {
-            const { style } = element;
-            // https://stackoverflow.com/questions/13435604/getting-an-elements-inner-height
-            const elementWidth        = parseInt(style.width);
-            const elementPaddingLeft  = parseInt(style.paddingLeft);
-            const elementPaddingRight = parseInt(style.paddingRight);
-
-            return elementWidth -
-                       (elementPaddingLeft + elementPaddingRight) -
-                       6; // magical pixels.. ?!?
-        }*/
-
 
         // -------------------------------
         function createPreviewImage() {
             const imageContainer = document.createElement("img");
-            // imageContainer.style.width = getWidth(previeMoveRadioBoxContainer) + "px";
             imageContainer.style.width = "100%";
-
             return imageContainer;
         }
 
@@ -3149,30 +4585,52 @@
             const preview = createPreviewContainer();
             const imageContainer = createPreviewImage();
             preview.append(imageContainer);
+            return preview;
+        }
 
+        // -------------------------------
+        function createPreviewStyledBackground() {
+            const preview = createPreviewContainer();
+            const imageContainer = createPreviewImage();
+            standardStyling(imageContainer);
+            preview.append(imageContainer);
             return preview;
         }
 
 
         // -------------------------------
-        function previewRadiosOrButtonsContainer() {
-            const { flex: { container, item, justifyContentFlexEnd },
-                    buttons: { button : base, primary, outlined },
+        function previewUpdateImage(image, onf, images) {
+            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
+            const { lightOn, lightOff, darkOn, darkOff } = images;
+
+            if (isLIGHT) {
+                image.src = onf
+                    ? `${imgHOST}${lightOn}`
+                    : `${imgHOST}${lightOff}`;
+            } else {
+                image.src = onf
+                    ? `${imgHOST}${darkOn}`
+                    : `${imgHOST}${darkOff}`;
+            }
+        }
+
+        // -------------------------------
+        function previewRadiosOrButtons() {
+            const { display: { cell, container, center },
+                    buttons: { button : base, primary, outlined }
                   } = config.classes;
             const { ids: { radioButtons : radioButtonsId, radioName, radioButtonLabel },
                     classes: { actions: { radio : radioAction, radioParent },
                                margins: { negative, zeroX },
-                               center,
                                label : stackLabel,
                                radio : stackradio,
-                               pointerEventsNone },
+                               pointerEventsNone }
                   } = modalConfig;
 
-            const previeRadiosVsButtonsContainer = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const submitButton = createModalButton("Submit", [base, primary]);
             const skipButton   = createModalButton("Skip",   [base, outlined]);
-
             submitButton.classList.add(pointerEventsNone);
             skipButton.classList.add(pointerEventsNone);
             skipButton.style.marginLeft = "4px";
@@ -3184,49 +4642,61 @@
             buttons.append(submitButton, skipButton);
 
             const radios =
-                  ["Approve", "Improve edit", "Reject and edit", "Reject"]
-                    // make sure the ids are actually unique using the button name to lower case and without spaces
-                    .map((label) => makeRadio(label, `${radioButtonLabel}-${label.toLowerCase().replaceAll(" ", "")}`));
+                      ["Approve", "Improve edit", "Reject and edit", "Reject"]
+                          .map(label => makeRadio(label, radioButtonLabel));
+
 
             const fieldset = document.createElement("fieldset");
-            fieldset.classList.add(container, negative, zeroX, justifyContentFlexEnd); // align flexbox to the right, as in review
+//            fieldset.classList.add(container, negative);
+            fieldset.classList.add(container, negative, "jc-end");
             fieldset.style.textAlign = "center";
             fieldset.append(...radios, buttons);
 
-            standardStyling(fieldset, { padding: "10px" });
-            fieldset.style.zoom = "91%";
+            standardStyling(fieldset, { padding: "10px 0px" });
+            // fieldset.style.zoom = "91%";
+            fieldset.style.transform = "scale(0.91)";
 
             const fieldsetContainer = document.createElement("div");
+//            fieldsetContainer.style.paddingTop = "3px";
+//            fieldsetContainer.style.paddingBottom = "7px";
+            fieldsetContainer.style.backgroundColor = "var(--white)";
             fieldsetContainer.append(fieldset);
+
+            // make Opera not eat "Approved"
+            fieldsetContainer.classList.add(container);
+            fieldsetContainer.style.justifyContent = "flex-end";
+            fieldset.style.justifyContent = "flex-end";
+            fieldset.style.whiteSpace = "nowrap";
+            fieldset.style.marginLeft =  "-20px";
+            fieldset.style.marginRight =  "-12px";
 
             const imageContainer = createPreviewImage();
             standardStyling(imageContainer);
 
             const lastElement = document.createElement("div");
             lastElement.append(fieldsetContainer, imageContainer);
-            previeRadiosVsButtonsContainer.append(lastElement);
+            previewContainer.append(lastElement);
 
-            // Do not initialize this yet since two preview elements needs to be set
+            // Do not initialize this yet since multiple preview elements needs to be set
 
-            return previeRadiosVsButtonsContainer;
+            return previewContainer;
 
             function makeRadio(labelText, radioId) {
                 const label = document.createElement("label");
-                label.classList.add(item, stackLabel);
+                label.classList.add(cell, stackLabel);
                 label.htmlFor = radioId;
                 label.textContent = labelText;
-
                 const labelContainer = document.createElement("div");
-                labelContainer.classList.add(item);
+                labelContainer.classList.add(cell);
                 labelContainer.append(label);
 
                 const radio = document.createElement("input");
                 radio.type = "radio";
                 radio.classList.add(stackradio, radioAction);
                 radio.id = radioId;
-                radio.name = radioName;  // needed to make them exclusive
+                radio.name = radioName; // needed to make them exclusive
                 const radioContainer = document.createElement("div");
-                radioContainer.classList.add(item);
+                radioContainer.classList.add(cell);
                 radioContainer.append(radio);
 
                 const labelAndRadio = document.createElement("div");
@@ -3244,21 +4714,27 @@
         }
 
         // -------------------------------
-        function previewRadiosOrButtonsOnf(tabMenu, actionsElementName, moveElementName) {
-            const actionsElement = getElement(tabMenu, actionsElementName);
-            const moveElement    = getElement(tabMenu, moveElementName);
+        function previewRadiosOrButtonsOnf(tabMenu, actionsElementName, moveElementName, areaElementName, toolTipElementName) {
+            const actionsElement   = getElement(tabMenu, actionsElementName);
+            const moveElement      = getElement(tabMenu, moveElementName);
+            const clickElement     = getElement(tabMenu, areaElementName);
+            const tooltipElement   = getElement(tabMenu, toolTipElementName);
 
             const actionsContent = actionsElement.lastElementChild; // from the preview element
             const { firstElementChild : actionsRadios,
                     lastElementChild  : actionsImage
                   } = actionsContent;
 
-            const moveImage = moveElement.lastElementChild; // from the preview element
+            const moveImage    = moveElement.lastElementChild;
+            const clickImage   = clickElement.lastElementChild;
+            const tooltipImage = tooltipElement.lastElementChild;
 
-            const { radioVsButtons } = tempUserConfig.options;
-            const moveRadioBox     = radioVsButtons.moveRadioBox === "Yes";
-            const keepRadios       = radioVsButtons.keepRadios === "Yes";
-            const radioWithBorders = radioVsButtons.radioWithBorders === "Yes";
+            const radioVsButtons = deepGet(tempUserConfig, "options.radioVsButtons");
+            const moveRadioBox     = radioVsButtons?.moveRadioBox === "Yes";
+            const keepRadios       = radioVsButtons?.keepRadios === "Yes";
+            const radioWithBorders = radioVsButtons?.radioWithBorders === "Yes";
+            const largeClickArea   = radioVsButtons?.largerClickArea === "Yes";
+            const tooltips         = radioVsButtons?.tooltips === "Yes";
 
             const { classes: { desktopHide } } = config;
 
@@ -3273,21 +4749,77 @@
             //  moveRadioBox, !keepRadios                     -> XPIdk.png / Bf5Lm.png
             // !moveRadioBox                                  -> Sr586.png / 9Y7O9.png
 
+            // previewclickArea:                                                     light   /   dark
+            //  moveRadioBox,  keepRadios,  radioWithBorders,  largeClickArea  ->  oXow0.png / xzpHa.png
+            //  moveRadioBox,  keepRadios,  radioWithBorders, !largeClickArea  ->  GR5nm.png / hZ8b7.png
+            //  moveRadioBox,  keepRadios, !radioWithBorders,  largeClickArea  ->  DzA5H.png / c5Yvs.png
+            //  moveRadioBox,  keepRadios, !radioWithBorders, !largeClickArea  ->  5mSiL.png / ck2v7.png
+            //  moveRadioBox, !keepRadios                                      ->       0ucaP.png         image of nothing
+            // !moveRadioBox                                                   ->       0ucaP.png         image of nothing
+
+            // previewTooltip:                                              light    /   dark
+            //  moveRadioBox,  keepRadios,  radioWithBorders,  toolTip  -> rFi20.png / WW4Fg.png
+            //  moveRadioBox,  keepRadios,  radioWithBorders, !toolTip  -> QH2tk.png / bP06H.png
+            //  moveRadioBox,  keepRadios, !radioWithBorders,  toolTip  -> TkAu6.png / R8laG.png
+            //  moveRadioBox,  keepRadios, !radioWithBorders, !toolTip  -> gG7kO.png / lARUW.png
+            //  moveRadioBox, !keepRadios, toolTip                      -> 8RB1j.png / 8zGZF.png
+            //  moveRadioBox, !keepRadios, !toolTip                     -> pNECy.png / okMEA.png
+            // !moveRadioBox                                            ->       0ucaP.png         image of nothing
+
             if (moveRadioBox && keepRadios) {
 
                 actionsRadios.classList.remove(desktopHide);
                 actionsImage.classList.add(desktopHide);
                 previewRadiosOrButtonsUpdate(tabMenu, actionsElementName);
 
-                if (isLIGHT) {
-                    moveImage.src = radioWithBorders
-                        ? `${imgHOST}rtDv9.png`   // Radios with bars
-                        : `${imgHOST}VdbX8.png`;  // Radios NO bars
-                } else {
-                    moveImage.src = radioWithBorders
-                        ? `${imgHOST}D3Qv1.png`   // Radios with bars
-                        : `${imgHOST}to4Rl.png`;  // Radios NO bars
-                }
+                previewUpdateImage(moveImage,
+                                   radioWithBorders,
+                                   { lightOn:  "rtDv9.png", // Radios with bars
+                                     lightOff: "VdbX8.png", // Radios NO bars
+                                     darkOn:   "D3Qv1.png",
+                                     darkOff:  "to4Rl.png" });
+
+                const lightMapClickArea = [
+                    ["oXow0.png", radioWithBorders, largeClickArea],
+                    ["GR5nm.png", radioWithBorders],
+                    ["DzA5H.png", largeClickArea],
+                    ["5mSiL.png", ],
+                ];
+                const darkMapClickArea = [
+                    ["xzpHa.png", radioWithBorders, largeClickArea],
+                    ["hZ8b7.png", radioWithBorders],
+                    ["c5Yvs.png", largeClickArea],
+                    ["ck2v7.png", ],
+                ];
+
+                const lightMapTooltip = [
+                    ["rFi20.png", radioWithBorders, tooltips],
+                    ["QH2tk.png", radioWithBorders],
+                    ["TkAu6.png", tooltips],
+                    ["gG7kO.png", ],
+                ];
+                const darkMapTooltip = [
+                    ["WW4Fg.png", radioWithBorders, tooltips],
+                    ["bP06H.png", radioWithBorders],
+                    ["R8laG.png", tooltips],
+                    ["lARUW.png", ],
+                ];
+
+                const screenShotMapClickArea = isLIGHT ? lightMapClickArea : darkMapClickArea;
+                const screenShotMapTooltips  = isLIGHT ? lightMapTooltip   : darkMapTooltip;
+
+                const [clickAreaScreenShot] =
+                          screenShotMapClickArea
+                              .find(([_, ...conditions]) =>
+                                        conditions.every(Boolean)
+                               );
+                const [tooltipScreenShot] =
+                          screenShotMapTooltips
+                              .find(([_, ...conditions]) =>
+                                        conditions.every(Boolean)
+                               );
+                clickImage.src   = `${imgHOST}${clickAreaScreenShot}`;
+                tooltipImage.src = `${imgHOST}${tooltipScreenShot}`;
 
             } else {
 
@@ -3301,12 +4833,24 @@
                     moveImage.src = isLIGHT
                         ? `${imgHOST}XPIdk.png`
                         : `${imgHOST}Bf5Lm.png`;
-                } else {
-                    actionsImage.src = `${imgHOST}WgO6m.png`; // <-- completely tranparent image
+
+                    if (tooltips) {
+                        tooltipImage.src = isLIGHT
+                            ? `${imgHOST}8RB1j.png`
+                            : `${imgHOST}8zGZF.png`;
+                    } else {
+                        tooltipImage.src = isLIGHT
+                            ? `${imgHOST}pNECy.png`
+                            : `${imgHOST}okMEA.png`;
+                    }
+                } else { // !moveRadioBox
+                    actionsImage.src = `${imgHOST}WgO6m.png`; // <-- completely transparent image
+                    tooltipImage.src = `${imgHOST}0ucaP.png`; // <-- completely transparent image
                     moveImage.src = isLIGHT
                         ? `${imgHOST}Sr586.png`
                         : `${imgHOST}9Y7O9.png`;
                 }
+                clickImage.src = `${imgHOST}0ucaP.png`;
             }
         }
 
@@ -3318,49 +4862,50 @@
                   } = modalConfig;
 
             const { colour: { radioSeperator : radioSeperatorColour },
-                    size: { radioSeperator : radioSeperatorSize },
+                    size: { radioSeperator : radioSeperatorSize }
                   } = tempUserConfig;
 
-            const radioWithBorders = tempUserConfig.options.radioVsButtons.radioWithBorders === "Yes";
+            const radioWithBorders = deepGet(tempUserConfig, "options.radioVsButtons.radioWithBorders") === "Yes";
 
             const radios = element.querySelectorAll(`#${radioButtonsId}`);
 
-            radios.forEach((radio) => {
-                if (radioWithBorders) {
-                    radio.style.borderLeft  = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
-                } else {
-                    radio.style.borderLeft  = "none";
-                }
-            });
+            radios
+                .forEach(radio => {
+                             if (radioWithBorders) {
+                                 radio.style.paddingLeft = "3px";
+                                 radio.style.borderLeft  = `${radioSeperatorColour} solid ${radioSeperatorSize}px`;
+                             } else {
+                                 radio.style.paddingLeft = "4px";
+                                 radio.style.borderLeft  = "none";
+                             }
+                 });
         }
 
-
         // -------------------------------
-        function previewUserCardsContainer() {
-            const previewUserCards = createPreviewContainer();
+        function previewUserCards() {
+            const previewContainer = createPreviewContainer();
 
             const imageContainer = createPreviewImage();
-            previewUserCards.append(imageContainer);
+            previewContainer.append(imageContainer);
 
             // Do not initialize this yet since two preview elements needs to be set
 
-            return previewUserCards;
+            return previewContainer;
         }
 
         // -------------------------------
-        function previewEditorStatisticsContainer() {
+        function previewEditorStatistics() {
+            const { container } = config.classes.display;
+            const { sizes: { editorAvatar: { width, height } } } = modalConfig;
 
-            const { container } = config.classes.flex;
-            const { sizes: { editorAvatar: { width, heigth } } } = modalConfig;
-
-            const previewEditorStatistics = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const image = document.createElement("img");
             image.style.width = width;
 
             const imageContainer = document.createElement("div");
             imageContainer.style.width = width;
-            imageContainer.style.heigth = heigth;
+            imageContainer.style.height = height;
             imageContainer.append(image);
 
             const previewEditorStatisticsGrid = document.createElement("div");
@@ -3374,11 +4919,11 @@
             standardStyling(previewEditorStatisticsGrid);
             previewEditorStatisticsGrid.append(imageContainer);
 
-            previewEditorStatistics.append(previewEditorStatisticsGrid);
+            previewContainer.append(previewEditorStatisticsGrid);
 
             // Do not initialize this yet since two preview elements needs to be set
 
-            return previewEditorStatistics;
+            return previewContainer;
         }
 
         // -------------------------------
@@ -3391,9 +4936,9 @@
             const editorFlex  = editorElement.lastElementChild;      // from the preview element
             const editorImage = editorElement.querySelector("img");
 
-            const { userCards : configUserCards } = tempUserConfig.options;
-            const userCards        = configUserCards.getUserCards === "Yes";
-            const editorStatistics = configUserCards.withEditiorStats === "Yes";
+            const configUserCards  = deepGet(tempUserConfig, "options.userCards");
+            const userCards        = configUserCards?.getUserCards === "Yes";
+            const editorStatistics = configUserCards?.withEditiorStats === "Yes";
 
             const lightMap = [
                 [["0N0gd.png","ABwF9.png"], userCards, editorStatistics],
@@ -3409,10 +4954,11 @@
             const screenShotMap = isLIGHT ? lightMap : darkMap;
 
             const [[userCardScreenShot, editorScreenShot]] =
-                      screenShotMap.find(([_, ...conditions]) =>
-                          // conditions.every(c => !!c)
-                          conditions.every(Boolean)
-                      );
+                      screenShotMap
+                          .find(([_, ...conditions]) =>
+                                    // conditions.every(c => !!c)
+                                    conditions.every(Boolean)
+                           );
             userCardImage.src = `${imgHOST}${userCardScreenShot}`;
             editorImage.src   = `${imgHOST}${editorScreenShot}`;
 
@@ -3426,16 +4972,15 @@
                 }
 
                 const sampleApiResponse = [
-                                 {approval_date: 1},
-                                 {rejection_date: 1}, {rejection_date: 1},
-                                 {},{},{}, // pending
+                                 { approval_date: 1 },
+                                 { rejection_date: 1 }, { rejection_date: 1 },
+                                 { }, { }, { } // pending
                                ];
                 const { colour, size: { editorStatistics : fontSize } } = tempUserConfig;
 
                 // editorFlex.append(createEditorStatisticsItem(sample, colour, fontSize));
                 const editorStatsTable = createEditorStatisticsItem(sampleApiResponse, colour, fontSize);
                 editorFlex.append(editorStatsTable);
-
             } else {
                 if (editorFlex.children.length > 1)
                     editorFlex.lastElementChild.remove();
@@ -3463,67 +5008,54 @@
 
 
         // -------------------------------
-        function previewPageTitleLinkContainer() {
-            const previewPageTitleLink = createPreviewImageContainer();
-            previewPageTitleLinkOnf(null, null, previewPageTitleLink);
-            return previewPageTitleLink;
+        function previewPageTitleLink() {
+            const previewContainer = createPreviewImageContainer();
+            previewPageTitleLinkOnf(null, null, previewContainer);
+            return previewContainer;
         }
 
         // -------------------------------
         function previewPageTitleLinkOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-
-            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
-            const movePageTitle = tempUserConfig.options.movePageTitleLink === "Yes";
-
-            if (isLIGHT) {
-                image.src = movePageTitle
-                    ? `${imgHOST}9JnTg.png`
-                    : `${imgHOST}26MhB.png`;
-            } else {
-                image.src = movePageTitle
-                    ? `${imgHOST}19rOX.png`
-                    : `${imgHOST}QS05y.png`;
-            }
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.movePageTitleLink") === "Yes",
+                               { lightOn:  "9JnTg.png",
+                                 lightOff: "26MhB.png",
+                                 darkOn:   "19rOX.png",
+                                 darkOff:  "QS05y.png" });
         }
 
 
         // -------------------------------
-        function previewDiffChoicesContainer() {
-            const previewDiffChoices = createPreviewImageContainer();
-            previewDiffChoicesOnf(null, null, previewDiffChoices);
-            return previewDiffChoices;
+        function previewDiffChoices() {
+            const previewContainer = createPreviewImageContainer();
+            previewDiffChoicesOnf(null, null, previewContainer);
+            return previewContainer;
         }
 
         // -------------------------------
         function previewDiffChoicesOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
-            const moveDiffChoices = tempUserConfig.options.moveDiffChoices === "Yes";
-
-            if (isLIGHT) {
-                image.src = moveDiffChoices
-                    ? `${imgHOST}xJT8x.png`
-                    : `${imgHOST}kTaNQ.png`;
-            } else {
-                image.src = moveDiffChoices
-                    ? `${imgHOST}mPovF.png`
-                    : `${imgHOST}N9JyH.png`;
-            }
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.moveDiffChoices") === "Yes",
+                               { lightOn:  "xJT8x.png",
+                                 lightOff: "kTaNQ.png",
+                                 darkOn:   "mPovF.png",
+                                 darkOff:  "N9JyH.png" });
         }
 
 
         // -------------------------------
-        function previewProgressBarContainer() {
-            const { container: flexContainer } = config.classes.flex;
+        function previewProgressBar() {
+            const { container: flexContainer } = config.classes.display;
             const { classes: { naviagations: { base : navigationBase, item : nativationItem, selected },
                                padding: { Y : paddingY },
                                title: { base : title } }
                   } = modalConfig;
 
-            const previewProgressBar = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const reviewTask = document.createElement("a");
             reviewTask.classList.add(nativationItem, selected);
@@ -3551,38 +5083,40 @@
             const container = document.createElement("div");
             standardStyling(container,
                             {
-                             padding: "3px", paddingTop: "12px", paddingBottom: "10px",
-                             marginBottom: "0px"
+                              padding: "3px", paddingTop: "12px", paddingBottom: "10px",
+                              marginBottom: "0px"
                             });
             container.classList.add(flexContainer);
-            container.style.flexDirection = "column"; // flex-direction: column
-            container.style.alignItems = "flex-end";  // align-items: flex-end
+            container.style.flexDirection = "column";
+            container.style.alignItems = "flex-end";
 
             const stackProgress = stackProgressBar();
-            stackProgress.classList.add(paddingY);      // for the padding
+            stackProgress.classList.add(paddingY); // for the padding
 
             container.append(titleContainer, stackProgress);
-            previewProgressBar.append(container);
+            previewContainer.append(container);
 
-            previewProgressBarOnfUpdate(null,null,previewProgressBar);
+            previewProgressBarOnfUpdate(null,null,previewContainer);
 
-            return previewProgressBar;
+            return previewContainer;
         }
 
         // -------------------------------
         function stackProgressBar() {
-            const { container: flexContainer, item: flexItem } = config.classes.flex;
+            const { cell } = config.classes.display;
 
             const container = document.createElement("div");
-            container.classList.add(flexItem);
+            container.classList.add(cell);
+
+            // I know.. I cheated here, but this is bound to break and copy'n'pasting is easy.
             const content = `
-                    <div class="${flexContainer} ai-center sm:fd-column">
-                        <div class="${flexItem} mr12 ws-nowrap">
+                    <div class="d-flex ai-center sm:fd-column">
+                        <div class="flex--item mr12 ws-nowrap">
                             <span>Your daily reviews</span>
                             <span class="js-reviews-done mrn2">20</span>
                             <span class="js-reviews-per-day" data-reviews-per-day="40">/40</span>
                         </div>
-                        <div class="${flexItem}">
+                        <div class="flex--item">
                             <div class="s-progress wmn1 h8 bar-pill">
                                 <div class="s-progress--bar bar-pill js-review-progress"
                                      role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
@@ -3598,7 +5132,8 @@
         // -------------------------------
         function previewProgressBarOnfUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const taskLink = element.querySelector("." + modalConfig.classes.naviagations.selected);
-            const moveProgressBar = tempUserConfig.options.moveProgressBar === "Yes";
+
+            const moveProgressBar = deepGet(tempUserConfig, "options.moveProgressBar") === "Yes";
 
             if (moveProgressBar) {
                 const colour = tempUserConfig.colour;
@@ -3620,37 +5155,31 @@
 
 
         // -------------------------------
-        function previewMovePostTypeContainer() {
-            const previewMovePostType = createPreviewImageContainer();
-            previewMovePostTypeOnf(null, null, previewMovePostType);
-            return previewMovePostType;
+        function previewMovePostType() {
+            const previewContainer = createPreviewImageContainer();
+            previewMovePostTypeOnf(null, null, previewContainer);
+            return previewContainer;
         }
 
         // -------------------------------
         function previewMovePostTypeOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const image = element.lastElementChild;
 
-            const movePostType = tempUserConfig.options.AnswerQuestionOnTop === "Yes";
-
-            if (isLIGHT) {
-                image.src = movePostType
-                    ? `${imgHOST}yJZuA.png`
-                    : `${imgHOST}AdHvl.png`;
-            } else {
-                image.src = movePostType
-                    ? `${imgHOST}JyPv5.png`
-                    : `${imgHOST}1mtpe.png`;
-            }
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.AnswerQuestionOnTop") === "Yes",
+                               { lightOn:  "yJZuA.png",
+                                 lightOff: "AdHvl.png",
+                                 darkOn:   "JyPv5.png",
+                                 darkOff:  "1mtpe.png" });
         }
 
         // -------------------------------
-        function previewMovePostTypeColourContainer() {
+        function previewMovePostTypeColour() {
             const { classes: { title: { header : titleHeader } },
                     colours: { border : borderColour }
                   } = modalConfig;
 
-            const previewMovePostTypeColour = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const header = document.createElement("h1");
             header.classList.add(titleHeader);
@@ -3664,17 +5193,17 @@
             headerContainer.append(header);
             standardStyling(headerContainer, {padding: "3px", paddingTop: "12px", marginBottom: "0px"});
 
-            previewMovePostTypeColour.append(headerContainer);
-            previewMovePostTypeColourUpdate(null, null, previewMovePostTypeColour);
+            previewContainer.append(headerContainer);
+            previewMovePostTypeColourUpdate(null, null, previewContainer);
 
-            return previewMovePostTypeColour;
+            return previewContainer;
         }
 
         // -------------------------------
         function previewMovePostTypeColourUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const header = element.lastElementChild.firstElementChild;
 
-            const movePostType = tempUserConfig.options.AnswerQuestionOnTop === "Yes";
+            const movePostType = deepGet(tempUserConfig, "options.AnswerQuestionOnTop") === "Yes";
 
             if (movePostType) {
                 header.textContent = "Question";
@@ -3686,12 +5215,85 @@
 
 
         // -------------------------------
-        function previewLineThoughContainer() {
+        function previewMoveNextButtonsOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const image = element.lastElementChild;
+
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.moveNextButtons") === "Yes",
+                               { lightOn:  "L1opa.png",
+                                 lightOff: "ew69w.png",
+                                 darkOn:   "DFElk.png",
+                                 darkOff:  "GEpbV.png" });
+        }
+
+
+        // -------------------------------
+        function previewTitleLinksOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const image = element.lastElementChild;
+
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.linksOnTitles") === "Yes",
+                               { lightOn:  "O1O08.png",
+                                 lightOff: "ki4wD.png",
+                                 darkOn:   "TM34Z.png",
+                                 darkOff:  "06tam.png" });
+        }
+
+
+        // -------------------------------
+        function previewKeepDiffChoices() {
+            const { colours: { border : borderColour } } = modalConfig;
+
+            const previewContainer = createPreviewContainer();
+
+            const imageContainer = createPreviewImage();
+            imageContainer.src = isLIGHT ? `${imgHOST}A2Xxz.png` : `${imgHOST}h7zwG.png`;
+
+            const container = document.createElement("div");
+            container.style.borderTop = `1px solid ${borderColour}`;
+            standardStyling(container, { paddingTop: "10px" });
+            container.append(imageContainer);
+
+            const backgroundContainer = document.createElement("div");
+            standardStyling(backgroundContainer, { paddingTop: "10px", paddingLeft: "10px" });
+            backgroundContainer.append(container)
+
+            previewContainer.append(backgroundContainer);
+
+            previewKeepDiffChoicesUpdate(null,null,previewContainer);
+            return previewContainer;
+        }
+
+        // -------------------------------
+        function previewKeepDiffChoicesUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const keepDiffChoicesId = modalConfig.ids.keepDiffChoices;
+
+            const keepDiffChoices = deepGet(tempUserConfig, "options.keepDiffChoices") === "Yes";
+            const backgroundContainer = element.lastElementChild;
+            const container = backgroundContainer.lastElementChild;
+
+            if (keepDiffChoices) {
+                let diffChoices = container.querySelector("#" + keepDiffChoicesId);
+                if (!diffChoices) {
+                    diffChoices = createDiffChoices(keepDiffChoicesId, true);
+                    container.lastElementChild.before(diffChoices);
+                }
+                const buttons = container.querySelectorAll("button");
+                [...buttons].forEach(button => button.style.color = tempUserConfig.colour.diffChoices);
+            } else {
+                const diffChoices = container.querySelector("#" + keepDiffChoicesId);
+                if (diffChoices) diffChoices.remove();
+            }
+        }
+
+
+        // -------------------------------
+        function previewLineThough() {
             const { ids: { lineThrough : lineThroughId },
                     classes: { reviewText: { post, prose, diff } }
                   } = modalConfig;
 
-            const previewLineThough = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const paragraph = document.createElement("p");
             paragraph.classList.add(prose, post);
@@ -3701,15 +5303,15 @@
             paragraph.append(document.createTextNode(" If not you risk a baz occuring."));
             paragraph.append(addDiffDelete(" Thank you so much for reading and upvoting my post!"));
             standardStyling(paragraph, { padding: "3px", marginBottom: "0px" });
-            previewLineThough.append(paragraph);
+            previewContainer.append(paragraph);
 
-            previewLineThoughOnf(null, null, previewLineThough);
+            previewLineThoughOnf(null, null, previewContainer);
 
-            return previewLineThough;
+            return previewContainer;
 
             function addDiffDelete(text) {
                 const diffDelete = document.createElement("span");
-                diffDelete.classList.add(diff); // ${config.lineThrough}
+                diffDelete.classList.add(diff);
                 diffDelete.id = lineThroughId;
                 diffDelete.textContent = text;
                 return diffDelete;
@@ -3720,21 +5322,21 @@
         function previewLineThoughOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const { ids: { lineThrough : lineThroughId } } = modalConfig;
 
-            const on = tempUserConfig.options.removeLineThrough === "Yes";
+            const on = deepGet(tempUserConfig, "options.removeLineThrough") === "Yes";
 
             if (on) {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach((elementChild) => elementChild.style.textDecoration = "initial");
+                    .forEach(elementChild => elementChild.style.textDecoration = "initial");
             } else {
                 [...element.querySelectorAll("#" + lineThroughId)]
-                    .forEach((elementChild) => elementChild.style.textDecoration = "line-through");
+                    .forEach(elementChild => elementChild.style.textDecoration = "line-through");
             }
         }
 
 
         // -------------------------------
-        function previewMessageContainer() {
-            const { flex: { container, item },
+        function previewMessage() {
+            const { display: { container, cell },
                     buttons: { button, primary }
                   } = config.classes;
             const { classes: { notice: { base : noticeBase, info : noticeInfo },
@@ -3744,13 +5346,13 @@
                     colours: { noticeBorder, noticeBackground }
                   } = modalConfig;
 
-            const previewMessage = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const standardMessageNotice = document.createElement("div");
 
-            const dummyElement = document.createElement("div");  // needed since highlightMessageHelper wants an element.
+            const dummyElement = document.createElement("div");  // needed since highlightMessageDoIt wants an element.
             dummyElement.classList.add(container, negativeMargin, paddingTop);
-            const dummyButton = createModalButton("Next task", [button, primary, item]);
+            const dummyButton = createModalButton("Next task", [button, primary, cell]);
             dummyButton.disabled = true;
             dummyElement.append(dummyButton);
 
@@ -3759,24 +5361,24 @@
             standardMessageNotice.style.backgroundColor = noticeBackground;
             standardMessageNotice.append(document.createTextNode("You are not able to review this item."),
                                          dummyElement);
-            previewMessage.append(standardMessageNotice);
+            previewContainer.append(standardMessageNotice);
 
-            previewMessageOnf(null, null, previewMessage);
-            return previewMessage;
+            previewMessageOnf(null, null, previewContainer);
+            return previewContainer;
         }
 
         // -------------------------------
         function previewMessageOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const info = element.lastElementChild;
 
-            const on = tempUserConfig.options.prominentReviewMessage === "Yes";
+            const on = deepGet(tempUserConfig, "options.prominentReviewMessage") === "Yes";
 
             if (on) {
                 const { colour: { message : colour, messageBackground : backGroundColour },
                         size: {message : size }
                       } = tempUserConfig;
 
-                highlightMessageHelper(info, colour, backGroundColour, size);
+                highlightMessageDoIt(info, colour, backGroundColour, size);
             } else {
                 if (info.firstChild.nodeValue === "") {
                     info.firstElementChild.remove();
@@ -3787,7 +5389,7 @@
 
         // -------------------------------
         function previewMessageUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            if (tempUserConfig.options.prominentReviewMessage !== "Yes")
+            if (deepGet(tempUserConfig, "options.prominentReviewMessage") !== "Yes")
                 return;
 
             const info = element.lastElementChild;
@@ -3804,35 +5406,36 @@
 
 
         // -------------------------------
-        function previewSummaryContainer() {
+        function previewSummary() {
             const { classes: { margins: { top : marginTop } } } = modalConfig;
             const { classes: { summary : summaryRed } } = config;
 
-            const previewSummary = createPreviewContainer();
+            const previewContainer = createPreviewContainer();
 
             const comment  = document.createElement("p");
             comment.classList.add(summaryRed, marginTop);
             comment.textContent = "Comment: Fixed something.";
 
-            previewSummary.append(comment);
-            previewSummaryOnf(null, null, previewSummary);
+            previewContainer.append(comment);
+            previewSummaryOnf(null, null, previewContainer);
 
-            return previewSummary;
+            return previewContainer;
         }
 
         // -------------------------------
         function previewSummaryOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
             const editSummary = element.lastElementChild;
+
             const { classes: { summary : summaryRed } } = config;
 
-            const on = tempUserConfig.options.highlightSummary === "Yes";
+            const on = deepGet(tempUserConfig, "options.highlightSummary") === "Yes";
 
             if (on) {
                 const { colour: { summary : colour },
                         size: { summary : size }
                       } = tempUserConfig;
 
-                highlightSummaryHelper(editSummary, colour, size, summaryRed);
+                highlightSummaryDoIt(editSummary, colour, size, summaryRed);
             } else {
                 const textContent = editSummary.textContent;
                 editSummary.textContent = (textContent || "").trim().replace(/^Summary/, "Comment");
@@ -3845,11 +5448,10 @@
 
         // -------------------------------
         function previewSummaryUpdate(tabMenu, elementName) {
-            const element = getElement(tabMenu, elementName);
-
-            if (tempUserConfig.options.highlightSummary !== "Yes")
+            if (deepGet(tempUserConfig, "options.highlightSummary") !== "Yes")
                 return;
 
+            const element = getElement(tabMenu, elementName);
             const editSummary = element.lastElementChild;
 
             const { colour: { summary : colour },
@@ -3858,6 +5460,83 @@
 
             editSummary.style.fontSize = size;
             editSummary.style.color = colour;
+        }
+
+        // -------------------------------
+        function previewStackSummaryOnf(tabMenu, elementName, element) {
+            if (!element) {
+                element = getElement(tabMenu, elementName);
+            }
+            const image = element.lastElementChild;
+
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.postSummary.useStackSummary") === "Yes",
+                               { lightOn:  "wHt6S.png",
+                                 lightOff: "TjPVp.png",
+                                 darkOn:   "jgaO1.png",
+                                 darkOff:  "8Urbg.png" });
+        }
+
+
+        // -------------------------------
+        function previewNotice() {
+            const previewContainer = createPreviewContainer();
+
+            const limit = deepGet(tempUserConfig, "size.apiQuotaLimit")
+                          || deepGet(defaultUserConfig, "size.apiQuotaLimit");
+            const notice = showToast(limit, "quota", modalConfig.ids.quotaNotice);
+
+            previewContainer.append(notice);
+            return previewContainer;
+        }
+
+        // -------------------------------
+        function previewNoticeUpdate(tabMenu, elementName, element) {
+            if (!element) {
+                element = getElement(tabMenu, elementName);
+            }
+
+            const p = element.querySelector("#" + modalConfig.ids.quotaNotice);
+            const limit = deepGet(tempUserConfig, "size.apiQuotaLimit");
+
+            if (!isNaN(limit))
+                p.innerHTML = p.innerHTML.replace(/\(remaining: \d+\)/, `(remaining: ${limit})`);
+        }
+
+        // -------------------------------
+        function previewFilterListUpdate(tabMenu, elementName, element) {
+            if (!element) {
+                element = getElement(tabMenu, elementName);
+            }
+            const image = element.lastElementChild;
+
+            const reviewFilters = deepGet(tempUserConfig, "options.reviewFilters");
+            const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";
+            const putAlertIcon      = reviewFilters?.putAlertIcon === "Yes";
+            const keepFilterList    = reviewFilters?.keepFilterList === "Yes";
+
+            const lightMap = [
+                ["hDRdU.png", !removeTextFilters],
+                ["nDJK9.png",  putAlertIcon &&  keepFilterList],
+                ["XsHYT.png",  putAlertIcon && !keepFilterList],
+                ["4P4Qo.png", !putAlertIcon &&  keepFilterList],
+                ["WPs4c.png", !putAlertIcon && !keepFilterList],
+            ];
+            const darkMap = [
+                ["KREUM.png", !removeTextFilters],
+                ["9Cbil.png",  putAlertIcon &&  keepFilterList],
+                ["OJqle.png",  putAlertIcon && !keepFilterList],
+                ["oI6NR.png", !putAlertIcon &&  keepFilterList],
+                ["JDNgn.png", !putAlertIcon && !keepFilterList],
+            ];
+
+            const screenShotMap = isLIGHT ? lightMap : darkMap;
+
+            const [filterImage] =
+                      screenShotMap
+                          .find(([_, condition]) => condition);
+
+            image.src = `${imgHOST}${filterImage}`;
         }
     }
 
