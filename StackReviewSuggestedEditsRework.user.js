@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.38-beta-mergeCustom
+// @version      0.69-beta
 // @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
-// @author       Scratte
-// @contributor  Oleg Valter
+// @author       Scratte (https://stackoverflow.com/users/12695027)
+// @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
+// @contributor  double-beep (https://stackoverflow.com/users/10607772)
 // @include      /^https://stackoverflow.com/review/suggested-edits.*/
 // @exclude      /^https://stackoverflow.com/review/suggested-edits/(stats|history)/
 // @grant        GM_getValue
@@ -62,6 +63,8 @@
                 moveDiffChoices: "No",
                 moveNextButtons: "No",
                 userCards: {
+                    useStackUserCards: "No",
+                    newContributor: "Yes",        // Only applies when useStackUserCards is "Yes"
                     getUserCards: "Yes",
                     withEditiorStats: "No",       // Note: This uses the Stack API and has a daily quota (of max 10,000 :-)
                 },
@@ -69,6 +72,7 @@
                     useStackSummary: "No",
                     useAPI: "No",                 // Only apllies when useStackSummary is "Yes"
                 },
+                wantNewModeratorFlair: "No",      // Applies to StackUserCards & StackSummary
                 reviewFilters: {
                     removeTextFilters: "Yes",
                     putAlertIcon: "Yes",          // Only apllies when useStackSummary is "Yes"
@@ -103,7 +107,7 @@
 
 
     // --------------------------------------------------------------------------------------------
-    // ---- Local Storage  ------------- Needed with GUI ------------------------------------------
+    // ---- Storage  ------------- Needed with GUI ------------------------------------------------
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
 
@@ -323,15 +327,14 @@
                 selectors: { fullReview, content: { revision } }
               } = config;
 
-        // document.querySelector("#content .js-diff-choices:not([id])");
-        const theReview = document.getElementById(fullReview);
+        const theReview = document.getElementById(fullReview); // "content"
         if (!theReview)
-            return;
+            return;                                    // ".js-diff-choices:not([id])"
         const presentfilterDiff = theReview.querySelector(`.${filterDiff}:not([id])`);
         if (presentfilterDiff)
             return;
 
-        const revisionElement = document.querySelector(revision);
+        const revisionElement = document.querySelector(revision); // "#panel-revision"
         if (!revisionElement)
             return;
 
@@ -341,10 +344,13 @@
     function createDiffChoices(elementId, modal = false) { // must wait for ajax
         const { classes: { buttons: { button : base, muted, outlined, xsmall, selected, group },
                            filterDiff,
-                           navigation }
+                           navigation,
+                           spaces: { marginBottom16 } },
+                selectors: { content: { reviewPost, diffs } }
               } = config;
 
-        const panels = document.querySelectorAll(".postcell > .diffs > [id]");
+                                                // ".postcell > .diffs > [id]"
+        const panels = document.querySelectorAll(`${reviewPost} > ${diffs} > [id]`);
         const buttons = [...panels].map(panel => createButton(getNiceName(panel.dataset.type),
                                                               panel.getAttribute("aria-labelledby"),
                                                               panel.id));
@@ -357,7 +363,7 @@
         buttonGroup.setAttribute("role","tablist");
 
         const buttonContainer = document.createElement("div");
-        buttonContainer.classList.add("mb16");
+        buttonContainer.classList.add(marginBottom16); // "mb16"
         buttonContainer.id = elementId;
         buttonContainer.append(buttonGroup);
 
@@ -379,7 +385,7 @@
             button.id = id;
             if (!modal) // this will make them control the review.
                 button.setAttribute("aria-controls", control);
-            button.setAttribute("role","tab");
+            button.setAttribute("role", "tab");
             button.textContent = content;
             button.style.color = userConfig.colour.diffChoices;
             return button;
@@ -393,7 +399,7 @@
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
         const { ids: { custom : { actionRadios : actionRadiosId } },
-                classes: { choiceRadios, displayBlock, negativeMargin, display: { cell, container, center } },
+                classes: { choiceRadios, display: { cell, container, displayBlock, center }, spaces: { negativeMargin } },
                 selectors: { actions: { reviews : reviewActions, radioActionsBox } },
                 tags: { radios : radiosTag },
                 size: { radio : radioSize }
@@ -556,10 +562,11 @@
         if (deepGet(userConfig, "options.moveNextButtons") !== "Yes")
             return;
 
-        const {classes: { desktopHide, display: { container } } } = config;
+        const { classes: { display: { container, desktopHide } },
+                selectors: { reviews: { banner } }
+              } = config;
 
-                                              // "[role=status]"
-        const status = document.querySelector(config.selectors.reviews.banner);
+        const status = document.querySelector(banner); // "[role=status]"
         if (!status || status.classList.contains(desktopHide))
             return;
 
@@ -639,7 +646,6 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function reduceFilter() {
-
         const reviewFilters = deepGet(userConfig, "options.reviewFilters");
         const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";
         const putAlertIcon      = reviewFilters?.putAlertIcon === "Yes";
@@ -647,8 +653,7 @@
 
         const { ids: { custom: { tagFilters : tagFiltersId, tagFilterIcon : tagFilterIconId } },
                 selectors: { filter: { button, choices } },
-                classes: { display: { container },
-                           desktopHide },
+                classes: { display: { container ,desktopHide } },
               } = config;
 
         const filter  = document.querySelector(button); // "js-review-filter-button"
@@ -681,7 +686,7 @@
                     icon = Svg.AlertCircle().get(0);
                 } else {
                     icon = document.createElement("span");
-                    icon.textContent = "🛈"; // https://codepoints.net/U+1F6C8
+                    icon.textContent = "🛈"; // https://codepoints.net/U+1F6C8 CIRCLED INFORMATION SOURCE
                     icon.style.fontSize = "175%";
                     icon.style.verticalAlign = "sub";
                     filter.style.paddingTop = "5px";
@@ -815,7 +820,7 @@
         }
 
         const { ids: { custom: { buttons : buttonsId } },
-                classes: { choiceRadios: { widget },
+                classes: { choiceRadios: { widget, radioParent },
                            display: { container : flexContainer, cell, gap4px },
                            buttons : buttonClasses },
                 selectors: { actions, buttons : buttonSelectors }
@@ -873,7 +878,7 @@
 
         // add the radios as buttons
         const radioButtons =            // ".js-action-radio-parent"
-            [...actionBox.querySelectorAll(actions.radioParent)]
+            [...actionBox.querySelectorAll("." + radioParent)]
                 .map(element => {
                          const radio = element.querySelector("input[type=radio]");
                          const label = element.querySelector("label"); // The text part
@@ -943,7 +948,8 @@
                      ["Reviewer stats", state.NOOP],        // Completed reviews
                      ["Restore tab settings", state.NOOP],  // From the GUI
                      ["Apply & Exit", state.NOOP],          // ^ same
-                     ["✖", state.NOOP],                    // GUI and Notice if Svg is unavailable
+                     ["✖", state.NOOP],                    // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
+                                                            // ^ GUI and Notice if Svg is unavailable
                    ]);
 
         // -------    createNewDiv    --------------------
@@ -988,7 +994,7 @@
 
             const { ids: { custom: { buttons : buttonsId } },
                     classes: {buttons: { loading },
-                              desktopHide}
+                              display: { desktopHide } }
                    } = config;
 
             const buttonBox = document.querySelector("#" + buttonsId); // refetch
@@ -1026,14 +1032,327 @@
 
 
     // --------------------------------------------------------------------------------------------
+    // ---- User card related functions -----------------------------------------------------------
+
+    // -----------------------------------------------------
+    // ---- "Extracting" from extisting element ------------
+    function extractUserInfo(element, userClasses) {
+        const { classes: { userCards: { moderatorFlair, owner } },
+                selectors: { users: { userReputation, badges : badgeSelector, newContributorLabel, pii : piiElement } }
+              } = config
+
+        const isUserOwner = element.classList?.contains(owner);               // "owner"
+
+        const newContributor = element.querySelector(newContributorLabel);   // ".js-new-contributor-label"
+
+        let userLinkWrapper = element.querySelector(userClasses.userLink);
+        if (!userLinkWrapper)
+            return { };
+        const userLink = userLinkWrapper.querySelector("a");
+
+        if (!userLink) {
+            // trick for deleted or anonymous users
+            // post summaries do not have a span element
+            // user cards have and the username will be there twice as the textContent!
+            const span = userLinkWrapper.querySelector("span");
+            if (span)
+                userLinkWrapper = span;
+        }
+
+        const userAvatarWrapper = element.querySelector(userClasses.userAvatar);
+        if (!userAvatarWrapper)
+            return { };
+
+        const userAvatarImage = element.querySelector(userClasses.userAvatar + " img");
+
+        // - reputation and badges
+        const userAwards = element.querySelector(userClasses.userAwards);
+        if (!userAwards)
+            return { };
+
+        const achievements = { };
+
+        const userScore = userAwards.querySelector(userReputation);          // ".reputation-score"
+        if (userScore) {
+            achievements.reputation = { amount : userScore.textContent,
+                                        title  : userScore.title.trim() };
+            const existsBadges = userAwards.querySelector(badgeSelector);    // ".v-visible-sr"
+            if (existsBadges) {
+                achievements.badges = { };
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
+                for (const bling of ["gold","silver","bronze"]) {
+                    const award = userAwards.querySelector(`[title~=${bling}]`);
+                    achievements.badges[bling] = award ? parseInt(award.textContent) : 0;
+                }
+            }
+        }
+
+        const isModerator = !!userLinkWrapper.querySelector("." + moderatorFlair); // ".mod-flair"
+
+        // FIXME! Check with a moderator that the PII element is put correctly in its place!
+        const pii = element.querySelector(piiElement); // ".pii" // only for moderators on deleted/anonymous users
+
+        const userInfo = { accountLink    : userLink ? userLink.href : false,
+                           displayName    : userLink
+                                                ? userLink.textContent
+                                                : userLinkWrapper.textContent,
+                           profileImage   : userAvatarImage
+                                                ? userAvatarImage.src
+                                                : false,
+                           isModerator    : isModerator,
+                           isOwner        : isUserOwner,
+                           newContributor : newContributor, // the entire element.
+                           pii            : pii,            // ^ same
+                           achievements };
+        return userInfo;
+    }
+
+    // ----------------------------------
+    // ----------------------------------
+    function extractTime(element, extractRelativeTime = false) {
+        const details = element.querySelector("span[title]");
+        if (!details)
+            return { };
+
+        const prefix = element.textContent.trim().split(" ")[0];
+        const prefixLower = prefix.toLowerCase();
+
+        const time = {
+                       showTime : details.textContent,
+                       timeUTC  : details.title,
+                       prefix   : prefixLower,
+                     };
+
+        if (extractRelativeTime){
+            const revisions = element.querySelector("a");
+            if (revisions) {
+               time.revisions = element;   // take it all since it has a link to revisions.
+            } else {
+               time.timeElement = details;
+            }
+        }
+
+        return time;
+    }
+
+    // -----------------------------------------------------
+    // ---- Creating user card elements --------------------
+
+    const userCardTypes = {
+        BASE    : "Base",
+        MINIMAL : "Minimal",
+    };
+
+    // ----------------------------------
+    // ---  just the displayName --------
+    function createUserName({ accountLink, displayName, isModerator }, cardType) {
+        // https://chat.stackoverflow.com/transcript/message/52696924#52696924
+
+        const useStackUserCards = deepGet(userConfig, "options.userCards.useStackUserCards") === "Yes";
+        const wantNewMod        = deepGet(userConfig, "options.wantNewModeratorFlair") === "Yes";
+
+        const { display: { container, cell, gap4px },
+                sUserCards: { cardLink },
+                userCards: { moderatorFlair },
+                badges: { base : badgeBase, xsmall : badgeXsmall, moderator : badgeModerator }
+              } = config.classes;
+
+        const userName = accountLink
+                              ? document.createElement("a")
+                              : document.createElement("span");
+
+        if (accountLink) {
+            userName.classList.add(cardLink); // "s-user-card--link"
+            userName.href = accountLink;
+        }
+
+        switch (cardType) {
+            case userCardTypes.BASE : userName.classList.add(container); // "d-flex"
+
+                                      if (useStackUserCards) { // regardsless of accountLink
+                                          userName.classList.add(cardLink); // "s-user-card--link"
+                                      } else if (!accountLink) {
+                                          // anonymous editors to be aligned with the post user cards.
+                                          userName.style.padding = "2px";
+                                      }
+
+                                      const display = document.createElement("div");
+                                      display.classList.add(cell); // "flex-item"
+                                      display.textContent = displayName;
+                                      userName.append(display);
+                                      userName.style.overflowWrap = "anywhere";
+
+                                      if (isModerator) {
+                                          if (wantNewMod)
+                                              userName.classList.add(gap4px); // "gs4"
+                                          userName.append(moderatorBling(true, wantNewMod));
+                                      }
+                break;
+
+            default                 : // userCardTypes.MINIMAL
+                                      userName.style.fontSize = "100%";
+                                      userName.style.paddingLeft = "5px";
+                                      userName.textContent = displayName;
+
+                                      if (isModerator)
+                                          userName.append(moderatorBling(false, wantNewMod));
+        }
+
+        function moderatorBling (useFlexItem, wantNewMod) {
+            const moderator = useFlexItem
+                                  ? document.createElement("div")
+                                  : document.createElement("span");
+
+            if (!wantNewMod) {
+                moderator.style.fontSize = "135%";
+                moderator.textContent = "♦";
+                moderator.classList.add(moderatorFlair); // "mod-flair"
+                moderator.title = "moderator";
+            } else {
+                                     // "s-badge", "s-badge__moderator", "s-badge__xs"
+                moderator.classList.add(badgeBase, badgeModerator, badgeXsmall);
+                const modText = document.createElement("span");
+                modText.style.marginBottom = "-2px";
+                modText.textContent = "Mod";
+                moderator.append(modText);
+                if (useFlexItem) {
+                    moderator.classList.add(cell); // "flex--item"
+                } else {
+                    moderator.style.marginBottom = "3px";
+                    moderator.style.marginLeft = "5px";
+                }
+            }
+
+            return moderator;
+        }
+
+        return userName;
+    }
+
+    // ----------------------------------
+    // ---  just the avatar -------------
+    function createUserAvatar({ accountLink, profileImage }, cardType) {
+        const deletedUserImage = "https://stackoverflow.design/assets/img/anonymous-user.svg";
+        // const deletedUserImage = "https://cdn-chat.sstatic.net/chat/Img/anon.png?v=6828b4d61e85";
+        // const deletedUserImage = "https://cdn.sstatic.net/Img/user.svg?v=20c64bb67fc9";
+        // const deletedUserImage = "https://i.stack.imgur.com/2Ajgx.png";
+
+        const { classes: { sUserCards: { avatar, cardAvatar, avatarSize32,
+                                         image : cardImage } }
+              } = config;
+
+        const userAvatarImage = document.createElement("img");
+        userAvatarImage.classList.add(cardImage);       // "s-avatar--image"
+        userAvatarImage.src = accountLink
+                                 ? profileImage
+                                 : deletedUserImage; // or <span class="anonymous-gravatar"></span> ?
+        const userAvatar = accountLink
+                              ? document.createElement("a")
+                              : document.createElement("span");
+        userAvatar.classList.add(avatar, cardAvatar);   // "s-avatar","s-user-card--avatar"
+        if (accountLink)
+            userAvatar.href = accountLink;
+        userAvatar.append(userAvatarImage);
+
+        switch (cardType) {
+            case userCardTypes.BASE:
+                userAvatar.classList.add(avatarSize32); // "s-avatar__32"
+                break;
+
+            default: // userCardTypes.MINIMAL
+               userAvatarImage.style.width = "20px";
+               userAvatarImage.style.height = "20px";
+               userAvatar.style.backgroundColor = siteBACKGROUNDcolour;
+        }
+
+        return userAvatar;
+    }
+
+    // ----------------------------------
+    // ---  just the score and badges ---
+    function createUserAchievements(achievements) {
+        const { sUserCards } = config.classes;
+
+        const { reputation } = achievements;
+        const userScore = document.createElement("li");
+        userScore.classList.add(sUserCards.cardRep); // "s-user-card--rep"
+        userScore.textContent = reputation.amount;
+        userScore.title = reputation.title;
+
+        const userAwards = document.createElement("ul");
+        userAwards.classList.add(sUserCards.cardAwards); // "s-user-card--awards"
+        userAwards.style.flexWrap = "wrap";
+        userAwards.append(userScore);
+
+        const { badges } = achievements;
+        if (badges) {
+            addBling(userAwards, badges.gold, "gold");
+            addBling(userAwards, badges.silver, "silver");
+            addBling(userAwards, badges.bronze, "bronze");
+        }
+        return userAwards;
+
+        // --- badges
+        function addBling(awardElement, amount, bling) {
+            if (amount > 0) {
+                const userBling = document.createElement("li");
+                userBling.classList.add(sUserCards.bling, sUserCards[bling]);
+                userBling.textContent = amount;
+                userBling.title = amount + " " + bling + " " + (amount === 1 ? "badge" : "badges");
+                awardElement.append(userBling);
+            }
+        }
+    }
+
+    // ----------------------------------
+    // --- asked x time ago -------------
+    function createPostedTime(postedTime, cardType) {
+        const { showTime, timeUTC, prefix, timeElement, revisions } = postedTime;
+
+        const time = document.createElement("time");
+        time.classList.add(config.classes.sUserCards.cardTime); // "s-user-card--time"
+
+        // If revision is provided, use that as the entire element
+        // it will include a link to all revivions.
+        if (revisions) {
+            time.append(revisions);
+            return time;
+        }
+
+        if (cardType === userCardTypes.MINIMAL) {
+            time.style.fontSize = "100%";
+            time.style.paddingLeft = "15px";
+        }
+
+        // If an element is provided, then use it.
+        // elements with "relativetime" gets updated live on the page.
+        if (timeElement) {
+            time.textContent = prefix + " ";
+            time.append(timeElement);
+            return time;
+        }
+
+        time.textContent = prefix + " " + showTime;
+        time.dateTime = timeUTC;
+        time.title = timeUTC;
+        return time;
+    }
+
+
+    // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function getUserCards() { // must wait for ajax
-        if (deepGet(userConfig, "options.userCards.getUserCards") !== "Yes")
+        const userCardOption = deepGet(userConfig, "options.userCards");
+
+        if (userCardOption?.getUserCards !== "Yes")
             return;
+
+        const useStackUserCards  = userCardOption?.useStackUserCards === "Yes";
+        const userNewContributor = userCardOption?.newContributor === "Yes";
 
         const { ids: { custom: { userCards } },
                 selectors: { content: { reviewPost } },
-                classes: { display: { container } }
+                classes: { display: { container, start } }
               } = config;
 
         if (document.getElementById(userCards))
@@ -1049,7 +1368,7 @@
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
 
         // -------    originalPostUserCards    --------------------
-        function originalPostUserCards(userCardsContainerAll) {
+        async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
             const { selectors: { content: { originalPost } },
                     classes: { answers, userCards: { signature } }
@@ -1066,68 +1385,100 @@
                                 : ".question";
 
             userCardsContainerAll.style.justifyContent = "space-between";
+            userCardsContainerAll.classList.add(start); // "ai-start"
 
-            // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-            fetch(postlink)
-                .then((response) => {
-                     // https://chat.stackoverflow.com/transcript/message/52286535#52286535
-                     const { status } = response;
+            try {
+                const userCardRequest  = await fetch(postlink);
+                const userCardResponse = await userCardRequest.text();
 
-                     const responseMap = {
-                         200: (response) =>  // Status: OK
-                                  response
-                                      .text()
-                                      .then((data) => {
-                                           // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
-                                           // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
-                                           const userCards =
-                                               [...new DOMParser()
-                                                   .parseFromString(data, "text/html")
-                                                   // .querySelectorAll(`${thePost} .post-signature.d-flex`)
-                                                   .querySelectorAll(`${thePost} .${signature}`)
-                                                   // .querySelectorAll(".post-signature.d-flex.fl0")];   // <-- answer
-                                                   // .querySelectorAll(".post-signature.owner.d-flex")]; // <-- question
-                                               ];
+                // https://developer.mozilla.org/en-US/docs/Web/API/DOMParser
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals
+                const userCards =
+                    [...new DOMParser()
+                        .parseFromString(userCardResponse, "text/html")
+                        .querySelectorAll(`${thePost} .${signature}`)  // ".post-signature"
+                    ];
 
-                                           const postUserCardContainer = createNewDiv();
-                                           // userCards.forEach(node => userCardDiv.appendChild(node));
-                                           postUserCardContainer.append(...userCards);
+                // Deleted Answers will come as 200 OK on Questions that are not deleted.
+                // But since the Answer will be missing for < 10K users, it needs to be treated as a 404
+                const requestStatus = !userCards.length ? 404 : userCardRequest.status;
 
-                                           userCardsContainerAll.appendChild(postUserCardContainer);
-                                       }),
+                const messages = {
+                                   errorNotFound: [
+                                                     "The original post is unavailable.",
+                                                     "User cards cannot be retrieved."
+                                                  ],
+                                   responseNotOk: [
+                                                     "Tried to fetch usercards, but",
+                                                     `Stack responded with status: ${requestStatus}`
+                                                  ]
+                };
 
-                         404: () => {  // Status: Not Found
-                                  const messages = [
-                                                    "The original post is unavailable.",
-                                                    "User cards cannot be retrieved."
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              },
+                const responseMap = {
+                    200    : () => postUserCards(userCards),             // response successful => append the usercards
+                    404    : () => missingCards(messages.errorNotFound), // 404 => not found => Question/Answer deleted
+                    default: () => missingCards(messages.responseNotOk), // unknown response from server.
+                };
 
-                         default : () => {  // Status: Don't know
-                                  const messages = [
-                                                    "Tried to fetch usercards, but",
-                                                    `Stack responsed with status: ${status}`
-                                                   ]
-                                  userCardsContainerAll.appendChild(missingCards(messages));
-                              }
-                     };
+                const elementToAppend = (responseMap[requestStatus] || responseMap.default)();
+                userCardsContainerAll.append(elementToAppend);
 
-                     (responseMap[status.toString()] || responseMap.default)(response);
+            } catch (error) {
+                const messages = [
+                                   "Something is blocking fetching user cards",
+                                   "Could be your ad-blocker or your network connection.",
+                                   "Check the console."
+                                 ];
 
-                     // Only necessary when keeping the Radio Button Box
-                     if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
-                         userCardsContainerAll.style.width = adjustUserCardsWidth();
-                 })
-                .catch((error) => {
-                     // console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
-                     const messages = [
-                                       "Something is blocking fetching user cards",
-                                       "Could be your ad-blocker. Check the console."
-                                      ];
+                console.error(USERSCRIPTNAME + " - originalPostUserCards - error", error);
+                userCardsContainerAll.append(missingCards(messages));
+            }
 
-                     userCardsContainerAll.appendChild(missingCards(messages));
-                 });
+            // Only necessary when keeping the Radio Button Box
+            if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
+                userCardsContainerAll.style.width = adjustUserCardsWidth();
+
+            // -------    postUserCards    --------------------
+            function postUserCards(originalUserCards) {
+                const { gravatarSmall } = config.classes.userCards;
+                const postUserCardContainer = createNewDiv();
+                postUserCardContainer.classList.add(start); // "ai-start"
+
+                if (!useStackUserCards) { // just return them as is.
+                    // originalUserCards.forEach(node => postUserCardContainer.appendChild(node));
+                    postUserCardContainer.append(...originalUserCards);
+                    return postUserCardContainer;
+                }
+
+                // If the avatar has no children, then the author edited the post
+                // so we don't need to stacksify the user card
+                const stacksifiedUserCards = originalUserCards
+                                                 .map((card) =>             // ".user-gravatar32"
+                                                          card.querySelector(`.${gravatarSmall}`)?.children.length !== 0
+                                                              ? stacksifyUserCards(card)
+                                                              : card);
+                postUserCardContainer.append(...stacksifiedUserCards);
+                return postUserCardContainer;
+            }
+
+            // -------    stacksifyUserCards    --------------------
+            function stacksifyUserCards(original) {
+                const { details, gravatarSmall, flair, actionTime } = config.classes.userCards;
+
+                const userInfo = extractUserInfo(original,
+                                                 {
+                                                    userLink   : "." + details,       // "user-details"
+                                                    userAvatar : "." + gravatarSmall, // "user-gravatar32"
+                                                    userAwards : "." + flair,         // "-flair"
+                                                 });
+                const timeElement = original.querySelector("." + actionTime); // ".user-action-time"
+                if (!timeElement)
+                    return;
+
+                const postedTime = extractTime(timeElement, true);
+
+                return createStackUserCard(userInfo, postedTime);
+            }
 
             // -------    adjustUserCardsWidth    --------------------
             function adjustUserCardsWidth() { // Only when NOT moving the radioButtonBox
@@ -1155,7 +1506,7 @@
                         .map(message => {
                                  const info = document.createElement("h4");
                                  info.textContent = message;
-                                 info.style.color = "var(--theme-body-font-color)";
+                                 info.style.color = "var(--theme-body-font-color)"; // var(--black-800);
                                  info.style.padding = "2px";
                                  return info;
                          });
@@ -1179,17 +1530,83 @@
 
         } // originalPostUserCards
 
+
+        // -------    createStackUserCard    ----------------
+        function createStackUserCard(userInfo, postedTime) {
+            const { card, info, highlighted, cardDeleted, cardType } = config.classes.sUserCards;
+
+            const type = userCardTypes.BASE;
+            const userName   = createUserName(userInfo, type);
+            const userAvatar = createUserAvatar(userInfo, type);
+
+            const userInfoBox = document.createElement("div");
+            userInfoBox.classList.add(info); // "s-user-card--info"
+            userInfoBox.append(userName);
+
+            const user = document.createElement("div");
+            user.classList.add(card); // "s-user-card"
+            // https://stackoverflow.design/product/base/width-height/ only has "ws2" with 211px
+            user.style.width = "200px";
+
+            if (userInfo.isOwner)
+                user.classList.add(highlighted); // "s-user-card__highlighted"
+
+            user.append(createPostedTime(postedTime, type),
+                        userAvatar,
+                        userInfoBox);
+
+            const { achievements } = userInfo;
+            if (!achievements || Object.getOwnPropertyNames(achievements).length === 0) {
+               user.classList.add(cardDeleted); // "s-user-card__deleted"
+
+               // do not center anonymous/deleted user cards unless the user asked for it
+               if (!useStackUserCards)
+                   user.classList.add(start); // "ai-start"
+
+               // FIXME! Check with a moderator that the PII element is put correctly in its place!
+               // only for moderators when editor is an anonymous user
+               if (userInfo.pii)
+                   userInfoBox.append(userInfo.pii);
+            } else {
+               userInfoBox.append(createUserAchievements(achievements));
+            }
+
+            if (userNewContributor && userInfo.newContributor) {
+                const newIndicator = document.createElement("div");
+                newIndicator.className = cardType; // "s-user-card--type"
+                newIndicator.append(userInfo.newContributor);
+                newIndicator.style.marginBottom = "-30px";
+                newIndicator.querySelector("svg").style.verticalAlign = "middle";
+                user.append(newIndicator);
+            }
+
+            return user;
+        }
+
+
         // -------    editorUserCard    ---------------------
         function editorUserCard(userCardsContainerAll) {
             if (!userCardsContainerAll)
                 return;
 
             const editProposedTime = userCardsContainerAll.querySelector("span");
-                                                                         // ".s-user-card.s-user-card__minimal
-            const minimalUserCard = userCardsContainerAll.querySelector("." + config.classes.sUserCards.cardMinimal);
-
-            if (!editProposedTime || !minimalUserCard) // !(editProposedTime && minimalUserCard)
+            if (!editProposedTime)
                 return;
+
+            const { classes: { sUserCards: { cardMinimal } },
+                    selectors: { users: { pii : piiElement } },
+                  } = config;
+                                                                              // ".s-user-card__minimal"
+            const minimalUserCard = userCardsContainerAll.querySelector("." + cardMinimal);
+
+            // FIXME! Check with a moderator that the PII element is put correctly in its place!
+            // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
+            if (!minimalUserCard) {
+                const pii = userCardsContainerAll.querySelector(piiElement); // ".pii" // only for moderators
+                const editorUserCard = createSuggestorsUserCard(null, editProposedTime, pii);
+                editProposedTime.replaceWith(editorUserCard);
+                return;
+            }
 
             // Getting the editor userid
             const userLink = minimalUserCard.querySelector("a");
@@ -1200,8 +1617,8 @@
             const queueNumber = 1; // there must be a "1" queue-number :)
             const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
 
-            // Oleg says to change to async and use "await fetch" and "await reponse" instead
             // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
+            // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
             fetch(userInformationUrl)
                 .then(response => {
                     if (!response.ok) {
@@ -1211,7 +1628,7 @@
                  })
                 .then(data => {
                     const editorReviewStats = new DOMParser().parseFromString(data, "text/html");
-                    const editorUserCard = createUserCard(editorReviewStats, editProposedTime);
+                    const editorUserCard = createSuggestorsUserCard(editorReviewStats, editProposedTime);
 
                     // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
                     minimalUserCard.before(editorUserCard);
@@ -1227,8 +1644,50 @@
                     console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
                  });
 
-            // -------    createUserCard    --------------------
-            function createUserCard(editorReviewHover, editProposedTime) {
+            // -------    createSuggestorsUserCard    --------------------
+            function createSuggestorsUserCard(editorReviewStats, editProposedTime, pii) {
+                const isAnonymized = (editorReviewStats === null);
+
+                if (!useStackUserCards && !isAnonymized) { // !(useStackUserCards || isAnonymized)
+                    return transformUserCard(editorReviewStats, editProposedTime);
+                } else {
+                                                                       // extractRelativeTime
+                    const suggestedTime = extractTime(editProposedTime, !useStackUserCards);
+
+                    if (isAnonymized) {
+                        // suggested edits by deleted users show as "anonymous user"
+                        // SEDE query of edit examples by rene (https://stackoverflow.com/users/578411)
+                        // posted in chat https://chat.stackexchange.com/transcript/message/58780796#58780796
+                        // https://data.stackexchange.com/stackoverflow/query/1442692
+
+                        const userInfo = { };
+
+                        // FIXME! Check with a moderator that the PII element is put correctly in its place!
+                        if (pii)
+                            userInfo.pii = pii;
+
+                        // Moderators seems to also only get "an anonymous user", but just in case they get "userX":
+                        const matchResult = editProposedTime.textContent.match(/by(?: an)? (.+)/) || [];
+                        userInfo.displayName = matchResult[1] || EMPTY; // nothing is better than undefined.
+
+                        return createStackUserCard(userInfo, suggestedTime);
+                    }
+
+                    const { header, gravatar, flair } = config.classes.userCards.um;
+
+                    const userInfo = extractUserInfo(editorReviewStats,
+                                                     {
+                                                        userLink       : "." + header,   // ".um-header-info",
+                                                        userAvatar     : "." + gravatar, // ".um-gravatar",
+                                                        userAwards     : "." + flair,    // ".um-flair",
+                                                     });
+                    const editorcard = createStackUserCard(userInfo, suggestedTime);
+                    return editorcard;
+                }
+            } // createSuggestorsUserCard
+
+            // -------    transformUserCard    --------------------
+            function transformUserCard(editorReviewHover, editProposedTime) {
                 // Yup! This entire thing is prone to break every time Stack changes something. Sorry :(
 
                 const { classes: { display: { cell } , userCards },
@@ -1238,14 +1697,14 @@
 
                 const editorCardContainer = document.createElement("div");
                 editorCardContainer.id = editorCardId;
-                editorCardContainer.classList.add(userCards.signature,              // "post-signature"
-                                                  cell);                            // "grid--cell"
+                editorCardContainer.classList.add(userCards.signature,                      // "post-signature"
+                                                  cell);                                    // "flex--item"
 
                 const editorCardDiv = document.createElement("div");
-                editorCardDiv.classList.add(userCards.info);                        // "user-info"
+                editorCardDiv.classList.add(userCards.info, userCards.hover);               // "user-info", "user-hover"
 
                 const actionTime = document.createElement("div");
-                actionTime.classList.add(userCards.actionTime);                     // "user-action-time"
+                actionTime.classList.add(userCards.actionTime);                             // "user-action-time"
                 actionTime.textContent = "proposed "; // editProposedTime.textContent;
                 actionTime.appendChild(editProposedTime.firstElementChild);
 
@@ -1254,16 +1713,16 @@
                 if (!editorGravatar)
                     return;
                 const { classList : editorGravatarClassList } = editorGravatar;
-                editorGravatarClassList.remove(userCards.um.gravatar);             // "um-gravatar"
-                editorGravatarClassList.add(userCards.gravatarSmall);              // "user-gravatar32"
+                editorGravatarClassList.remove(userCards.um.gravatar);                      // "um-gravatar"
+                editorGravatarClassList.add(userCards.gravatarSmall);                       // "user-gravatar32"
 
                 const editorGravatarDiv
                     = editorGravatar.querySelector(`.${userCards.gravatarWrap}`);
                 if (!editorGravatarDiv)
                     return;
                 const { classList : editorGravatarDivClassList } = editorGravatarDiv;
-                editorGravatarDivClassList.remove(userCards.gravatarWrap);         // "gravatar-wrapper-64"
-                editorGravatarDivClassList.add(userCards.gravatarSmallWrap);       // "gravatar-wrapper-32"
+                editorGravatarDivClassList.remove(userCards.gravatarWrap);                  // "gravatar-wrapper-64"
+                editorGravatarDivClassList.add(userCards.gravatarSmallWrap);                // "gravatar-wrapper-32"
 
                 const editorGravatarImg = editorGravatarDiv.querySelector("img");
                 if (!editorGravatarImg)
@@ -1273,25 +1732,37 @@
                     = gravatarSmall; // "32"
 
                 const editorFlairDiv = document.createElement("div");
-                editorFlairDiv.classList.add(userCards.details);                    // "user-details"
-                const editorUserNameLink
-                    = editorReviewHover.querySelector(`.${userCards.um.header} a`); // "um-header-info"
+                editorFlairDiv.classList.add(userCards.details);                             // "user-details"
+
+                const editorUserName
+                          = editorReviewHover.querySelector(`.${userCards.um.header}`);     // "um-header-info"
+                if (!editorUserName)
+                    return;
+
+                const editorUserNameLink = editorUserName.querySelector("a");
                 if (!editorUserNameLink)
                     return;
+
+                const editorUserNameModerator
+                          = editorUserName.querySelector(`.${userCards.moderatorFlair}`);   //  ".mod-flair"
 
                 const editorFlair = editorReviewHover.querySelector(`.${userCards.um.flair}`);
                 if (!editorFlair)
                     return;
                 const { classList : editorFlairClassList } = editorFlair;
-                editorFlairClassList.remove(userCards.um.flair);                   // "um-flair"
-                editorFlairClassList.add(userCards.flair);                         // "-flair"
+                editorFlairClassList.remove(userCards.um.flair);                            // "um-flair"
+                editorFlairClassList.add(userCards.flair);                                  // "-flair"
 
-                editorFlairDiv.append(editorUserNameLink, editorFlair);
+                editorFlairDiv.append(editorUserNameLink,
+                                      editorUserNameModerator
+                                          ? editorUserNameModerator
+                                          : "",
+                                      editorFlair);
                 editorCardDiv.append(actionTime, editorGravatar, editorFlairDiv);
                 editorCardContainer.appendChild(editorCardDiv);
 
                 return editorCardContainer;
-            } // createUserCard
+            } // transformUserCard
 
         } // editorUserCard
     }
@@ -1330,9 +1801,6 @@
         const { selectors: { postTitleFontSize },
                 classes: { postSummary: { base, title } } } = config;
 
-        // Possibly needs to be updated according to double-beep's suggestion
-        // here: https://chat.stackoverflow.com/transcript/message/52466958#52466958
-
         const titles = document.querySelectorAll(`h1${postTitleFontSize}`);
         if (titles.length > 0) {
             const link = document.querySelector(`.${base} .${title} a`);
@@ -1361,14 +1829,14 @@
         // https://stackoverflow.design/product/components/badges/
 
         const { classes: { postSummary: { base : summaryBase, item, stats, hasAnswers, hasAccepted,
-                                          content, title : summaryTitle, contentTitle, link,
+                                          content, title : summaryTitle, contentTitle, link : baseLink,
                                           warm, hot, supernova,
                                           summaryStat, summaryAnswers, summaryAccepted },
                            tags: { meta, metaTag, tag : sTag, },
                            badges: { base : badgeBase,  small : badgeSmall, green, red, grey },
-                           sUserCards: { card, carlSmall, cardTime, cardAwards, cardRep, cardLink,
-                                         avatar, cardAvatar, image : cardImage, cardDeleted } },
-               selectors: { postSummary, diffs: { diffAdd }, badges : existingBadges, content: { task } },
+                           sUserCards: { card, carlSmall, cardDeleted },
+                           userCards: { moderatorFlair } },
+               selectors: { postSummary, diffs: { diffAdd }, content: { task }, users },
                ids: { custom: { postSummary : postSummaryId } }
               } = config;
 
@@ -1404,9 +1872,9 @@
         }
 
         if (usingAPI) {
-
             const { owner: { badge_counts, reputation,
-                             link : userAccountLink, profile_image, display_name },
+                             link : userAccountLink, profile_image, display_name,
+                             user_type },
                     tags : postTags,
                     creation_date : postEpocs,
                     title : postTitle, closed_date, closed_reason,
@@ -1451,10 +1919,20 @@
                     achievements.badges = badge_counts;
             }
 
-            const postedTime = { dateDiff : customPrettyDateDiff(postEpocs),
-                                 timeUTC  : absoluteTime(postEpocs) };
+            const postedTime = {
+                                 showTime : customPrettyDateDiff(postEpocs),
+                                 timeUTC  : absoluteTime(postEpocs),
+                                 prefix   : "asked",
+                               };
 
-            const user = createUser(userAccountLink, display_name, profile_image, achievements, postedTime);
+            const user = createUser({
+                                      accountLink  : userAccountLink,
+                                      displayName  : display_name,
+                                      profileImage : profile_image,
+                                      isModerator  : user_type === "moderator" ? true : false,
+                                      achievements : achievements
+                                    },
+                                    postedTime);
 
             const rightContainer = createRightContainer (title, tagContainer, user);
             attachToReview(existingPostSummary, leftContainer, rightContainer);
@@ -1503,57 +1981,22 @@
             const existingUserCard = existingUser.firstElementChild;
             if (!existingUserCard)
                 return;
-                                                                    // ".pr8"
-            const existingUserSpan = existingUserCard.querySelector(postSummary.userLink);
-            if (!existingUserSpan)
-                return;
-            const existingUserLink = existingUserSpan.querySelector("a");
-                                                                    // ".pr4"
-            const existingUserAvatarSpan = existingUserCard.querySelector(postSummary.userAvatar);
-            if (!existingUserAvatarSpan)
-                return;
-
-            const existingUserAvatarImage = existingUserCard.querySelector(postSummary.userAvatar + " img");
-
-            // - reputation and badges                              // ".pr16"
-            const existingUserAwards = existingUserCard.querySelector(postSummary.userAwards);
-            if (!existingUserAwards)
-                return;
-
-            const achievements = { };
-                                                                    // ".reputation-score"
-            const existingUserScore = existingUserAwards.querySelector(postSummary.userReputation);
-            if (existingUserScore) {
-                achievements.reputation = { amount : existingUserScore.textContent,
-                                            title  : existingUserScore.title.trim() };
-                const existsBadges = existingUserAwards.querySelector(existingBadges);
-                if (existsBadges) {
-                    achievements.badges = { };
-                    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for...of
-                    for (const bling of ["gold","silver","bronze"]) {
-                        const award = existingUserAwards.querySelector(`[title~=${bling}]`);
-                        achievements.badges[bling] = award ? parseInt(award.textContent) : 0;
-                    }
-                }
-            }
+            const userInfo = extractUserInfo(existingUserCard,
+                                             {
+                                                userLink       : postSummary.userLink,   // ".pr8"
+                                                userAvatar     : postSummary.userAvatar, // ".pr4"
+                                                userAwards     : postSummary.userAwards, // ".pr16"
+                                                userReputation : users.userReputation,   // ".reputation-score"
+                                                userBadges     : users.badges,           // ".v-visible-sr"
+                                                moderatorFlair : "." + moderatorFlair    // ".mod-flair"
+                                             });
 
             const existingTime = existingUserCard.nextElementSibling;
             if (!existingTime)
                 return;
-            const existingDetails = existingTime.querySelector("span[title]");
-            if (!existingDetails)
-                return;
-            const postedTime = { dateDiff : existingDetails.textContent,
-                                 timeUTC  : existingDetails.title };
+            const postedTime = extractTime(existingTime);
 
-            const user = createUser(existingUserLink ? existingUserLink.href : false,
-                                    existingUserLink
-                                                ? existingUserLink.textContent
-                                                : existingUserSpan.textContent,
-                                    existingUserAvatarImage
-                                                ? existingUserAvatarImage.src
-                                                : false,
-                                    achievements,
+            const user = createUser(userInfo,
                                     postedTime);
 
             const rightContainer = createRightContainer (title, tagContainer, user);
@@ -1572,7 +2015,7 @@
                 if (typeof Svg !== "undefined") {
                     answers.append(Svg.CheckmarkSm.With("va-text-bottom").get(0));
                 } else {
-                    answers.textContent = "✓"; // https://codepoints.net/U+2713
+                    answers.textContent = "✓"; // https://codepoints.net/U+2713 CHECK MARK
                 }
             }
             // do NOT use answers.textContent when having an svg appended.
@@ -1607,7 +2050,7 @@
                     if (typeof Svg !== "undefined") {
                         view.append(heat[2]());
                     } else {
-                        view.append("🔥"); // https://codepoints.net/U+1F525
+                        view.append("🔥"); // https://codepoints.net/U+1F525 FIRE
                     }
                 }
             }
@@ -1634,7 +2077,7 @@
         // ---  Posttitle and link ---
         function createTitle(link, text) {
             const title = document.createElement("a");
-            title.classList.add(contentTitle, link);
+            title.classList.add(contentTitle, baseLink);
             title.href = link;
             title.innerText = text;
             return title;
@@ -1651,76 +2094,12 @@
             return metaContainer;
         }
 
-        // ---  just the displayName ---
-        function createUserName(userAccountLink, userDisplayName) {
-            const userName = userAccountLink
-                                  ? document.createElement("a")
-                                  : document.createElement("span");
-            if (userAccountLink) {
-                userName.classList.add(cardLink); // "s-user-card--link"
-                userName.href = userAccountLink;
-            }
-            userName.textContent = userDisplayName;
-            userName.style.fontSize = "100%";
-            userName.style.paddingLeft = "5px";
-            return userName;
-        }
-
-        // ---  just the avatar ---
-        function createUserAvatar(userAccountLink, profileImage) {
-            const userAvatarImage = document.createElement("img");
-            userAvatarImage.classList.add(cardImage); // "s-avatar--image"
-            userAvatarImage.src = userAccountLink
-                                     ? profileImage
-                                     : "https://i.stack.imgur.com/2Ajgx.png"; // anonymous
-                                     // <span class="anonymous-gravatar"></span>
-            userAvatarImage.style.width = "20px";
-            userAvatarImage.style.height = "20px";
-            const userAvatar = userAccountLink
-                                  ? document.createElement("a")
-                                  : document.createElement("span");
-            userAvatar.classList.add(avatar, cardAvatar); // "s-avatar","s-user-card--avatar"
-            userAvatar.style.backgroundColor = "var(--white)";
-            if (userAccountLink) userAvatar.href = userAccountLink;
-            userAvatar.append(userAvatarImage);
-            return userAvatar;
-        }
-
-        // ---  just the score and badges ---
-        function createUserAchievements(achievements) {
-            const userScore = document.createElement("li");
-            userScore.classList.add(cardRep); // "s-user-card--rep"
-            userScore.textContent = achievements.reputation.amount;
-            userScore.title = achievements.reputation.title;
-
-            const userAwards = document.createElement("ul");
-            userAwards.classList.add(cardAwards); // "s-user-card--awards"
-            userAwards.append(userScore);
-
-            const { badges } = achievements;
-            if (badges) {
-                addBling(userAwards, badges.gold, "gold");
-                addBling(userAwards, badges.silver, "silver");
-                addBling(userAwards, badges.bronze, "bronze");
-            }
-            return userAwards;
-        }
-
-        // --- asked x time ago
-        function createPostedTime({ dateDiff, timeUTC }) {
-            const time = document.createElement("time");
-            time.classList.add(cardTime); //"s-user-card--time"
-            time.textContent = "asked " + dateDiff;
-            time.title = timeUTC;
-            time.style.fontSize = "100%";
-            time.style.paddingLeft = "15px";
-            return time;
-        }
 
         // --- the entire user element with "x time ago" appended
-        function createUser(userAccountLink, userDisplayName, profileImage, achievements, postedTime) {
-            const userName = createUserName(userAccountLink, userDisplayName);
-            const userAvatar = createUserAvatar(userAccountLink, profileImage);
+        function createUser(userInfo, postedTime) {
+            const type = userCardTypes.MINIMAL;
+            const userName   = createUserName(userInfo, type);
+            const userAvatar = createUserAvatar(userInfo, type);
 
             const user = document.createElement("div");
             user.classList.add(card, carlSmall); // "s-user-card","s-user-card__small"
@@ -1729,12 +2108,14 @@
             user.style.paddingTop = "6px";
 
             user.append(userAvatar, userName);
+
+            const { achievements } = userInfo;
             if (!achievements || Object.getOwnPropertyNames(achievements).length === 0) {
                user.classList.add(cardDeleted);
             } else {
                user.append(createUserAchievements(achievements));
             }
-            user.append(createPostedTime(postedTime));
+            user.append(createPostedTime(postedTime, type));
 
             return user;
         }
@@ -1761,23 +2142,11 @@
             if (parent) parent.style.marginTop = "-5px";
         }
 
-        // --- badges
-        function addBling(awardElement, amount, bling) {
-            const { sUserCards } = config.classes;
-
-            if (amount > 0) {
-                const userBling = document.createElement("li");
-                userBling.classList.add(sUserCards.bling, sUserCards[bling]);
-                userBling.textContent = amount;
-                awardElement.append(userBling);
-            }
-        }
 
         // --- apiRequest
         async function getQuestion(questionId) {
             const site      = window.location.hostname; // "stackoverflow.com"
-            // const apiFilter = "!)Q0(GDAJF0rK.NSRF4Z.*)8J";  // safe filter. Will escape HTML tags and stuff.
-            const apiFilter = "2Sh2Sk4rekX3O-Gbo7h.)Glw";  // unsafe to make it equvalent to taking it from the page itself.
+            const apiFilter = "UdJdPp-(maNxziAUeISHs";  // unsafe & user type to check for moderator
             const apiKey    = config.apiKey;
             const apiUrl = `${API_BASE}/${API_VER}/questions/${questionId}?filter=${apiFilter}&site=${site}&key=${apiKey}`;
 
@@ -1995,10 +2364,12 @@
     // https://chat.stackoverflow.com/transcript/message/52140612#52140612
     // https://chat.stackoverflow.com/transcript/message/52148815#52148815
 
+    const siteBACKGROUNDcolour = "var(--white)"; // #fff in light mode. #2d2d2d in dark mode
+
     const API_BASE = "https://api.stackexchange.com";
     const API_VER = 2.2;
 
-    const EMPTY = "\u00A0"; // NO-BREAK SPACE https://codepoints.net/U+00A0
+    const EMPTY = "\u00A0"; // https://codepoints.net/U+00A0 NO-BREAK SPACE
 
     const config = {
             apiKey: "YeacD0LmoUvMwthbBXF7Lw((",//:-)) Registered Key
@@ -2025,29 +2396,42 @@
                 // https://stackoverflow.design/product/base/display/
                 display: {
                     container: "d-flex",
+                    desktopHide: "d-none",
+                    displayBlock: "d-block",
                     // https://stackoverflow.design/product/base/flex/
                     cell: "flex--item",
                     center: "ai-center",
+                    start: "ai-start",
                     spaceBetween: "jc-space-between",
                     // https://stackoverflow.design/product/base/flex/#gutter-classes
                     gap4px: "gs4",
+                },
+                spaces: {
+                    marginBottom16: "mb16",
+                    negativeMargin: "mxn12",
+                    titleSpace: "ml12",
                 },
                 choiceRadios: {
                     fieldset: ["fd-column", "p12"],
                     submits: ["bt", "bc-black-3"],
                     button: "pt12",
                     widget: "s-sidebarwidget",
+                    radioParent: "js-action-radio-parent",
                 },
                 sUserCards: {
                     card: "s-user-card",
+                    info: "s-user-card--info",
+                    highlighted: "s-user-card__highlighted",
                     cardMinimal: "s-user-card__minimal",
                     carlSmall: "s-user-card__small",
                     cardTime: "s-user-card--time",
                     cardAwards: "s-user-card--awards",
                     cardRep: "s-user-card--rep",
                     cardLink: "s-user-card--link",
+                    cardType: "s-user-card--type",
                     cardDeleted: "s-user-card__deleted",
                     avatar: "s-avatar",
+                    avatarSize32: "s-avatar__32",
                     image: "s-avatar--image",
                     cardAvatar: "s-user-card--avatar",
                     bling: "s-award-bling",
@@ -2064,6 +2448,9 @@
                     gravatarSmallWrap: "gravatar-wrapper-32",
                     gravatarWrap: "gravatar-wrapper-64",
                     flair: "-flair",
+                    moderatorFlair: "mod-flair",
+                    hover: "user-hover",
+                    owner: "owner",
                     um: {
                         gravatar: "um-gravatar",
                         header: "um-header-info",
@@ -2073,6 +2460,8 @@
                 badges: {
                     base: "s-badge",
                     small: "s-badge__sm",
+                    xsmall: "s-badge__xs",
+                    moderator: "s-badge__moderator",
                     green: "s-badge__rep",
                     red: "s-badge__rep-down",
                     grey: "s-badge__votes",
@@ -2120,10 +2509,6 @@
                     },
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
-                desktopHide: "d-none",
-                titleSpace: "ml12",
-                displayBlock: "d-block",
-                negativeMargin: "mxn12",
                 filterDiff: "js-diff-choices",
                 navigation: "s-navigation-tablist",
             },
@@ -2137,7 +2522,6 @@
                     reviewTask: ".s-page-title--actions a",
                     radioActionsBox: ".js-actions-sidebar",
                     reviews: ".js-review-actions",
-                    radioParent: ".js-action-radio-parent",
                 },
                 buttons: {
                     action: ".js-action-button",
@@ -2170,20 +2554,25 @@
                     revision: "#panel-revision",
                     tabs: ".js-review-tabs",
                     task: ".js-review-task",
+                    diffs: ".diffs",
                 },
                 postSummary: {
                     user: ".d-flex.fw-wrap.ai-center.gs12",
-                    userAvatar: ".pr4", // ".pr4 a"
-                    userLink: ".pr8", // ".pr8 a"
+                    userAvatar: ".pr4",
+                    userLink: ".pr8",
                     userAwards: ".pr16",
-                    userReputation: ".reputation-score",
                     tags: ".post-tag",
+                },
+                users: {
+                    userReputation: ".reputation-score",
+                    badges: ".v-visible-sr",
+                    newContributorLabel: ".js-new-contributor-label",
+                    pii: ".pii",
                 },
                 diffs: {
                     diffDelete: "span.diff-delete",
                     diffAdd: "span.diff-add",
                 },
-                badges: ".v-visible-sr",
                 fullReview: "content", // <-- no #. to be used with getElementById.
             },
     };
@@ -2255,7 +2644,8 @@
             style.background = "linear-gradient(90deg, " +            // rotation
                                `${progressDone} ${percentDone}, ` +   // From colour
                                `${progressNotDone} ${percentDone})`;  // To colour
-            style.color = progressTextColour;
+            // https://gist.github.com/tzi/2953155#gistcomment-2691879
+            style.setProperty("color", progressTextColour, "important");
             action.textContent = `Review tasks (${reviewed}/${daily})`;
             return hideProgressBar(dailyElem);
         };
@@ -2286,7 +2676,7 @@
         // -------    optimizePageTitle    --------------------
         const optimizePageTitle = (cnf) => {
             const { selectors: { title: { title, header: titleHeader, learnMore } },
-                    classes: { titleSpace, display: { container } }
+                    classes: { spaces: { titleSpace }, display: { container } }
                   } = cnf;
 
             const titleWrap = document.querySelector(title);
@@ -2420,7 +2810,6 @@
 
                 hasMore = has_more;
                 pageNumber++;
-
                 allApiItems.push(...items);
 
                 checkAPIResult(result);
@@ -2622,12 +3011,11 @@
     // https://chat.stackoverflow.com/transcript/message/52214837#52214837 (code-review)
 
     const almostAll = () => {
-        // Hides the Big Box with review radio options..
 
+        // Hides the Big Box with review radio options..
         const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
         const moveRadioBox = radioVsButtons?.moveRadioBox;
         const keepRadios   = radioVsButtons?.keepRadios;
-
         if (moveRadioBox === "Yes") {
             if (keepRadios !== "Yes") {
                 shadowRadiosToButtons();  // ..and replaces them with buttons on the Filter button level.
@@ -2667,7 +3055,7 @@
         // ----------------------------------------------------------------------------------------
         // ----------------------------------------------------------------------------------------
         const imgHOST = "https://i.stack.imgur.com/";
-        const isLIGHT = getCSSVariableValue("var(--white)") === "#fff";
+        const isLIGHT = getCSSVariableValue(siteBACKGROUNDcolour) === "#fff";
         const PREFIXMODAL = PREFIX + "-modal-";
 
         // ----------------------------------------------------------------------------------------
@@ -2716,10 +3104,6 @@
                         sweetch: "s-toggle-switch",
                         indicator: "s-toggle-switch--indicator",
                     },
-                    actions: {
-                        radio: "js-action-radio",
-                        radioParent: "js-action-radio-parent",
-                    },
                     padding: {
                         Y: "py16",
                         top: "pt16",
@@ -2737,11 +3121,14 @@
                         prose: "s-prose",
                         diff: "diff-delete",
                     },
+                    radios: {
+                        base: "s-radio",
+                        radioAction: "js-action-radio",
+                    },
                     scroll: "overflow-y-scroll",
                     select: "s-select",
                     input: "s-input",
                     label: "s-label",
-                    radio: "s-radio",
                     header: "js-user-header",
                     // pe-none => pointer-events: none; to ensure click events won't be fired
                     // https://stackoverflow.design/product/base/interactivity/#pointer-events
@@ -2752,15 +3139,12 @@
                     modalTarget: "data-s-modal-target",
                 },
                 colours: {
-                    background: "var(--white)", // #fff or #2d2d2d;
                     toggleMutedOn: "var(--green-050)",
                     toggleMutedoff: "var(--black-150)",
                     muted: "var(--mp-muted-color)",
                     active: "var(--fc-dark)",
                     seperator: "var(--black-200)",
                     border: "var(--black-075)",
-                    noticeBackground: "var(--powder-100)",
-                    noticeBorder: "var(--powder-400)",
                 },
                 sizes: {
                     editorAvatar: {
@@ -2915,9 +3299,15 @@
                          (tabName) => previewEditorStatisticsUpdate(
                                           tabName,
                                           "Editor Statistics"),
+                     StackUsercards:
+                         (tabName) => previewStackUsercardsUpdate(
+                                          tabName,
+                                          "Preview Stack user cards"),
                  },
-                 needIntiliatize: ["userCards"],
-                 bottomSpace: ["Add user cards"],
+                 needIntiliatize: ["userCards",
+                                   "StackUsercards"],
+                 bottomSpace: ["Add user cards",
+                               "Stack Design user cards"],
                  items: [
                      {
                       name: "All user Cards",
@@ -2932,12 +3322,25 @@
                       displayOrder: 10,
                      },
                      {
+                      name: "Preview Stack user cards",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 13,
+                     },
+                     {
+                      name: "Editors do not get the \"New contributor\" indicator. This is only for demonstration purpose.",
+                      type: "note",
+                      indents: 1,
+                      displayOrder: 14,
+                     },
+                     {
                       name: "Add user cards",
                       id: PREFIXMODAL + "addUserCards",
                       configKey: "options.userCards.getUserCards",
                       type: "toggle",
                       toggleEntry: "Add user cards",
-                      dependents: ["with editor statistics"],
+                      dependents: ["with editor statistics",
+                                   "Stack Design user cards"],
                       refPreviewUpdates: ["userCards"],
                       displayOrder: 1,
                      },
@@ -3010,6 +3413,27 @@
                       indents: 2,
                       refPreviewUpdates: ["editorStatistics"],
                       displayOrder: 9,
+                     },
+                     {
+                      name: "Stack Design user cards",
+                      id: PREFIXMODAL + "StackUserCards",
+                      configKey: "options.userCards.useStackUserCards",
+                      type: "toggle",
+                      toggleEntry: "Add user cards",
+                      indents: 1,
+                      dependents: ["Show \"New contributor\""],
+                      refPreviewUpdates: ["StackUsercards"],
+                      displayOrder: 11,
+                     },
+                     {
+                      name: "Show \"New contributor\"",
+                      id: PREFIXMODAL + "ShowNewContributor",
+                      configKey: "options.userCards.newContributor",
+                      type: "toggle",
+                      toggleEntry: "Add user cards",
+                      indents: 1,
+                      refPreviewUpdates: ["StackUsercards"],
+                      displayOrder: 12,
                      },
                  ],
                },
@@ -3313,14 +3737,20 @@
                          (tabName) => previewFilterListUpdate(
                                           tabName,
                                           "Filter Options"),
+                     modFlair:
+                         (tabName) => previewStackModeratorOnf(
+                                          tabName,
+                                          "Moderator Flair"),
                  },
                  needIntiliatize: ["titleLinks",
                                    "newSummary",
-                                   "filters"],
+                                   "filters",
+                                   "modFlair"],
                  topSpaceSeparator: ["Always diff choices",
                                      "Stack Design post summary",
                                      "API quota warning:",
-                                     "Remove plain filters"],
+                                     "Remove plain filters",
+                                     "Stack Design moderator flair"],
                  bottomSpace: ["Stack Design post summary",
                                "Remove plain filters",
                                "Insert alert icon"],
@@ -3354,6 +3784,18 @@
                       type: "preview",
                       create: () => createPreviewImageContainer(),
                       displayOrder: 15,
+                     },
+                     {
+                      name: "Moderator Flair",
+                      type: "preview",
+                      create: () => createPreviewImageContainer(),
+                      displayOrder: 17,
+                     },
+                     {
+                      name: "Applies to \"Stack Design user cards\" and \"Stack Design post summary\"",
+                      type: "note",
+                      indents: 1,
+                      displayOrder: 18,
                      },
                      {
                       name: "Links in titles",
@@ -3423,7 +3865,7 @@
                       type: "toggle",
                       toggleEntry: "Remove plain filters",
                       dependents: ["Insert alert icon",
-                                   "Show TinyTags™"],
+                                   "Show TinyTags™"], // https://codepoints.net/U+2122 TRADE MARK SIGN
                       refPreviewUpdates: ["filters"],
                       displayOrder: 12,
                      },
@@ -3438,7 +3880,7 @@
                       displayOrder: 13,
                      },
                      {
-                      name: "Show TinyTags™",
+                      name: "Show TinyTags™", // https://codepoints.net/U+2122 TRADE MARK SIGN
                       id: PREFIXMODAL + "InsertAlertIcon",
                       configKey: "options.reviewFilters.keepFilterList",
                       type: "toggle",
@@ -3446,6 +3888,15 @@
                       toggleEntry: "Remove plain filters",
                       refPreviewUpdates: ["filters"],
                       displayOrder: 14,
+                     },
+                     {
+                      name: "Stack Design moderator flair",
+                      id: PREFIXMODAL + "StackModeratorFlair",
+                      configKey: "options.wantNewModeratorFlair",
+                      type: "toggle",
+                      toggleEntry: "Stack Design moderator flair",
+                      refPreviewUpdates: ["modFlair"],
+                      displayOrder: 16,
                      },
                  ],
                },
@@ -3544,7 +3995,7 @@
             if (typeof Svg !== "undefined") {
                 settingsLink.append(Svg.Gear().get(0));
             } else {
-                settingsLink.textContent = "⚙️";
+                settingsLink.textContent = "⚙️"; // https://emojipedia.org/gear/
                 settingsLink.style.fontSize = "125%";
             }
             settingsLink.title = headerNtooltip; // tooltip
@@ -3567,7 +4018,7 @@
 
                 // The GUI needs to load first..
                 setTimeout(() => settingsLink.click(), 0);
-                                 // Stacks.showModal(settingsItem);
+                                 // alternative Stacks.showModal(settingsItem);
             }, { once: true });
 
         }
@@ -3689,8 +4140,7 @@
             if (typeof Svg !== "undefined") {
                 closeButton.append(Svg.ClearSm().get(0));
             } else {
-                // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
-                closeButton.textContent = "✖";
+                closeButton.textContent = "✖"; // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
             }
             closeButton.dataset.action = hide;
 
@@ -3719,7 +4169,7 @@
             modalBody.id = bodyId;
             modalBody.style.paddingTop = "20px";
 
-            // Make the body scroll without effecting on the tabs nor the buttons
+            // Make the body scroll without effecting the tabs nor the buttons
             modalBody.style.maxHeight = (window.innerHeight - 275) + "px";
             // https://stackoverflow.design/product/base/overflow/
             modalBody.classList.add(scroll);
@@ -3757,11 +4207,13 @@
         function linkNavigationToContent(navigationContainer, navigationItem, modalContainer, modalContent) {
             const { classes: { naviagations: { selected : navigationSelected } } } = modalConfig;
 
-            navigationItem.addEventListener("click", () => {
-                [...navigationContainer.children].forEach(item => item.classList.remove(navigationSelected));
-                modalContainer.replaceChild(modalContent, modalContainer.firstElementChild);
-                navigationItem.classList.add(navigationSelected);
-            });
+            navigationItem
+                .addEventListener("click",
+                                  () => {[...navigationContainer.children]
+                                             .forEach(item => item.classList.remove(navigationSelected));
+                                         modalContainer.replaceChild(modalContent, modalContainer.firstElementChild);
+                                         navigationItem.classList.add(navigationSelected);
+                 });
         }
 
         // -------------------------------
@@ -3797,6 +4249,7 @@
                       select:  createSelectInputGet,
                       size:    createSizeInputGet,
                       header:  createOptionHeaderGet,
+                      note:    createNoteGet,
             };
 
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
@@ -4072,6 +4525,27 @@
             return optionHeaderContainer;
         }
 
+        // -------------------------------
+        function createNoteGet(noteText, tabMenu) {
+            const item = objectFromTabnItemname(modalElements, tabMenu, noteText);
+            const note = createNote(noteText,
+                                    item.id,
+                                    item.indents);
+            item.element = note;
+            return note;
+        }
+
+        // -------------------------------
+        function createNote(noteText, noteId, indents = 0) {
+
+            const noteSup = document.createElement("sup");
+            noteSup.style.marginLeft = (indents * indentPIXELS) + "px";
+            noteSup.id = noteId
+            noteSup.textContent = "Note: " + noteText;
+
+            return noteSup;
+        }
+
 
         // -------------------------------
         function createStackToggleGet(labelText, tabMenu) {
@@ -4164,10 +4638,9 @@
 
         // -------------------------------
         function standardStyling(element, options = {}) {
-            const { colours: { background } } = modalConfig;
             const { padding, paddingTop, paddingLeft, paddingBottom, marginBottom } = options;
 
-            element.style.backgroundColor = background;
+            element.style.backgroundColor = siteBACKGROUNDcolour;
 
             if (padding)       element.style.padding       = padding;
             if (paddingLeft)   element.style.paddingLeft   = paddingLeft;
@@ -4412,13 +4885,13 @@
         // -------------------------------
         function previewRadiosOrButtons() {
             const { display: { cell, container, center },
-                    buttons: { button : base, primary, outlined }
+                    buttons: { button : base, primary, outlined },
+                    choiceRadios: { radioParent }
                   } = config.classes;
             const { ids: { radioButtons : radioButtonsId, radioName, radioButtonLabel },
-                    classes: { actions: { radio : radioAction, radioParent },
+                    classes: { radios: { base : stackradio, radioAction },
                                margins: { negative, zeroX },
                                label : stackLabel,
-                               radio : stackradio,
                                pointerEventsNone }
                   } = modalConfig;
 
@@ -4447,13 +4920,12 @@
             fieldset.append(...radios, buttons);
 
             standardStyling(fieldset, { padding: "10px 0px" });
-            // fieldset.style.zoom = "91%";
             fieldset.style.transform = "scale(0.91)";
 
             const fieldsetContainer = document.createElement("div");
             fieldsetContainer.style.paddingTop = "3px";
             fieldsetContainer.style.paddingBottom = "7px";
-            fieldsetContainer.style.backgroundColor = "var(--white)";
+            fieldsetContainer.style.backgroundColor = siteBACKGROUNDcolour;
             fieldsetContainer.append(fieldset);
 
             // make Opera not eat "Approved"
@@ -4530,7 +5002,7 @@
             const largeClickArea   = radioVsButtons?.largerClickArea === "Yes";
             const tooltips         = radioVsButtons?.tooltips === "Yes";
 
-            const { classes: { desktopHide } } = config;
+            const { classes: { display: { desktopHide } } } = config;
 
             // previewRadiosOrButtons:          light   /   dark
             //  moveRadioBox,  keepRadios  ->          -             radios + previewRadiosOrButtonsUpdate(element)
@@ -4800,6 +5272,38 @@
             rows[3].style.color = colours.editorTotal;
         }
 
+        // -------------------------------
+        function previewStackUsercardsUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const image = element.lastElementChild;
+
+            // original images from:
+            // http://pngimg.com/uploads/broccoli/broccoli_PNG72874.png
+            // http://order.uprintinvitations.com/photothumbs/37a283b5-c348-46a4-ad6f-36d3274032fd.png
+
+            const userCards = deepGet(tempUserConfig, "options.userCards");
+            const useStackUserCards = userCards?.useStackUserCards === "Yes";
+            const newContributor    = userCards?.newContributor === "Yes";
+
+            const lightMap = [
+                ["Q9i5g.png", !useStackUserCards],
+                ["rUkpt.png",  useStackUserCards && !newContributor],
+                ["DFvCY.png",  useStackUserCards &&  newContributor],
+            ];
+            const darkMap = [
+                ["sVN26.png", !useStackUserCards],
+                ["THeVj.png",  useStackUserCards && !newContributor],
+                ["oYl0U.png",  useStackUserCards &&  newContributor],
+            ];
+
+            const screenShotMap = isLIGHT ? lightMap : darkMap;
+
+            const [userCardsImage] =
+                      screenShotMap
+                          .find(([_, condition]) => condition);
+
+            image.src = `${imgHOST}${userCardsImage}`;
+        }
+
 
         // -------------------------------
         function previewPageTitleLink() {
@@ -4885,7 +5389,7 @@
             container.style.alignItems = "flex-end";
 
             const stackProgress = stackProgressBar();
-            stackProgress.classList.add(paddingY); // for the padding
+            stackProgress.classList.add(paddingY);
 
             container.append(titleContainer, stackProgress);
             previewContainer.append(container);
@@ -5133,12 +5637,11 @@
             const { display: { container, cell },
                     buttons: { button, primary }
                   } = config.classes;
-            const { classes: { notice: { base : noticeBase, info : noticeInfo },
-                               padding: { top : paddingTop },
-                               margins: { negative : negativeMargin },
-                             },
-                    colours: { noticeBorder, noticeBackground }
-                  } = modalConfig;
+            const { notice: { base : noticeBase, info : noticeInfo },
+                    padding: { top : paddingTop },
+                    margins: { negative : negativeMargin },
+                    pointerEventsNone
+                  } = modalConfig.classes;
 
             const previewContainer = createPreviewContainer();
 
@@ -5147,12 +5650,10 @@
             const dummyElement = document.createElement("div");  // needed since highlightMessageDoIt wants an element.
             dummyElement.classList.add(container, negativeMargin, paddingTop);
             const dummyButton = createModalButton("Next task", [button, primary, cell]);
-            dummyButton.disabled = true;
+            dummyButton.classList.add(pointerEventsNone);
             dummyElement.append(dummyButton);
 
             standardMessageNotice.classList.add(noticeBase, noticeInfo);
-            standardMessageNotice.style.borderColor = noticeBorder;
-            standardMessageNotice.style.backgroundColor = noticeBackground;
             standardMessageNotice.append(document.createTextNode("You are not able to review this item."),
                                          dummyElement);
             previewContainer.append(standardMessageNotice);
@@ -5326,6 +5827,23 @@
 
             image.src = `${imgHOST}${filterImage}`;
         }
+
+        // -------------------------------
+        function previewStackModeratorOnf(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const image = element.lastElementChild;
+
+            // original image (found by VLAZ (https://chat.stackoverflow.com/users/3689450)):
+            // https://freesvg.org/img/1527776405.png
+            // https://chat.stackoverflow.com/transcript/214345?m=52720164#52720164
+
+            previewUpdateImage(image,
+                               deepGet(tempUserConfig, "options.wantNewModeratorFlair") === "Yes",
+                               { lightOn:  "j9pvo.png",
+                                 lightOff: "7NThn.png",
+                                 darkOn:   "TrBPp.png",
+                                 darkOff:  "2KvL5.png" });
+        }
+
     }
 
     // ---- End of the GUI with the icon on the top right -----------------------------------------
