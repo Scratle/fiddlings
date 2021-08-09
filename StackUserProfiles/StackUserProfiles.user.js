@@ -3,7 +3,7 @@
 // @description  Make use of the space like before.
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
-// @version      1.0
+// @version      1.1
 // @include      /^https://(meta\.)?stackoverflow\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?superuser\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?serverfault\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
@@ -68,7 +68,6 @@
         // user name, header, profile text
         const leftSide = document.createElement("div");
         leftSide.classList.add("d-flex", "fl-grow1", "fd-column", "mr48");
-        leftSide.style.maxWidth = "620px";
         leftSide.append(userName);
         if (userHeader)
             leftSide.append(userHeader);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Collectives Off
 // @namespace    scratte-fiddlings
-// @version      0.2
+// @version      0.3
 // @description  Pretending Collectives don't exist
 // @author       Scratte (stackoverflow.com/users/12695027)
 // @include      https://stackoverflow.com/*
@@ -23,7 +23,7 @@
                       ".js-join-leave-container",
                       // both 1: the collective icons from posts on the home page
                       //      2: the award icons from user cards on posts
-                      "a[href*=collectives]:not(#nav-collective-discover):not(.s-card)",
+                      "a[href*='\/collectives\/']:not(#nav-collective-discover):not(.s-card)",
                       // the particular collective in the sidebar on posts
                       ".sidebar-subcommunity",
                       //  orange affiliation banner from user profiles on posts
