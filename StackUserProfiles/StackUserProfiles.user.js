@@ -1,14 +1,26 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
+// @version      1.2
+//
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
-// @version      1.1
+//
+// @include      /^https://(meta\.)?askubuntu\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
+// @include      /^https://(meta\.)?mathoverflow\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?stackoverflow\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?superuser\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?serverfault\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://meta\.stackexchange\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://stackapps\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
+// @include      /^https://[^/]+\.stackexchange\.com/users/\d+/[^/?]+(?:\?tab=profile)?$/
+// @exclude      *://api.stackexchange.com/*
+// @exclude      *://data.stackexchange.com/*
+// @exclude      *://elections.stackexchange.com/*
+// @exclude      *://openid.stackexchange.com/*
+// @exclude      *://blog.*.com/*
+// @exclude      *://chat.*.com/*
+// @exclude      *://contests.*.com/*
+//
 // @grant        none
 // ==/UserScript==
 
@@ -21,7 +33,7 @@
         if (!userAvatarItems && userAvatarItems.length < 2) // there's only the avatar
             return;
 
-        const whoami = StackExchange.options.user.userId.toString();
+        const whoami = StackExchange?.options.user.userId?.toString();
         const whoIsThis = window.location.pathname.split("/")[2];
         if (whoami === whoIsThis) { // Don't remove the button on other users (relavant to Teams)
             // Because I can find the "Edit profile and settings" tab!
@@ -358,6 +370,8 @@
     const userCard = document.getElementById("user-card");
     if (!userCard)
         return;
+    userCard.classList.remove("mb48");
+    userCard.classList.add("mb32");
 
     const userCardItems = userCard.children;
     if (userCardItems.length < 2)
