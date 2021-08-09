@@ -1,3 +1,18 @@
+## Stack Collectives™ Off
+
+Removes any trace of Collectives™ from Stack Overflow, except the link on the left sidebar.
+
+Based on:
+- [Beta release of Collectives™ on Stack Overflow](https://meta.stackoverflow.com/questions/408585/beta-release-of-collectives-on-stack-overflow)
+
+## Stack Moderators & Staff
+
+Replaces boxed moderator & staff flairs with icons.
+
+Based on:
+- [New Staff and Mod Labels on site metas and Meta Stack Exchange](https://meta.stackexchange.com/questions/367899/new-staff-and-mod-labels-on-site-metas-and-meta-stack-exchange)
+- [Add an immediately visible indication that a user is a staff member or an employee of SE](https://meta.stackexchange.com/questions/344019/add-an-immediately-visible-indication-that-a-user-is-a-staff-member-or-an-employ)
+
 ## Stack Review Suggested Edits Rework
 
 ..is **very beta**. Suggest to wait to install this until it's stable.
