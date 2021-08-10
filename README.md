@@ -13,6 +13,15 @@ Based on:
 - [New Staff and Mod Labels on site metas and Meta Stack Exchange](https://meta.stackexchange.com/questions/367899/new-staff-and-mod-labels-on-site-metas-and-meta-stack-exchange)
 - [Add an immediately visible indication that a user is a staff member or an employee of SE](https://meta.stackexchange.com/questions/344019/add-an-immediately-visible-indication-that-a-user-is-a-staff-member-or-an-employ)
 
+## Stack Protected Question Notice
+
+Puts a notice on protected Questions for all users.
+
+Based on:
+- [What is a “protected” or “highly active” question?](https://meta.stackexchange.com/questions/52764/what-is-a-protected-or-highly-active-question)
+- [Remove or make “Highly active question” post notice less visible / annoying](https://meta.stackexchange.com/questions/337708/remove-or-make-highly-active-question-post-notice-less-visible-annoying)
+
+
 ## Stack Review Suggested Edits Rework
 
 ..is **very beta**. Suggest to wait to install this until it's stable.
