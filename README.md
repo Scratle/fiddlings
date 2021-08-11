@@ -1,3 +1,10 @@
+## Stack Answer closedStatus
+
+Adds Question closed status to post titles of Answer links.
+
+Based on:
+- [Should “duplicate” and “closed” attributes be added to the answer log in user profile?](https://meta.stackoverflow.com/questions/401986/should-duplicate-and-closed-attributes-be-added-to-the-answer-log-in-user-pr)
+
 ## Stack Collectives™ Off
 
 Removes any trace of Collectives™ from Stack Overflow, except the link on the left sidebar.
