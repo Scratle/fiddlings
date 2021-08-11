@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
-// @version      1.3
+// @version      1.4
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
 // @include      /^https://(meta\.)?askubuntu\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://(meta\.)?mathoverflow\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
+// @include      /^https://(meta\.)?mathoverflow\.net/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?stackoverflow\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?superuser\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
 // @include      /^https://(meta\.)?serverfault\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
