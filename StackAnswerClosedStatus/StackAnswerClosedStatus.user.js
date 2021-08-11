@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Answer closedStatus
 // @description  Get the closed status directly on Answers too
-// @version      1.0
+// @version      1.1
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte
@@ -27,7 +27,7 @@
 (function() {
 
     const apiNoticeThreshold = 1500; // Set this when you'd like to get a notice.
-    const USERSCRIPTNAME = "Stack Answer Status";
+    const USERSCRIPTNAME = "Stack Answer closedStatus";
 
     const EMPTY  = "\u00A0"; // NO-BREAK SPACE https://codepoints.net/U+00A0
     const colour = "var(--red-400)";
@@ -35,7 +35,7 @@
     const site      = window.location.hostname;
     const apiUrl    = "https://api.stackexchange.com/2.2/questions/";
     const apiFilter = "!gA1*mfYBgboITmKnOM*UYbEfkJlt(kTDLiI";
-    const apiKey    = "U4DMV*8nvpm3EOpvf69Rxw((";  // FIXME.. get a key! This one is "stolen"..
+    const apiKey    = "GNO1)xZ*WQ3k8uVYQOC2wQ((";
 
     // -----------------------------------------------------
     const showToast = (detail, type) => {
