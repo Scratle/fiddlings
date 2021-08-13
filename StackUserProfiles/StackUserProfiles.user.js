@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
-// @version      1.4
+// @version      1.5
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -190,7 +190,10 @@
 
     // -----------------------------------------------------------------
     function getDate(element) {
-        const title = element.firstElementChild?.title;
+        let title = element.title;
+        if (title)
+            return title;
+        title = element.firstElementChild?.title;
         if (title)
             return title;
         return element.querySelector(".date_brick")?.title;
@@ -269,6 +272,15 @@
             return;
         }
 
+        const insertAndAdjust = (lastActivity, firstActivity) => {
+            elementToAppend.append(createList(lastActivity, firstActivity));
+            // readjust the height of the profile text prose
+
+            const height = parseInt(window.getComputedStyle(elementToAppend).height);
+            if (elementToAdjust)
+                elementToAdjust.style.maxHeight = (height - 88 + (headerPresent ? 0 : 30)) + "px";
+        }
+
         let page = 1;
         let maxPage, lastActivity, firstActivity;
 
@@ -279,7 +291,7 @@
         if (!pages) { // no pagination. There's just the one.
             lastActivity  = getRecentItem(firstParsedHTML);
             firstActivity = getLastItem(firstParsedHTML);
-            elementToAppend.append(createList(lastActivity, firstActivity));
+            insertAndAdjust(lastActivity, firstActivity);
             return;
         } else {
             let lastButton = pages.lastElementChild;
@@ -307,11 +319,7 @@
             firstActivity = getLastItem(lastParsedHTML);
         }
 
-        elementToAppend.append(createList(lastActivity, firstActivity));
-
-        // readjust the height of the profile text prose
-        const height = parseInt(window.getComputedStyle(elementToAppend).height);
-        elementToAdjust.style.maxHeight = (height - 80 + (headerPresent ? 0 : 30)) + "px";
+        insertAndAdjust(lastActivity, firstActivity);
     }
 
     // -----------------------------------------------------------------

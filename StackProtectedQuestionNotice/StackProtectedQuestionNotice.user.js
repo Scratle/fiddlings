@@ -2,9 +2,9 @@
 // @name         Stack Protected Question notice
 // @description  Inserts a notice when a Question is protected.
 // @namespace    scratte-fiddlings
-// @version      0.4
+// @version      0.5
 // @author       Scratte (https://stackoverflow.com/users/12695027)
-// @match        https://stackoverflow.com/questions*
+// @match        https://stackoverflow.com/questions/*
 // @grant        none
 // ==/UserScript==
 
