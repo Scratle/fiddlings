@@ -665,7 +665,7 @@
         if (!filterchoices)
             return;
 
-        const filters = filterchoices.textContent.trim();
+        const filters = filterchoices.textContent?.trim() || "";
 
         if (!removeTextFilters) {
             keepTextFilters(filterchoices);
