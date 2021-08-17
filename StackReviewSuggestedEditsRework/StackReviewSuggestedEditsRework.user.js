@@ -579,7 +579,7 @@
                 return;
             buttonsContainer = document.createElement("div");
             buttonsContainer.classList.add(container);
-            button.parentElement.append(buttonsContainer);
+            button.parentElement?.append(buttonsContainer);
             buttonsContainer.append(button);
         }
 
@@ -732,7 +732,7 @@
 
             const filteredContainer = document.createElement("div");
             filteredContainer.classList.add(container);
-            filter.replaceWith(filteredContainer);
+            filter?.replaceWith(filteredContainer);
 
             const tagContainer = document.createElement("div");
             tagContainer.classList.add(container);
@@ -762,7 +762,7 @@
 
             const filteredContainer = document.createElement("div");
             filteredContainer.classList.add(container);
-            filter.replaceWith(filteredContainer);
+            filter?.replaceWith(filteredContainer);
 
             const tagContainer = document.createElement("div");
             tagContainer.id = tagFiltersId;
@@ -905,7 +905,7 @@
         const skipButton = actionBox.querySelector(buttonSelectors.action); // ".js-action-button"
         if (!skipButton)
             return;
-        const skipContent = skipButton.textContent.trim();
+        const skipContent = skipButton.textContent?.trim();
         if (!isSkip(skipContent))
             return;
         container.append(createButton({ value: skipContent }, [skipButton]));
@@ -1957,6 +1957,8 @@
             if (!existingUser)
                 return;
             const existingViews = existingUser.lastElementChild;
+            if(!existingViews) return;
+
             const viewsItem = existingViews.querySelector("span[title]");
             if (!viewsItem)
                 return;
@@ -2027,7 +2029,10 @@
         function createScore(postScore) {
             const scoreBox = document.createElement("div");
             scoreBox.classList.add(badgeBase, badgeSmall);
-            scoreBox.classList.add(badgeMap.find(([_colour, handle]) => handle(parseInt(postScore)))[0]);
+
+            const [ badgeClass ] = badgeMap.find(([_colour, handle]) => handle(parseInt(postScore))) || [];
+            badgeClass && scoreBox.classList.add(badgeClass);
+
             scoreBox.textContent = postScore;
             scoreBox.style.paddingTop = "2px";
             scoreBox.style.marginTop = "-1px";
@@ -2743,7 +2748,7 @@
                https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede
                .. or StackOverflow.Models.PostTypeId object.
             */
-            const matchResult = posttype.textContent.match(/^Review the following (.*) edit$/);
+            const matchResult = posttype.textContent?.match(/^Review the following (.*) edit$/)||"";
             if (matchResult) {
                 // https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
                 // https://masteringjs.io/tutorials/fundamentals/capitalize-first-letter
@@ -2759,7 +2764,7 @@
             if (!tabs)
                 return false;
             titleDivWrap.insertBefore(postCell, tabs);
-            posttype.parentNode.removeChild(posttype);
+            posttype.parentNode?.removeChild(posttype);
         };
 
         movePosttype(config);
@@ -4007,7 +4012,7 @@
             settingsItem.append(settingsLink);
 
             const topBar = document.querySelector(topMenuSelector);
-            topBar.append(settingsItem);
+            topBar?.append(settingsItem);
 
             // loads the GUI for the settings
             settingsItem.addEventListener("click", () => {
