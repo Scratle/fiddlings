@@ -7,7 +7,12 @@
         "strict": true,
         "lib": ["DOM", "DOM.Iterable", "ESNext"],
         "target": "es2019",
-        "noImplicitAny": false
+        "noImplicitAny": false,
+        "types": [
+            "jquery",
+            "tampermonkey",
+            "@userscripters/stackexchange-global-types"
+        ]
     },
     "include": ["."]
 }
