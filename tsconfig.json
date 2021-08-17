@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "noEmit": true,
+        "allowJs": true,
+        "checkJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "target": "es2019"
+    },
+    "include": ["."]
+}
