@@ -6,7 +6,8 @@
         "skipLibCheck": true,
         "strict": true,
         "lib": ["DOM", "DOM.Iterable", "ESNext"],
-        "target": "es2019"
+        "target": "es2019",
+        "noImplicitAny": false
     },
     "include": ["."]
 }
