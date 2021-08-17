@@ -4392,7 +4392,7 @@
                                   (event) => {
                                       deepSet(tempUserConfig,
                                               item.configKey,
-                                              event.target.value + (item.postfix ? item.postfix : ""));
+                                              event.target.value + (item.postfix || ""));
                                       previewUpdateFunctions.forEach(foonction => foonction(tabMenu));
                  });
 
