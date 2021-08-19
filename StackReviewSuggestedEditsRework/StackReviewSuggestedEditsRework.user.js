@@ -1,13 +1,22 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.70-beta
-// @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
+// @namespace    scratte-fiddlings
+// @version      1.0
+//
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
 // @contributor  double-beep (https://stackoverflow.com/users/10607772)
+//
 // @include      /^https://stackoverflow.com/review/suggested-edits.*/
 // @exclude      /^https://stackoverflow.com/review/suggested-edits/(stats|history)/
+// @include      /^https://superuser.com/review/suggested-edits.*/
+// @exclude      /^https://superuser.com/review/suggested-edits/(stats|history)/
+// @include      /^https://serverfault.com/review/suggested-edits.*/
+// @exclude      /^https://serverfault.com/review/suggested-edits/(stats|history)/
+// @include      /^https://stackapps.com/review/suggested-edits.*/
+// @exclude      /^https://stackapps.com/review/suggested-edits/(stats|history)/
+//
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
@@ -102,7 +111,9 @@
        If you don't want the GUI.
        NOTE: If using this, the GUI will have NO effect on the applied settings.
        Avoids both the userscript manager's storage and localStorage.
-       Manual changes to defaultUserConfig will apply directly to the script. */
+       Manual changes to defaultUserConfig will apply directly to the script.
+       Note that clicking on the GUI icon will make use of the storage!
+       ..to avoid the icon being loaded, comment out the call to userInterfaceSettings(). */
     // const userConfig = defaultUserConfig;         // <-- OPTION 2
 
 
@@ -717,7 +728,7 @@
                                       const taglink = document.createElement("a");
                                       // taglink.classList.add("s-tag", "s-tag__xs");
                                       taglink.classList.add("post-tag");
-                                      taglink.href = `https://stackoverflow.com/questions/tagged/${tag}`;
+                                      taglink.href = `https://${HOST_NAME}/questions/tagged/${tag}`;
                                       taglink.textContent = tag
                                       taglink.style.padding = "1px 2px 1px 2px";
 
@@ -1037,7 +1048,7 @@
     // ---- "Extracting" from extisting element ------------
     function extractUserInfo(element, userClasses) {
         const { classes: { userCards: { moderatorFlair, owner } },
-                selectors: { users: { userReputation, badges : badgeSelector, newContributorLabel, pii : piiElement } }
+                selectors: { users: { userReputation, badges : badgeSelector, newContributorLabel } } //, pii : piiElement } }
               } = config
 
         const isUserOwner = element.classList?.contains(owner);               // "owner"
@@ -1088,8 +1099,9 @@
 
         const isModerator = !!userLinkWrapper.querySelector("." + moderatorFlair); // ".mod-flair"
 
-        // FIXME! Check with a moderator that the PII element is put correctly in its place!
-        const pii = element.querySelector(piiElement); // ".pii" // only for moderators on deleted/anonymous users
+        // FIXME! Check with a moderator where the element is on the original post!
+        //        This seems to turn up empty:
+        // const pii = element.querySelector(piiElement); // ".pii". Only for moderators on deleted/anonymous users
 
         const userInfo = { accountLink    : userLink ? userLink.href : false,
                            displayName    : userLink
@@ -1101,7 +1113,7 @@
                            isModerator    : isModerator,
                            isOwner        : isUserOwner,
                            newContributor : newContributor, // the entire element.
-                           pii            : pii,            // ^ same
+                           // pii            : pii,            // ^ same
                            achievements };
         return userInfo;
     }
@@ -1562,8 +1574,7 @@
                if (!useStackUserCards)
                    user.classList.add(start); // "ai-start"
 
-               // FIXME! Check with a moderator that the PII element is put correctly in its place!
-               // only for moderators when editor is an anonymous user
+               // Only for moderators when editor is an anonymous user
                if (userInfo.pii)
                    userInfoBox.append(userInfo.pii);
             } else {
@@ -1598,10 +1609,9 @@
                                                                               // ".s-user-card__minimal"
             const minimalUserCard = userCardsContainerAll.querySelector("." + cardMinimal);
 
-            // FIXME! Check with a moderator that the PII element is put correctly in its place!
-            // deleted/anonymous user; using https://stackoverflow.design/product/components/user-cards/#deleted
+            // deleted/anonymous user: https://stackoverflow.design/product/components/user-cards/#deleted
             if (!minimalUserCard) {
-                const pii = userCardsContainerAll.querySelector(piiElement); // ".pii" // only for moderators
+                const pii = userCardsContainerAll.querySelector(piiElement); // ".pii". Only for moderators
                 const editorUserCard = createSuggestorsUserCard(null, editProposedTime, pii);
                 editProposedTime.replaceWith(editorUserCard);
                 return;
@@ -1614,7 +1624,7 @@
             const [editorUserid] = userLink.href.split("/").slice(-2); // second last element
 
             const queueNumber = 1; // there must be a "1" queue-number :)
-            const userInformationUrl = `https://stackoverflow.com/review/user-info/${queueNumber}/${editorUserid}`;
+            const userInformationUrl = `https://${HOST_NAME}/review/user-info/${queueNumber}/${editorUserid}`;
 
             // https://chat.stackoverflow.com/transcript/message/52203151#52203151 (code-review)
             // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
@@ -1661,7 +1671,6 @@
 
                         const userInfo = { };
 
-                        // FIXME! Check with a moderator that the PII element is put correctly in its place!
                         if (pii)
                             userInfo.pii = pii;
 
@@ -1902,7 +1911,7 @@
             const tags = [...postTags]
                              .map(tag => {
                                       const newTag = document.createElement("a");
-                                      newTag.href = `https://stackoverflow.com/questions/tagged/${tag}`;
+                                      newTag.href = `https:/${HOST_NAME}/questions/tagged/${tag}`;
                                       newTag.classList.add(sTag);
                                       newTag.textContent = tag;
                                       newTag.title = `show questions tagged '${tag}'`;
@@ -2150,7 +2159,7 @@
 
         // --- apiRequest
         async function getQuestion(questionId) {
-            const site      = window.location.hostname; // "stackoverflow.com"
+            const site      = HOST_NAME;
             const apiFilter = "UdJdPp-(maNxziAUeISHs";  // unsafe & user type to check for moderator
             const apiKey    = config.apiKey;
             const apiUrl = `${API_BASE}/${API_VER}/questions/${questionId}?filter=${apiFilter}&site=${site}&key=${apiKey}`;
@@ -2372,6 +2381,7 @@
     const siteBACKGROUNDcolour = "var(--white)"; // #fff in light mode. #2d2d2d in dark mode
 
     const API_BASE = "https://api.stackexchange.com";
+    const HOST_NAME = window.location.hostname; // f.ex. "stackoverflow.com"
     const API_VER = 2.2;
 
     const EMPTY = "\u00A0"; // https://codepoints.net/U+00A0 NO-BREAK SPACE
@@ -2782,7 +2792,7 @@
 
             const apiEndpointUrl = new URL(`${API_BASE}/${API_VER}/users/${id}/suggested-edits`);
             const params = {
-                site     : window.location.hostname, // "stackoverflow.com"
+                site     : HOST_NAME,
                 filter   : "!3xgWlhxc4ZsL1tY5Y",     // only include approval_date and rejection_date
                 key      : config.apiKey,
                 pagesize : 100
@@ -3334,6 +3344,7 @@
                      },
                      {
                       name: "Editors do not get the \"New contributor\" indicator. This is only for demonstration purpose.",
+                      id: PREFIXMODAL + "newContributorNote",
                       type: "note",
                       indents: 1,
                       displayOrder: 14,
@@ -3798,6 +3809,7 @@
                      },
                      {
                       name: "Applies to \"Stack Design user cards\" and \"Stack Design post summary\"",
+                      id: PREFIXMODAL + "onlyStackDesignNote",
                       type: "note",
                       indents: 1,
                       displayOrder: 18,

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Collectives Off
 // @namespace    scratte-fiddlings
-// @version      0.3
+// @version      0.4
 // @description  Pretending Collectives don't exist
 // @author       Scratte (stackoverflow.com/users/12695027)
 // @include      https://stackoverflow.com/*
@@ -26,13 +26,20 @@
                       "a[href*='\/collectives\/']:not(#nav-collective-discover):not(.s-card)",
                       // the particular collective in the sidebar on posts
                       ".sidebar-subcommunity",
+                  ];
+    
+        const postCollectivesStuff =
+                  [
                       //  orange affiliation banner from user profiles on posts
                       ".affiliate-badge",
                       // "Answer recommended by ..."
                       ".js-endorsements"
                   ];
     
-        document.querySelectorAll(mostCollectivesStuff.join()) // "," is default
+        document.querySelectorAll(mostCollectivesStuff.concat(postCollectivesStuff).join()) // "," is default
+                .forEach(e => e.remove());
+    
+        const removePostCollectives = () => document.querySelectorAll(postCollectivesStuff.join()) // "," is default
                 .forEach(e => e.remove());
     
         // Additionally remove the entire collective box from user profiles
@@ -41,5 +48,10 @@
                // https://chat.stackoverflow.com/transcript/message/52657512#52657512
                ?.closest("div.flex--item")
                ?.remove();
+    
+        $(document) // needed for it to work with updates as in reviews
+            .ajaxComplete((event, request, settings) => {
+                removePostCollectives();
+             });
     
     })();

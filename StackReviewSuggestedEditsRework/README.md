@@ -44,3 +44,7 @@ To change the settings click on this icon on the top right:
 Note that changes to the setting will *not* be applied to the reviews until the page is refreshed.
 
 <sub>[1] Uses [Stack Design](https://stackoverflow.design/)</sub>
+
+---
+
+**Stack Apps:** [Make “Suggested edits” review tasks wider](https://stackapps.com/questions/9106/make-suggested-edits-review-tasks-wider)
