@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Stack Review Suggested Edits Rework
-// @version      0.69-beta
+// @version      0.70-beta
 // @namespace    scratte-fiddlings
 // @description  Make reviewing nice again!
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -656,7 +656,7 @@
                 classes: { display: { container ,desktopHide } },
               } = config;
 
-        const filter  = document.querySelector(button); // "js-review-filter-button"
+        const filter = document.querySelector(button); // "js-review-filter-button"
         if (!filter)
             return;
 
@@ -668,7 +668,7 @@
         const filters = filterchoices.textContent?.trim() || "";
 
         if (!removeTextFilters) {
-            keepTextFilters(filterchoices);
+            keepTextFilters(filter, filterchoices);
             return;
         } else {
             // hide it away
@@ -701,13 +701,12 @@
         }
 
         if (keepFilterList)
-            listTinyFilters();
+            listTinyFilters(filter, filters);
 
 
-        // Notice how the constants are happily bleeding in here.. ;)
-        function listTinyFilters() {
+        function listTinyFilters(filterButton, userFilters) {
 
-            const filteredTags = filters.split(" ");
+            const filteredTags = userFilters.split(" ");
 
             const tags = filteredTags
                              .filter(tagText => tagText !== "")
@@ -732,7 +731,7 @@
 
             const filteredContainer = document.createElement("div");
             filteredContainer.classList.add(container);
-            filter?.replaceWith(filteredContainer);
+            filterButton.replaceWith(filteredContainer);
 
             const tagContainer = document.createElement("div");
             tagContainer.classList.add(container);
@@ -742,7 +741,7 @@
             tagContainer.style.margin = "-12px";
             tagContainer.style.marginLeft = "5px";
             tagContainer.append(...tags);
-            filteredContainer.append(filter, tagContainer);
+            filteredContainer.append(filterButton, tagContainer);
         }
 
         function replace(content) {
@@ -756,13 +755,13 @@
             return false;
         }
 
-        function keepTextFilters(filterchoices) {
+        function keepTextFilters(filterButton, filterchoices) {
             if (replace([filterchoices]))
                 return;
 
             const filteredContainer = document.createElement("div");
             filteredContainer.classList.add(container);
-            filter?.replaceWith(filteredContainer);
+            filterButton.replaceWith(filteredContainer);
 
             const tagContainer = document.createElement("div");
             tagContainer.id = tagFiltersId;
@@ -1957,7 +1956,8 @@
             if (!existingUser)
                 return;
             const existingViews = existingUser.lastElementChild;
-            if(!existingViews) return;
+            if(!existingViews)
+                return;
 
             const viewsItem = existingViews.querySelector("span[title]");
             if (!viewsItem)
@@ -2030,8 +2030,8 @@
             const scoreBox = document.createElement("div");
             scoreBox.classList.add(badgeBase, badgeSmall);
 
-            const [ badgeClass ] = badgeMap.find(([_colour, handle]) => handle(parseInt(postScore))) || [];
-            badgeClass && scoreBox.classList.add(badgeClass);
+            const [ colour ] = badgeMap.find(([_colour, handle]) => handle(parseInt(postScore))) || [];
+            colour && scoreBox.classList.add(colour);
 
             scoreBox.textContent = postScore;
             scoreBox.style.paddingTop = "2px";
@@ -2748,7 +2748,7 @@
                https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede
                .. or StackOverflow.Models.PostTypeId object.
             */
-            const matchResult = posttype.textContent?.match(/^Review the following (.*) edit$/)||"";
+            const matchResult = posttype.textContent?.match(/^Review the following (.*) edit$/) || "";
             if (matchResult) {
                 // https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
                 // https://masteringjs.io/tutorials/fundamentals/capitalize-first-letter
