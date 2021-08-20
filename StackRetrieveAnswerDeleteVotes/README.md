@@ -1,6 +1,6 @@
 ### Displays delete votes on Answers
 
-For Answers with a score less than 0, it:
+For Answers with a score less than 0 (1 for the review queue Low Quality Posts), it:
 - Looks at the timeline counting delete votes.
 - If there are any, it displays the count on the left sidebar:  
 <img src="https://i.stack.imgur.com/Ev4IJ.png" height="200">

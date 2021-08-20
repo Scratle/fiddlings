@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Retrieve Answer delete votes
 // @description  Show the delete votes on Answers
-// @version      1.0
+// @version      2.0
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
 // @include      /^https://(?:[^/]+\.)?stackoverflow.com/questions/\d+/
@@ -10,7 +10,9 @@
 // @include      /^https://(?:[^/]+\.)?askubuntu.com/questions/\d+/
 // @include      /^https://(?:[^/]+\.)?mathoverflow.net/questions/\d+/
 // @include      /^https://stackapps.com/questions/\d+/
-// @include      /^https://(?:[^/]+)?\.stackexchange.com/questions/\d+/
+// @include      /^https://[^/]+\.stackexchange.com/questions/\d+/
+// @include      /^https://(?:(?:stackoverflow|serverfault|superuser|askubuntu|stackapps|[^/]+\.stackexchange)\.com|mathoverflow\.net)/review/.*/
+// @exclude      /^https://(?:(?:stackoverflow|serverfault|superuser|askubuntu|stackapps|[^/]+\.stackexchange)\.com|mathoverflow\.net)/review/[^/]+/(stats|history)/
 //
 // @grant        none
 // @run-at       document-end
@@ -21,8 +23,18 @@
 // Shared using the MIT license: https://chat.stackoverflow.com/transcript/message/52192390#52192390
 
 (async function() {
-    const canSeeTimelineVotes = StackExchange.options.user.rep >= 1000;
-    if (!canSeeTimelineVotes) return; // under 1k rep; can't see the vote summaries in timeline
+    const generalScoreThreshold    = 0;
+    const lowQualityPostsThreshold = 1;
+
+    const canSeeTimelineVotes = StackExchange?.options.user?.rep >= 1000;
+    if (!canSeeTimelineVotes)
+        return; // under 1k rep; can't see the vote summaries in timeline
+
+    // ---- printToConsole ----------------------------------------
+    function printToConsole(string) {
+        const printIt = false;
+        if (printIt) console.log(string);
+    }
 
     // ---- generateAppendElement ---------------------------------
     function generateAppendElement(element, innerHTML) {
@@ -32,16 +44,16 @@
     }
 
     // ---- appendDeleteVotesInAnswer -----------------------------
-    function appendDeleteVotesInAnswer(answerId, deleteVoteCount) {
-        const appendAfterElement = document.querySelector(`#answer-${answerId} .votecell`);
+    function appendDeleteVotesInAnswer(post, deleteVoteCount) {
+        const appendAfterElement = document.querySelector(post.selector);
 
         generateAppendElement(appendAfterElement, "&nbsp;");
         generateAppendElement(appendAfterElement, `${deleteVoteCount} DV`);
     }
 
     // ---- findDeleteVoteCountFromAnswerTimeline -----------------
-    async function findDeleteVoteCountFromAnswerTimeline(postId) {
-        const resp = await fetch(`/posts/${postId}/timeline?filter=WithVoteSummaries`);
+    async function findDeleteVoteCountFromAnswerTimeline(post) {
+        const resp = await fetch(`/posts/${post.answerId}/timeline?filter=WithVoteSummaries`);
         const text = await resp.text();
         const parsedHTML = new DOMParser().parseFromString(text, 'text/html');
         const events = parsedHTML.querySelector(".event-rows");
@@ -74,18 +86,10 @@
         };
 
         if (deleteVoteCount > 0) {
-            appendDeleteVotesInAnswer(postId, deleteVoteCount);
+            appendDeleteVotesInAnswer(post, deleteVoteCount);
         }
     }
 
-    // ---- printToConsole ----------------------------------------
-    function printToConsole(string) {
-        const printIt = false;
-        if (printIt) console.log(string);
-    }
-
-
-    // ---- Do it :) ----------------------------------------------
     // https://meta.stackexchange.com/questions/268446/are-page-requests-rate-limited-throttled
     // https://meta.stackexchange.com/questions/164899/the-complete-rate-limiting-guide
 
@@ -96,26 +100,77 @@
     let pendingRequests = 0;
     let fetchCounter = 0;
 
-    for (const element of [...document.querySelectorAll('.answer')]) {
-        const { dataset: { answerid, score } } = element;
-        printToConsole(`answerid: ${answerid}.  score = ${score}`);
+    // ---- getDeleteVotes ----------------------------------------
+    async function getDeleteVotes (ScoreThreshold) {
+        printToConsole("calling getDeleteVotes");
 
-        // https://stackoverflow.com/help/privileges/trusted-user
-        // Though it's possible for 20K'ers to delete vote zero-scored Answers from the Low Quality Posts queue.
-        if (score < 0) {
-            if(pendingRequests >= maxConcurrentRequests) {
-                await delay(1 + Math.random() + 0.1);  // delay the next fetch to not get ratelimited.
-                printToConsole(`fetching timeline for answer with id: ${answerid} after ~1 sec`);
+        for (const element of [...document.querySelectorAll('.answer')]) {
+            const { dataset: { answerid, score } } = element;
+            printToConsole(`answerid: ${answerid}.  score = ${score}`);
+
+            // https://stackoverflow.com/help/privileges/trusted-user
+            // Though it's possible for 20K'ers to delete vote zero-scored Answers from the Low Quality Posts queue.
+            if (score < ScoreThreshold) {
+                if(pendingRequests >= maxConcurrentRequests) {
+                    await delay(1 + Math.random() + 0.1);  // delay the next fetch to not get ratelimited.
+                    printToConsole(`fetching timeline for answer with id: ${answerid} after ~1 sec`);
+                }
+
+                printToConsole(`already pending: ${pendingRequests}. fetching...`);
+                const promise = findDeleteVoteCountFromAnswerTimeline({
+                                                                        answerId : answerid,
+                                                                        selector : `#answer-${answerid} .votecell`
+                                                                      });
+                pendingRequests += 1;
+
+                promise.finally(() => pendingRequests -= 1);
+                fetchCounter++;
             }
-
-            printToConsole(`already pending: ${pendingRequests}. fetching...`);
-            const promise = findDeleteVoteCountFromAnswerTimeline(answerid);
-            pendingRequests += 1;
-
-            promise.finally(() => pendingRequests -= 1);
-            fetchCounter++;
         }
+        printToConsole(`Total timelines on Answers fetched: ${fetchCounter}`);
     }
-    printToConsole(`Total timelines on Answers fetched: ${fetchCounter}`);
+
+    // ---- getSuggestedEditReviewDelevotes -----------------------
+    function getSuggestedEditReviewDeletevotes(ScoreThreshold) {
+        printToConsole("calling getSuggestedEditReviewDelevotes");
+
+        // If there's a "Question" tab, this is a review of an Answer
+        const isAnswer = !!document.querySelector("#tab-question");
+        if (!isAnswer)
+            return;
+        const votingContainer = document.querySelector("#panel-revision .votecell .js-voting-container");
+        if (!votingContainer)
+            return;
+
+        const score = votingContainer.querySelector(".js-vote-count")?.dataset?.value;
+        const answerId = votingContainer.dataset?.postId;
+
+        if (answerId && score < ScoreThreshold)
+            findDeleteVoteCountFromAnswerTimeline({
+                                                    answerId,
+                                                    selector : "#panel-revision .votecell"
+                                                    // selector : "#panel-revision .votecell, #answer .votecell"
+                                                  });
+    }
+
+    // ---- Do it :) ----------------------------------------------
+
+    const pathName = window.location.pathname;
+
+    if (!pathName.startsWith("/review/")) { // Not a review
+        getDeleteVotes(generalScoreThreshold);
+    } else {
+        // Needed to make it work in reviews, since posts come in late..
+        const reviewRegex = /^\/review\/(next-task|task-reviewed)/;
+        $(document)
+            .ajaxComplete((event, request, settings) => {
+                              if (reviewRegex.test(settings.url)) {
+                                  getDeleteVotes(pathName.indexOf("low-quality-posts") > -1
+                                                     ? lowQualityPostsThreshold
+                                                     : generalScoreThreshold);
+                                  getSuggestedEditReviewDeletevotes(generalScoreThreshold);
+                              }
+             });
+    }
 
 })();
