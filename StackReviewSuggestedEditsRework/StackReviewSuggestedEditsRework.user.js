@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.0
+// @version      1.1
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -664,7 +664,7 @@
 
         const { ids: { custom: { tagFilters : tagFiltersId, tagFilterIcon : tagFilterIconId } },
                 selectors: { filter: { button, choices } },
-                classes: { display: { container ,desktopHide } },
+                classes: { display: { container ,desktopHide }, tags: { legacyTag } },
               } = config;
 
         const filter = document.querySelector(button); // "js-review-filter-button"
@@ -727,7 +727,7 @@
                                               .replaceAll("]","");
                                       const taglink = document.createElement("a");
                                       // taglink.classList.add("s-tag", "s-tag__xs");
-                                      taglink.classList.add("post-tag");
+                                      taglink.classList.add(legacyTag); // "post-tag"
                                       taglink.href = `https://${HOST_NAME}/questions/tagged/${tag}`;
                                       taglink.textContent = tag
                                       taglink.style.padding = "1px 2px 1px 2px";
@@ -1058,7 +1058,7 @@
         let userLinkWrapper = element.querySelector(userClasses.userLink);
         if (!userLinkWrapper)
             return { };
-        const userLink = userLinkWrapper.querySelector("a");
+        const userLink = userLinkWrapper.querySelector("a:not(span > a)");
 
         if (!userLink) {
             // trick for deleted or anonymous users
@@ -1378,6 +1378,7 @@
         originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
 
+
         // -------    originalPostUserCards    --------------------
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
@@ -1434,6 +1435,8 @@
                 const elementToAppend = (responseMap[requestStatus] || responseMap.default)();
                 userCardsContainerAll.append(elementToAppend);
 
+                replaceBrokenImages(elementToAppend);
+
             } catch (error) {
                 const messages = [
                                    "Something is blocking fetching user cards",
@@ -1448,6 +1451,7 @@
             // Only necessary when keeping the Radio Button Box
             if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
                 userCardsContainerAll.style.width = adjustUserCardsWidth();
+
 
             // -------    postUserCards    --------------------
             function postUserCards(originalUserCards) {
@@ -1642,6 +1646,8 @@
                     // minimalUserCard.parentNode.insertBefore(editorUserCard, minimalUserCard);
                     minimalUserCard.before(editorUserCard);
 
+                    replaceBrokenImages(editorUserCard);
+
                     minimalUserCard.remove();
                     editProposedTime.remove();
 
@@ -1652,6 +1658,7 @@
                 .catch((error) => {
                     console.error(USERSCRIPTNAME + " - Error - while fetching editorUserCard : ", error);
                  });
+
 
             // -------    createSuggestorsUserCard    --------------------
             function createSuggestorsUserCard(editorReviewStats, editProposedTime, pii) {
@@ -1806,12 +1813,11 @@
         if (deepGet(userConfig, "options.linksOnTitles") !== "Yes")
             return;
 
-        const { selectors: { postTitleFontSize },
-                classes: { postSummary: { base, title } } } = config;
+        const { selectors: { postTitleFontSize, content: { originalPost } } } = config;
 
         const titles = document.querySelectorAll(`h1${postTitleFontSize}`);
         if (titles.length > 0) {
-            const link = document.querySelector(`.${base} .${title} a`);
+            const link = document.querySelector(originalPost + " a"); // ".js-question-title-link a"
             if (!link)
                 return;
             const href = link.href;
@@ -1830,21 +1836,23 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     async function StackSummary() { // must wait for ajax
-        if (deepGet(userConfig, "options.postSummary.useStackSummary") !== "Yes")
-            return;
+        const useStackSummary = (deepGet(userConfig, "options.postSummary.useStackSummary") === "Yes");
 
         // https://stackoverflow.design/product/components/post-summary/
         // https://stackoverflow.design/product/components/badges/
 
         const { classes: { postSummary: { base : summaryBase, item, stats, hasAnswers, hasAccepted,
-                                          content, title : summaryTitle, contentTitle, link : baseLink,
+                                          content, contentTitle, link : baseLink,
                                           warm, hot, supernova,
-                                          summaryStat, summaryAnswers, summaryAccepted },
-                           tags: { meta, metaTag, tag : sTag, },
+                                          summaryAnswers, summaryAccepted },
+                           tags: { meta, metaTag, tag : sTag, legacyTag },
                            badges: { base : badgeBase,  small : badgeSmall, green, red, grey },
-                           sUserCards: { card, carlSmall, cardDeleted },
-                           userCards: { moderatorFlair } },
-               selectors: { postSummary, diffs: { diffAdd }, content: { task }, users },
+                           sUserCards: { card, carlSmall, cardDeleted, cardAwards, avatar, cardTime },
+                           userCards: { moderatorFlair },
+                           display: {container},
+                           postSummaryLegacy: { contentBox, cursorPointer, square, scoreClass,
+                                                viewsClass, answerClass, answered, accepted } },
+               selectors: { diffs: { diffAdd }, content: { task }, users, acceptedAnswer },
                ids: { custom: { postSummary : postSummaryId } }
               } = config;
 
@@ -1865,10 +1873,11 @@
                   [red,   (score) => score < 0],
         ];
 
-        const existingPostSummary = document.querySelector(`.${summaryBase}`);
+        const existingPostSummary = document.querySelector(`.${summaryBase}`); // .s-post-summary
         if (!existingPostSummary)
             return;
-        const existingTitleLink = existingPostSummary.querySelector(`.${summaryTitle} a`);
+        const existingTitleLink = existingPostSummary.querySelector(`.${contentTitle} a`); // .s-post-summary--content-title
+
         if (!existingTitleLink)
             return;
 
@@ -1878,6 +1887,8 @@
         if (!postAPI || Object.getOwnPropertyNames(postAPI).length === 0) {
             usingAPI = false;
         }
+
+        const postInfo = { }; // all the collected information goes in here
 
         if (usingAPI) {
             const { owner: { badge_counts, reputation,
@@ -1890,36 +1901,43 @@
                     accepted_answer_id, answer_count
                   } = postAPI;
 
-            const answers = createAnswers((answer_count !== 0), // postAPI.is_answered, <-- means no positive scored
-                                          accepted_answer_id,
-                                          answer_count + (answer_count !== 1 ? " answers" : " answer"));
+            postInfo.answer = {
+                                isAnswered        : (answer_count !== 0),
+                                hasAcceptedAnswer : !!accepted_answer_id,
+                                text              : answer_count + (answer_count !== 1 ? " answers" : " answer")
+                              };
 
-            const score = createScore(postScore);
-            const views = createViews(view_count);
-            const leftContainer = createLeftContainer(answers, score, views);
+            postInfo.postScore = postScore;
+            postInfo.viewCount = view_count;
 
-            const titleText = postTitle
-                                 + (closed_date
-                                      ? closed_reason === "Duplicate"
-                                          ? " [duplicate]"
-                                          : " [closed]"
-                                      : "");
+            postInfo.title = {
+                               link : existingTitleLink.href,
+                               text : postTitle
+                                         + (closed_date
+                                               ? closed_reason === "Duplicate"
+                                                   ? " [duplicate]"
+                                                   : " [closed]"
+                                               : "")
+                             };
 
-            // postAPI.postLink is never the Answer link.
-            const title = createTitle(existingTitleLink.href, titleText);
+            postInfo.tags = [...postTags]
+                                .map(tag => {
+                                         const newTag = document.createElement("a");
+                                         newTag.href = `https:/${HOST_NAME}/questions/tagged/${tag}`;
+                                         newTag.classList.add(sTag);
+                                         newTag.textContent = tag;
+                                         newTag.title = `show questions tagged '${tag}'`;
+                                         return newTag;
+                                 });
 
-            const tags = [...postTags]
-                             .map(tag => {
-                                      const newTag = document.createElement("a");
-                                      newTag.href = `https:/${HOST_NAME}/questions/tagged/${tag}`;
-                                      newTag.classList.add(sTag);
-                                      newTag.textContent = tag;
-                                      newTag.title = `show questions tagged '${tag}'`;
-                                      return newTag;
-                              });
-            const tagContainer = createTags(tags);
+            postInfo.postedTime = {
+                                    showTime : customPrettyDateDiff(postEpocs),
+                                    timeUTC  : absoluteTime(postEpocs),
+                                    prefix   : "asked",
+                                  };
 
             const achievements = { };
+
             if (reputation) {
                 achievements.reputation = { amount: formatAmount(reputation, "reputation"),
                                             title : "reputation score" };
@@ -1927,95 +1945,217 @@
                     achievements.badges = badge_counts;
             }
 
-            const postedTime = {
-                                 showTime : customPrettyDateDiff(postEpocs),
-                                 timeUTC  : absoluteTime(postEpocs),
-                                 prefix   : "asked",
-                               };
-
-            const user = createUser({
-                                      accountLink  : userAccountLink,
-                                      displayName  : display_name,
-                                      profileImage : profile_image,
-                                      isModerator  : user_type === "moderator" ? true : false,
-                                      achievements : achievements
-                                    },
-                                    postedTime);
-
-            const rightContainer = createRightContainer (title, tagContainer, user);
-            attachToReview(existingPostSummary, leftContainer, rightContainer);
+            postInfo.user = {
+                              accountLink  : userAccountLink,
+                              displayName  : display_name,
+                              profileImage : profile_image,
+                              isModerator  : user_type === "moderator" ? true : false,
+                              achievements : achievements
+                            };
 
         } else { // not usingAPI. This always applies to deleted posts.
 
-            const existingStats = existingPostSummary.querySelectorAll(`.${summaryStat}`);
-
-            if (existingStats.length < 2)
+            const existingStats = existingPostSummary.querySelectorAll("." + item); // .s-post-summary--stats-item
+            if (existingStats.length < 3)
                 return;
-            const existingAnswers = existingStats[1];
-            const existingVotes   = existingStats[0];
 
-            const answers = createAnswers(existingAnswers.classList.contains(summaryAnswers),
-                                          existingAnswers.classList.contains(summaryAccepted),
-                                          existingAnswers.textContent.trim());
+            const existingAnswers = existingStats[0];
+            const existingVotes   = existingStats[1];
+            const existingViews   = existingStats[2];
 
-            const existingScore = existingVotes.textContent.trim().replace(" votes","").replace(" vote","");
-            const score = createScore(existingScore);
+                                                          // ".js-accepted-answer-indicator:not(.d-none)"
+            const acceptedAnswerTick = document.querySelector(`${acceptedAnswer}:not(.d-none)`);
 
-            const existingUser = document.querySelector(postSummary.user);
+            postInfo.answer = {
+                                isAnswered        : !existingAnswers.textContent.trim().startsWith("0"),
+                                hasAcceptedAnswer : !!acceptedAnswerTick,
+                                text              : existingAnswers.textContent.trim()
+                              };
+
+            postInfo.postScore = existingVotes.textContent.trim().replace(" votes","").replace(" vote","");
+
+            postInfo.viewCount = existingViews.textContent.trim().replace(" views","").replace(" view","");
+
+            postInfo.title = {
+                               link : existingTitleLink.href,
+                               text : existingTitleLink.textContent,
+                             };
+
+            const existingtags = document.querySelectorAll(`${task} .${legacyTag}`); // ".js-review-task .post-tag"
+            postInfo.tags = [...existingtags]
+                                 .filter(tag => !tag.querySelector(diffAdd)) // remove edit added tags
+                                 .map(tag => {
+                                          const newTag = tag.cloneNode();
+                                          newTag.className = sTag;
+                                          newTag.textContent = tag.textContent;
+                                          return newTag;
+                                  });
+
+            const existingUser = existingPostSummary.querySelector("." + meta); // ".s-post-summary--meta"
             if (!existingUser)
                 return;
-            const existingViews = existingUser.lastElementChild;
-            if(!existingViews)
-                return;
 
-            const viewsItem = existingViews.querySelector("span[title]");
-            if (!viewsItem)
-                return;
-            const totalViews = viewsItem.title.replace("Viewed ","").replace(" times","").replace(",","");
-            const views = createViews(totalViews);
+            postInfo.user = extractUserInfo(existingUser,
+                                            {
+                                               userLink       : "." + card,             // ".s-user-card"
+                                               userAvatar     : "." + avatar,           // ".s-avatar"
+                                               userAwards     : "." + cardAwards,       // ".s-user-card--awards"
+                                               userReputation : users.userReputation,   // ".reputation-score"
+                                               userBadges     : users.badges,           // ".v-visible-sr"
+                                               moderatorFlair : "." + moderatorFlair    // ".mod-flair"
+                                            });
 
-            const leftContainer = createLeftContainer(answers, score, views);
-
-            const title = createTitle(existingTitleLink.href, existingTitleLink.textContent);
-
-            const existingtags = document.querySelectorAll(`${task} ${postSummary.tags}`); // ".post-tag"
-            const tags = [...existingtags]
-                             .filter(tag => !tag.querySelector(diffAdd)) // remove edit added tags
-                             .map(tag => {
-                                      const newTag = tag.cloneNode();
-                                      newTag.className = sTag;
-                                      newTag.textContent = tag.textContent;
-                                      return newTag;
-                              });
-            const tagContainer = createTags(tags);
-
-            const existingUserCard = existingUser.firstElementChild;
-            if (!existingUserCard)
-                return;
-            const userInfo = extractUserInfo(existingUserCard,
-                                             {
-                                                userLink       : postSummary.userLink,   // ".pr8"
-                                                userAvatar     : postSummary.userAvatar, // ".pr4"
-                                                userAwards     : postSummary.userAwards, // ".pr16"
-                                                userReputation : users.userReputation,   // ".reputation-score"
-                                                userBadges     : users.badges,           // ".v-visible-sr"
-                                                moderatorFlair : "." + moderatorFlair    // ".mod-flair"
-                                             });
-
-            const existingTime = existingUserCard.nextElementSibling;
+            const existingTime = existingUser.querySelector("." + cardTime); // ".s-user-card--time"
             if (!existingTime)
                 return;
-            const postedTime = extractTime(existingTime);
 
-            const user = createUser(userInfo,
-                                    postedTime);
+            postInfo.postedTime = extractTime(existingTime);
+        }
 
-            const rightContainer = createRightContainer (title, tagContainer, user);
+        const title = createTitle(postInfo.title);
+        const tagContainer = createTags(postInfo.tags);
+        const user = createUser(postInfo.user, postInfo.postedTime);
+
+        if (useStackSummary) {
+            const answers = createAnswers(postInfo.answer);
+            const score   = createScore(postInfo.postScore);
+            const views   = createViews(postInfo.viewCount);
+
+
+            const leftContainer = createLeftContainer(answers, score, views);
+            const rightContainer = createRightContainer(title, tagContainer, user);
+
             attachToReview(existingPostSummary, leftContainer, rightContainer);
+
+        } else {
+
+            const leftTriple = legacyTriple(postInfo);
+
+            tagContainer.style.marginRight = "20px";
+            const rightLegacyWithTags = document.createElement("div");
+            rightLegacyWithTags.append(tagContainer, user);
+            user.style.paddingTop = "revert";
+
+            // Re-adjustment of the image size
+            const avatar = user.querySelector("img");
+            if (avatar) {
+                avatar.style.width  = "24px";
+                avatar.style.height  = "24px";
+                avatar.style.marginTop  = "-1px";
+            }
+
+            rightLegacyWithTags.className = container; //"d-flex"
+            rightLegacyWithTags.style.alignItems = "baseline";
+            const rightLegacy = createRightContainer(title, rightLegacyWithTags);
+
+            attachToReview(existingPostSummary, leftTriple, rightLegacy);
+
+            // leftTriple.parentNode.style.boxSizing = "content-box";
+            leftTriple.parentNode.classList.add(contentBox); // "narrow"
+        }
+
+        // ---  the score/answers/views legacyTriple ---
+        function legacyTriple(postInfo) {
+
+            // Do not remove the commented out styles. They are left because..
+            // WHEN Stack break them, legacyTriples can be broght back with styles.
+
+            const makeBox = (type, postInfo) => {
+                const box = document.createElement("div");
+                // box.style.display = "inline-block";
+                // box.style.height = "38px";
+                // box.style.fontSize = "11px";
+                // box.style.boxSizing = "content-box";
+
+                const span = document.createElement("span");
+                const sisterDiv = document.createElement("div");
+
+                const div = document.createElement("div");
+                div.className = square; // "mini-counts"
+                // box.style.fontSize = "1.30769231rem";
+                // box.style.marginBottom = "4px";
+
+                switch (type) {
+                    case "score": {
+                        span.textContent = postInfo.postScore;
+                        span.title = "score: " + postInfo.postScore;
+
+                        sisterDiv.textContent = "score";
+
+                        box.className = scoreClass; // "votes"
+                        box.style.padding = "7px 6px";  // because there's NO border on that class!
+                        // box.style.minWidth:" 40x";
+                        // box.style.margin = "0 7px 0 0";
+                        // box.style.color = "var(--black-400)";
+                        break;
+                    }
+
+                    case "answer": {
+                        const answerCount = postInfo.answer.text.replace(" answers","").replace(" answer","");
+                        const answetext = answerCount === 1 ? "answer": "answers";
+                        span.textContent = answerCount;
+                        span.title = postInfo.answer.text;
+
+                        sisterDiv.textContent = answetext;
+
+                        box.className = answerClass; // "status"
+                        if (postInfo.answer.hasAcceptedAnswer) {
+                            box.classList.add(accepted); // "answered-accepted"
+                            // box.style.color = "#fff";
+                            // box.style.backgroundColor = "var(--green-400)";
+                        } else if (postInfo.answer.isAnswered) {
+                            box.classList.add(answered); // "answered"
+                            // box.style.color = "var(--green-500)";
+                        }
+                        // box.style.minWidth:" 44px";
+                        // box.style.margin = "0 3px 0 0";
+                        // box.style.padding = "6px";
+                        // box.style.border = "1px solid transparent";
+                        // box.style.borderRadius = "3px";
+                        break;
+                    }
+
+                    case "view": {
+                        const viewText = postInfo.viewCount === 1 ? "view": "views";
+                        span.textContent = formatAmount(postInfo.viewCount);
+                        span.title = postInfo.viewCount + " " + viewText;
+
+                        sisterDiv.textContent = viewText;
+
+                        const heat = getHeat(postInfo.viewCount);
+                        if (heat.length > 0) {
+                            const colour = heat[0].replace("is-","");
+                            div.classList.add(colour);
+                            sisterDiv.classList.add(colour);
+                        }
+
+                        box.className = viewsClass; // "views"
+                        // box.style.minWidth:" 38px";
+                        // box.style.margin = "0 7px 0 0";
+                        // box.style.color = "var(--black-400)";
+                        // box.style.padding = "7px 6px";
+                        break;
+                    }
+                }
+
+                div.append(span);
+
+                box.append(div, sisterDiv);
+                return box;
+            };
+
+            const triples = document.createElement("a");
+            triples.href = postInfo.title.link;
+            triples.classList.add(cursorPointer); // "cp"
+            triples.append(makeBox("score" , postInfo),
+                           makeBox("answer", postInfo),
+                           makeBox("view"  , postInfo));
+
+            return triples;
         }
 
         // ---  answers ---
-        function createAnswers(isAnswered, hasAcceptedAnswer, text) {
+        function createAnswers({ isAnswered, hasAcceptedAnswer, text }) {
             const answers = document.createElement("div");
             answers.classList.add(item);
             if (isAnswered) {
@@ -2089,7 +2229,7 @@
 
 
         // ---  Posttitle and link ---
-        function createTitle(link, text) {
+        function createTitle({ link, text }) {
             const title = document.createElement("a");
             title.classList.add(contentTitle, baseLink);
             title.href = link;
@@ -2135,10 +2275,10 @@
         }
 
         // second container
-        function createRightContainer (title, metaContainer, userNtime) {
+        function createRightContainer (...elements) {
             const rightContainer = document.createElement("div");
             rightContainer.classList.add(content);
-            rightContainer.append(title, metaContainer, userNtime);
+            rightContainer.append(...elements);
             return rightContainer;
         }
 
@@ -2146,14 +2286,19 @@
         function attachToReview(existingPostSummary, leftContainer, rightContainer) {
             const container = document.createElement("div");
             container.classList.add(summaryBase);
+            container.style.marginBottom = "15px";
+            container.style.borderBottom = "revert";
             container.append(leftContainer, rightContainer);
             container.id = postSummaryId;
+            container.style.padding = "6px";
 
             existingPostSummary.before(container);
             existingPostSummary.remove();
 
             const parent = container.parentElement;
             if (parent) parent.style.marginTop = "-5px";
+
+            replaceBrokenImages(rightContainer);
         }
 
 
@@ -2307,7 +2452,7 @@
 
     function showToast(detail, type, guiID) {
         const apiOptions = `<ul><li>"with editor statistics" under "Add user cards" </li>
-                                <li>"using Stack API" under "Stack Design post summary"</li></ul>`;
+                                <li>"Using Stack Exchange API" under "Stack Design post summary"</li></ul>`;
         const inludeID = guiID ? ` id=${guiID}` : ""; // used in the preview
 
         const toastMessage = {
@@ -2373,6 +2518,51 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
+
+    function replaceBrokenImages(element = document) {
+        // this method is called after:
+        // - the page is loaded.
+        // - creating the post summary.
+        // - fetching and inserting the post user cards.
+        // - fetching and inserting the editor user card.
+
+        const fixedBrokenImage = "https://i.stack.imgur.com/Y2OIR.png";
+
+        element
+           .querySelectorAll("img")
+           .forEach(img => {img.addEventListener('error',
+                                                 event => {
+                                                     /*
+                                                     console.log("Error:",
+                                                                 {
+                                                                    sourse: img.src,
+                                                                    event,
+                                                                    target: event.target,
+                                                                    parent: event.target.parentNode
+                                                                 });
+                                                     */
+                                                     img.src = fixedBrokenImage;
+                                                 },
+                                                 { once: true })
+            });
+
+        /*
+        // Alternative..
+        setTimeout(() =>
+                       element
+                           .querySelectorAll("img")
+                           .forEach(img => { // cannot know the width of a 404 responsed fetch of an image.
+                                        if (img.naturalWidth === 0) {
+                                            img.src = fixedBrokenImage;
+                                        }
+                            }),
+                   1000); // give it a second to load the images.
+        */
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
     // Mostly snipped from Oleg Valter (https://stackoverflow.com/users/11407695/oleg-valter) at https://pastebin.com/YkG5R39h
     // https://chat.stackoverflow.com/transcript/message/52116388#52116388
     // https://chat.stackoverflow.com/transcript/message/52140612#52140612
@@ -2423,6 +2613,7 @@
                 },
                 spaces: {
                     marginBottom16: "mb16",
+                    marginTop16: "mt16",
                     negativeMargin: "mxn12",
                     titleSpace: "ml12",
                 },
@@ -2498,6 +2689,7 @@
                     meta: "s-post-summary--meta",
                     metaTag: "s-post-summary--meta-tags",
                     tag: "s-tag",
+                    legacyTag: "post-tag",
                 },
                 notice: {
                     toast: "s-toast",
@@ -2507,7 +2699,6 @@
                 },
                 postSummary: {
                     base: "s-post-summary",
-                    title: "s-post-summary--title",
                     stats: "s-post-summary--stats",
                     item: "s-post-summary--stats-item",
                     content: "s-post-summary--content",
@@ -2518,10 +2709,19 @@
                     hot: "is-hot",
                     warm: "is-warm",
                     link: "s-link",
-                    summaryStat: "s-post-summary--stat",
                     summaryAnswers: "s-post-summary--has-answer",
                     summaryAccepted: "s-post-summary--has-accepted-answer",
                     },
+                postSummaryLegacy: {
+                    contentBox: "narrow",
+                    cursorPointer: "cp",
+                    square: "mini-counts",
+                    scoreClass: "votes",
+                    viewsClass: "views",
+                    answerClass: "status",
+                    answered: "answered",
+                    accepted: "answered-accepted",
+                },
                 summary: "fc-red-800",
                 answers: "answer-hyperlink",
                 filterDiff: "js-diff-choices",
@@ -2571,13 +2771,6 @@
                     task: ".js-review-task",
                     diffs: ".diffs",
                 },
-                postSummary: {
-                    user: ".d-flex.fw-wrap.ai-center.gs12",
-                    userAvatar: ".pr4",
-                    userLink: ".pr8",
-                    userAwards: ".pr16",
-                    tags: ".post-tag",
-                },
                 users: {
                     userReputation: ".reputation-score",
                     badges: ".v-visible-sr",
@@ -2588,6 +2781,7 @@
                     diffDelete: "span.diff-delete",
                     diffAdd: "span.diff-add",
                 },
+                acceptedAnswer: ".js-accepted-answer-indicator",
                 fullReview: "content", // <-- no #. to be used with getElementById.
             },
     };
@@ -2726,7 +2920,8 @@
         const movePosttype = (cnf) => {
             const { ids: {custom: { postType : postTypeId } },
                     selectors: { title: { divwrapper, header : titleHeader, actionsTabs },
-                                 content: { content } }
+                                 content: { content }, postTitleFontSize },
+                    classes: { spaces: { marginTop16 } }
                   } = cnf;
 
             const oldPostType = document.getElementById(postTypeId);
@@ -2737,7 +2932,7 @@
             if (!titleDivWrap)
                 return false;
 
-            const posttype = document.querySelector(`${content} h2`);
+            const posttype = document.querySelector(`${content} ${postTitleFontSize}`); // .js-review-content .fs-title
             const header = titleDivWrap.querySelector(titleHeader);
             if (!posttype || !header)
                 return false;
@@ -2774,7 +2969,11 @@
             if (!tabs)
                 return false;
             titleDivWrap.insertBefore(postCell, tabs);
-            posttype.parentNode?.removeChild(posttype);
+
+            const summary = posttype.nextElementSibling;
+            summary.classList.remove(marginTop16); //"mt16"
+
+            posttype.remove();
         };
 
         movePosttype(config);
@@ -3039,22 +3238,23 @@
             }
         }
 
-        moveProgress();       // Puts " (0/40)" on the "Review tasks" tab instead of "Your daily reviews 0 /40 (-----)"
-        movePostTypeUp();     // Removes "Review the following answer/question edit"
-        highlightSummary();   // Makes the edit summary noticeable
-        highlightMessage();   // Makes a review message to the reviewer more noticeable
-        keepDiffChoices();    // Restore diff choices for title diffs.
-        moveDiffChoices();    // Moves the "Inline | Side-by-side | Side-by-side markdown"
-        getUserCards();       // Gets back the user cards! :)
-        addSeparator();       // Adds a border separator between the post summary and the review
-        reduceFilter();       // Do not fill up the filter div line with text.
-        moveNoticeButtons();  // Moves the "Reviewer stats" and "Next task" buttons on notices.
-        addLinksToTitles();   // Adds link to all Question titles.
-        StackSummary();       // Changes the post summary to comply with Stack Design.
+        moveProgress();        // Puts " (0/40)" on the "Review tasks" tab instead of "Your daily reviews 0 /40 (-----)"
+        movePostTypeUp();      // Removes "Review the following answer/question edit"
+        highlightSummary();    // Makes the edit summary noticeable
+        highlightMessage();    // Makes a review message to the reviewer more noticeable
+        keepDiffChoices();     // Restore diff choices for title diffs.
+        moveDiffChoices();     // Moves the "Inline | Side-by-side | Side-by-side markdown"
+        getUserCards();        // Gets back the user cards! :)
+        addSeparator();        // Adds a border separator between the post summary and the review
+        reduceFilter();        // Do not fill up the filter div line with text.
+        moveNoticeButtons();   // Moves the "Reviewer stats" and "Next task" buttons on notices.
+        addLinksToTitles();    // Adds link to all Question titles.
+        StackSummary();        // Changes the post summary to comply with Stack Design.
+        replaceBrokenImages(); // Because it's better to have an image of a broken image.
     };
 
-    changePageTitle();        // Removes redundant information and moves the "Learn more"
-    removeLineThrough();      // Removes the strike through of text that is already highlighted in red
+    changePageTitle();         // Removes redundant information and moves the "Learn more"
+    removeLineThrough();       // Removes the strike through of text that is already highlighted in red
 
     ajaxCompleteWrapper(almostAll);
 
@@ -3846,17 +4046,15 @@
                       configKey: "options.postSummary.useStackSummary",
                       type: "toggle",
                       toggleEntry: "Stack Design post summary",
-                      dependents: ["using Stack API"],
                       refPreviewUpdates: ["newSummary"],
                       displayOrder: 6,
                      },
                      {
-                      name: "using Stack API",
+                      name: "Using Stack Exchange API",
                       id: PREFIXMODAL + "StackPostSummary",
                       configKey: "options.postSummary.useAPI",
                       type: "toggle",
-                      indents: 1,
-                      toggleEntry: "Stack Design post summary",
+                      toggleEntry: "Using Stack Exchange API",
                       displayOrder: 7,
                      },
                      {
@@ -5784,10 +5982,10 @@
 
             previewUpdateImage(image,
                                deepGet(tempUserConfig, "options.postSummary.useStackSummary") === "Yes",
-                               { lightOn:  "wHt6S.png",
-                                 lightOff: "TjPVp.png",
-                                 darkOn:   "jgaO1.png",
-                                 darkOff:  "8Urbg.png" });
+                               { lightOn:  "zphgU.png",
+                                 lightOff: "hunsb.png",
+                                 darkOn:   "TDBWF.png",
+                                 darkOff:  "bgZmI.png" });
         }
 
 
