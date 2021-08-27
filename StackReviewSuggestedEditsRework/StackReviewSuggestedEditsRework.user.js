@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1
+// @version      1.1.1
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -2612,6 +2612,7 @@
                     gap4px: "gs4",
                 },
                 spaces: {
+                    marginBottom12: "mb12",
                     marginBottom16: "mb16",
                     marginTop16: "mt16",
                     negativeMargin: "mxn12",
@@ -2921,7 +2922,7 @@
             const { ids: {custom: { postType : postTypeId } },
                     selectors: { title: { divwrapper, header : titleHeader, actionsTabs },
                                  content: { content }, postTitleFontSize },
-                    classes: { spaces: { marginTop16 } }
+                    classes: { spaces: { marginTop16, marginBottom12 } }
                   } = cnf;
 
             const oldPostType = document.getElementById(postTypeId);
@@ -2936,6 +2937,29 @@
             const header = titleDivWrap.querySelector(titleHeader);
             if (!posttype || !header)
                 return false;
+
+            const moveIt = (element) => {
+                const tabs = titleDivWrap.querySelector(actionsTabs);
+                if (!tabs)
+                    return false;
+                titleDivWrap.insertBefore(element, tabs);
+
+                const summary = posttype.nextElementSibling;
+                summary.classList.remove(marginTop16); //"mt16"
+                return true;
+            }
+
+            const wikiedit = document.querySelector(`${content} h2`); // .js-review-content h2
+            if (wikiedit) {
+                wikiedit.remove();
+
+                [...posttype.children]
+                        .forEach(link => link.style.fontSize = "1.6rem");
+                posttype.classList.remove(marginBottom12); // "mb12"
+
+                moveIt(posttype);
+                return;
+            }
 
             const postCell = header.cloneNode();
             postCell.id = postTypeId;
@@ -2965,15 +2989,8 @@
                                            .join(" ");
             }
 
-            const tabs = titleDivWrap.querySelector(actionsTabs);
-            if (!tabs)
-                return false;
-            titleDivWrap.insertBefore(postCell, tabs);
-
-            const summary = posttype.nextElementSibling;
-            summary.classList.remove(marginTop16); //"mt16"
-
-            posttype.remove();
+            if (moveIt(postCell))
+                posttype.remove();
         };
 
         movePosttype(config);
