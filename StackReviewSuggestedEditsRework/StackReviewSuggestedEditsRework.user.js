@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1.1
+// @version      1.1.6
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -302,7 +302,7 @@
         if (deepGet(userConfig, "options.moveDiffChoices") !== "Yes")
             return;
 
-        const { ids: { custom: { diffChoices } },
+        const { ids: { custom: { diffChoices, keepDiffChoices : keepDiffChoicesId } },
                 classes: { filterDiff, buttons: { small, xsmall } },
                 selectors: { fullReview }
               } = config;
@@ -324,6 +324,10 @@
             // see https://github.com/Scratle/fiddlings/pull/2#pullrequestreview-698140714, s-btn is just too large
             button.classList.add(small);
         });
+
+        const keepDiff = document.getElementById(keepDiffChoicesId); // there may be an empty container now.
+        if (keepDiff)
+            keepDiff.remove();
     }
 
 
@@ -601,20 +605,34 @@
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
     function highlightMessage() { // must wait for ajax
-        if (deepGet(userConfig, "options.prominentReviewMessage") !== "Yes")
+        const { classes: { display: { desktopHide },
+                           notice: { base : noticeBase },
+                           spaces: { marginBottom12 } },
+                selectors: { reviews: { banner } }
+              } = config;
+
+        const status = document.querySelector(banner); // "[role=status]"
+        if (!status)
             return;
 
-        const { colour: { message : messageColour, messageBackground },
-                size: { message : messageSize }
-              } = userConfig;
+        // https://chat.stackoverflow.com/transcript/message/52915061#52915061
+        if (status.classList.contains(desktopHide)) {
+            // const next = status.parentElement?.querySelector("." + noticeBase);
+            const next = status.parentElement?.querySelector(`:is(div > aside.${noticeBase})`);
+            if (next)
+                next.classList.add(marginBottom12);
+        }
 
-        const status = document.querySelector(config.selectors.reviews.banner);
-        if (!status)
+        if (deepGet(userConfig, "options.prominentReviewMessage") !== "Yes")
             return;
 
         const info = status.firstElementChild;
         if (!info)
             return;
+
+        const { colour: { message : messageColour, messageBackground },
+                size: { message : messageSize },
+              } = userConfig;
 
         highlightMessageDoIt(info, messageColour, messageBackground, messageSize);
     }
@@ -934,8 +952,8 @@
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
         const buttonsActions =
             new Map([
-                     ["Reject", state.NOOP],                // Reject will open up a modal
-                     ["", state.NOOP],                      // The X on the top right of the modal
+                     ["Reject", state.NOOP],                      // Reject will open up a modal
+                     ["", state.NOOP],                            // The X on the top right of the modal
                      ["Submit", state.NOOP],
                      ["Skip", state.SKIP],
                      ["Approve", state.DISABLE],
@@ -944,22 +962,24 @@
                      ["Cancel", state.ENABLE],
                      ["Reject edit", state.DISABLE],
                      ["Save edits", state.DISABLE],
+                     ["Approve and reopen", state.DISABLE],       // For the substantial edit review tasks
+                     ["Approve and leave closed", state.DISABLE], // ^ Same
                      ["Side-by-side Markdown", state.NOOP],
                      ["Side-by-side", state.NOOP],
                      ["Inline", state.NOOP],
-                     ["Revision", state.NOOP],              // Toggling post tabs
-                     ["Question", state.NOOP],              // ^ same
-                     ["Other answers", state.NOOP],         // ^ same
+                     ["Revision", state.NOOP],                    // Toggling post tabs
+                     ["Question", state.NOOP],                    // ^ same
+                     ["Other answers", state.NOOP],               // ^ same
                      ["Filter", state.NOOP],
-                     ["Apply filter", state.DISABLE],       // Changing filter options forced a new task
-                     ["Clear", state.DISABLE],              // ^ Same.. but probably not nessecary
-                     ["Hide results", state.NOOP],          // From Stack snippets
-                     ["Next task", state.NOOP],             // After an audit (buttons are hidden)
-                     ["Reviewer stats", state.NOOP],        // Completed reviews
-                     ["Restore tab settings", state.NOOP],  // From the GUI
-                     ["Apply & Exit", state.NOOP],          // ^ same
-                     ["✖", state.NOOP],                    // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
-                                                            // ^ GUI and Notice if Svg is unavailable
+                     ["Apply filter", state.DISABLE],             // Changing filter options forced a new task
+                     ["Clear", state.DISABLE],                    // ^ Same.. but probably not nessecary
+                     ["Hide results", state.NOOP],                // From Stack snippets
+                     ["Next task", state.NOOP],                   // After an audit (buttons are hidden)
+                     ["Reviewer stats", state.NOOP],              // Completed reviews
+                     ["Restore tab settings", state.NOOP],        // From the GUI
+                     ["Apply & Exit", state.NOOP],                // ^ same
+                     ["✖", state.NOOP],                          // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
+                                                                  // ^ GUI and Notice if Svg is unavailable
                    ]);
 
         // -------    createNewDiv    --------------------
@@ -2545,19 +2565,6 @@
                                                  },
                                                  { once: true })
             });
-
-        /*
-        // Alternative..
-        setTimeout(() =>
-                       element
-                           .querySelectorAll("img")
-                           .forEach(img => { // cannot know the width of a 404 responsed fetch of an image.
-                                        if (img.naturalWidth === 0) {
-                                            img.src = fixedBrokenImage;
-                                        }
-                            }),
-                   1000); // give it a second to load the images.
-        */
     }
 
 
@@ -2614,7 +2621,6 @@
                 spaces: {
                     marginBottom12: "mb12",
                     marginBottom16: "mb16",
-                    marginTop16: "mt16",
                     negativeMargin: "mxn12",
                     titleSpace: "ml12",
                 },
@@ -2922,7 +2928,7 @@
             const { ids: {custom: { postType : postTypeId } },
                     selectors: { title: { divwrapper, header : titleHeader, actionsTabs },
                                  content: { content }, postTitleFontSize },
-                    classes: { spaces: { marginTop16, marginBottom12 } }
+                    classes: { spaces: { marginBottom12 } }
                   } = cnf;
 
             const oldPostType = document.getElementById(postTypeId);
@@ -2933,33 +2939,50 @@
             if (!titleDivWrap)
                 return false;
 
-            const posttype = document.querySelector(`${content} ${postTitleFontSize}`); // .js-review-content .fs-title
-            const header = titleDivWrap.querySelector(titleHeader);
-            if (!posttype || !header)
-                return false;
-
             const moveIt = (element) => {
                 const tabs = titleDivWrap.querySelector(actionsTabs);
                 if (!tabs)
                     return false;
                 titleDivWrap.insertBefore(element, tabs);
 
-                const summary = posttype.nextElementSibling;
-                summary.classList.remove(marginTop16); //"mt16"
                 return true;
             }
 
-            const wikiedit = document.querySelector(`${content} h2`); // .js-review-content h2
-            if (wikiedit) {
-                wikiedit.remove();
+            // wiki tag edits put the "Review the following" in an h2 header, while other reviews puts them in .fs-title
+            // however searching for ".js-review-content h2" might just find an h2 header in one of the posts!
+            // and.. !!! sometimes there a tag wiki with an h2 header, but no .fs-title (and the tag information is missing!).
 
-                [...posttype.children]
+            let wikiedit = document.querySelector(`${content} h2`);                   // .js-review-content .h2
+            let posttype = document.querySelector(`${content} ${postTitleFontSize}`); // .js-review-content .fs-title
+
+            // this covers tag wiki edits where tags are present.
+            if (posttype)
+                wikiedit = posttype.previousElementSibling;
+            const isWikiH2 = wikiedit.tagName === "H2"; // if this isn't an h2 header, it's NOT a tag wiki.
+
+            if (isWikiH2 && posttype) {
+                wikiedit.remove();      // we don't need to see "Review the following tag wiki.."
+
+                [...posttype.children]  // just move the tag information. That's what's important.
                         .forEach(link => link.style.fontSize = "1.6rem");
                 posttype.classList.remove(marginBottom12); // "mb12"
+                posttype.id = postTypeId;  // enable deletion of this in the next review task.
 
                 moveIt(posttype);
                 return;
+
+            } else {
+                // this is an old or strange inconsistent wiki tag review task.
+                // the .fs-title part is missing and there are no tags
+                if (isWikiH2) posttype = wikiedit;
             }
+
+            if (!posttype)
+                return false;
+
+            const header = titleDivWrap.querySelector(titleHeader);
+            if (!header)
+                return false;
 
             const postCell = header.cloneNode();
             postCell.id = postTypeId;
