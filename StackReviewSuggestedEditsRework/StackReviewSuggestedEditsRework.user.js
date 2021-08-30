@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1.6
+// @version      1.1.7
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -1078,7 +1078,7 @@
         let userLinkWrapper = element.querySelector(userClasses.userLink);
         if (!userLinkWrapper)
             return { };
-        const userLink = userLinkWrapper.querySelector("a:not(span > a)");
+        const userLink = userLinkWrapper.querySelector("a");
 
         if (!userLink) {
             // trick for deleted or anonymous users
@@ -1867,7 +1867,7 @@
                                           summaryAnswers, summaryAccepted },
                            tags: { meta, metaTag, tag : sTag, legacyTag },
                            badges: { base : badgeBase,  small : badgeSmall, green, red, grey },
-                           sUserCards: { card, carlSmall, cardDeleted, cardAwards, avatar, cardTime },
+                           sUserCards: { card, carlSmall, cardDeleted, cardAwards, avatar, cardTime, cardLink },
                            userCards: { moderatorFlair },
                            display: {container},
                            postSummaryLegacy: { contentBox, cursorPointer, square, scoreClass,
@@ -2017,7 +2017,7 @@
 
             postInfo.user = extractUserInfo(existingUser,
                                             {
-                                               userLink       : "." + card,             // ".s-user-card"
+                                               userLink       : "." + cardLink,         // ".s-user-card--link",
                                                userAvatar     : "." + avatar,           // ".s-avatar"
                                                userAwards     : "." + cardAwards,       // ".s-user-card--awards"
                                                userReputation : users.userReputation,   // ".reputation-score"
@@ -2575,7 +2575,8 @@
     // https://chat.stackoverflow.com/transcript/message/52140612#52140612
     // https://chat.stackoverflow.com/transcript/message/52148815#52148815
 
-    const siteBACKGROUNDcolour = "var(--white)"; // #fff in light mode. #2d2d2d in dark mode
+    const siteBACKGROUNDcolour = "var(--white)"; // #ffffff in light mode.  #2d2d2d in dark mode
+                                                 // hsl(0,0%,100%);         hsl(0,0%,17.5%);
 
     const API_BASE = "https://api.stackexchange.com";
     const HOST_NAME = window.location.hostname; // f.ex. "stackoverflow.com"
@@ -3310,7 +3311,8 @@
         // ----------------------------------------------------------------------------------------
         // ----------------------------------------------------------------------------------------
         const imgHOST = "https://i.stack.imgur.com/";
-        const isLIGHT = getCSSVariableValue(siteBACKGROUNDcolour) === "#fff";
+        const isLIGHT = getCSSVariableValue(siteBACKGROUNDcolour) === "#ffffff";
+
         const PREFIXMODAL = PREFIX + "-modal-";
 
         // ----------------------------------------------------------------------------------------
