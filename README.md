@@ -58,3 +58,5 @@ Based on:
 - [Some changes to the profile while we make it responsive](https://meta.stackexchange.com/questions/368285/some-changes-to-the-profile-while-we-make-it-responsive)
 - [Profile page is very empty, revert to old version?](https://meta.stackoverflow.com/questions/410612/profile-page-is-very-empty-revert-to-old-version)
 - [What is the new badge UI on the Profile page?](https://meta.stackoverflow.com/questions/408611/what-is-the-new-badge-ui-on-the-profile-page)
+- [Additional profile refinements](https://meta.stackexchange.com/questions/368661/additional-profile-refinements)
+- [We’ve shipped some changes to the user profile navigation](https://meta.stackexchange.com/questions/369276/we-ve-shipped-some-changes-to-the-user-profile-navigation)

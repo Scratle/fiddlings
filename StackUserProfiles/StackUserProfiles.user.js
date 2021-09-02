@@ -1,18 +1,18 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
-// @version      1.5
+// @version      2.0
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
-// @include      /^https://(meta\.)?askubuntu\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://(meta\.)?mathoverflow\.net/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://(meta\.)?stackoverflow\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://(meta\.)?superuser\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://(meta\.)?serverfault\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://stackapps\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
-// @include      /^https://[^/]+\.stackexchange\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=profile)?$/
+// @include      /^https://(meta\.)?askubuntu\.com/users//
+// @include      /^https://(meta\.)?mathoverflow\.net/users//
+// @include      /^https://(meta\.)?stackoverflow\.com/users//
+// @include      /^https://(meta\.)?superuser\.com/users//
+// @include      /^https://(meta\.)?serverfault\.com/users//
+// @include      /^https://stackapps\.com/users//
+// @include      /^https://[^/]+\.stackexchange\.com/users//
 // @exclude      *://api.stackexchange.com/*
 // @exclude      *://data.stackexchange.com/*
 // @exclude      *://elections.stackexchange.com/*
@@ -27,156 +27,332 @@
 (function() {
     'use strict';
 
-    // userAvatar stuff. The box on the very left ---------------------
-    function fixUserAvatarBox(userAvatar) {
-        const userAvatarItems = userAvatar.firstElementChild?.children;
-        if (!userAvatarItems && userAvatarItems.length < 2) // there's only the avatar
-            return;
+    // ---- userAvatar --------------------------------------------------------------------------
+    function fetchBricks() {
+        const bricks = { }; // Keep it all here.
 
-        const whoami = StackExchange?.options.user.userId?.toString();
-        const whoIsThis = window.location.pathname.split("/")[2];
-        if (whoami === whoIsThis) { // Don't remove the button on other users (relavant to Teams)
-            // Because I can find the "Edit profile and settings" tab!
-            if (userAvatarItems.length > 3) {
-                userAvatarItems[3].remove();
-            } else { // when Stack forgets to put in badges..
-                const button = userAvatar.querySelector("a");
-                if (button && button.textContent.trim() === "Edit profile")
-                    button.remove();
-            }
+        // The full page (expect the top bar and margins)
+        const content = document.querySelector("#mainbar-full");
+        if (!content)
+            return;
+        const contentSplit = content.children;
+
+        // The huge top area:
+        const hugeUselessTopBar = contentSplit[0];
+        bricks.hugeUselessTopBar = hugeUselessTopBar;
+        const splitHugeUselessTopBar = hugeUselessTopBar.children;
+        const profile = splitHugeUselessTopBar[0];
+
+        const splitProfile = profile.children;
+        const avatar = splitProfile[0];
+        bricks.avatar = avatar;
+
+        const avatarClone = avatar.cloneNode(true);
+        bricks.avatarClone = avatarClone;
+
+        bricks.avatarCloneImage = avatarClone.querySelector("img");
+        const userDetails = splitProfile[1];
+        bricks.userDetails = userDetails;
+
+        const splitUserDetails = userDetails.children;
+        const userName = userDetails.firstElementChild;
+        bricks.userName = userName;
+        bricks.headerExists = !!userDetails.querySelector(".fs-title");
+        // bricks.userLists = userDetails.querySelectorAll("ul:not(.list-ls-none)");
+        bricks.userLists = userDetails.querySelectorAll("ul:not(#groups-popover > ul)");
+        bricks.userFirstList = bricks.userLists[0];
+
+        const userNameClone = userName.cloneNode(true);
+        bricks.userNameClone = userNameClone;
+        bricks.userNameCloneElement = userNameClone.querySelector(".fs-headline2");
+
+        const buttons = splitHugeUselessTopBar[1];
+        bricks.profileButtonClone = buttons.cloneNode(true);
+
+        const tabs = contentSplit[1];
+        bricks.tabs = tabs;
+
+        bricks.page = tabs.querySelector(".is-selected")?.textContent;
+
+        // Elements on the profile:
+        if (bricks.page === "Profile") {
+            const mainContent = contentSplit[2];
+            const splitMainContent = mainContent.children;
+            const topMainContent = splitMainContent[0];
+            bricks.topMainContent = topMainContent;
+
+            const splitTopMainContent = topMainContent.children;
+            bricks.stats = splitTopMainContent[0];
+
+            const profileTextArea = splitTopMainContent[1];
+            bricks.airOfMysteryContainer = profileTextArea.firstElementChild?.lastElementChild?.cloneNode(true);;
+
+            bricks.profileTextArea = profileTextArea;
+            bricks.prose = profileTextArea.children[1];
+
+            const bottomMainContent = splitMainContent[1];
+            bricks.bottomMainContent = bottomMainContent;
+            const splitbottomMainContent = bottomMainContent.children;
+            bricks.contributions = splitbottomMainContent[1];
         }
 
-        const the4 = userAvatarItems[1];
-        const the4Cloned = the4.cloneNode([true]); // get a copy now.
-
-        const the4Items = the4.children;
-        if (the4Items.length < 4)
-            return;
-        for (let i = 3; i > 0; i--) {
-            the4Items[i].remove();
-        }
-        the4Items[0].classList.remove("flex--item");
-        the4Items[0].classList.add("d-flex");
-        the4Items[0].firstElementChild.style.paddingRight = "5px";
-        the4Items[0].firstElementChild.style.marginTop = "-2px";
-
-        return the4Cloned;
+        return bricks;
     }
 
-    // userInfo stuff. Everything to the right of the big avatar -------
-    function fixUserInfoStuff(userInfo, the4Cloned) {
+    // ---- userAvatar --------------------------------------------------------------------------
+    function userAvatar(bricks) {
+        let { stats } = bricks;
 
-        const userHeader = userInfo.querySelector("h3");
-                                                             // parent       me    kids
-        const userInfoItems = userInfo.querySelectorAll("div:is(#user-card > div > div)");
-
-        // Suggestion by VLAZ (https://stackoverflow.com/users/3689450)
-        // https://chat.stackoverflow.com/transcript/message/52774961#52774961
-        const byClass = (className) => (element) => element.classList.contains(className);
-        const userProfileText = [...userInfoItems].find(byClass("overflow-x-hidden"));
-        const userStuff       = [...userInfoItems].find(byClass("my16"));
-        const userName = [...userInfoItems].find(x => x !== userProfileText && x !== userStuff)
-
-        // user name, header, profile text
-        const leftSide = document.createElement("div");
-        leftSide.classList.add("d-flex", "fl-grow1", "fd-column", "mr48");
-        leftSide.append(userName);
-        if (userHeader)
-            leftSide.append(userHeader);
-
-        // Question/Answer count, list items, activity times.
-        const rightSide = document.createElement("div"); // the old sidebar back
-        rightSide.style.minWidth = "150px";
-        if (boxOfFour) {
-            const QuestionsAnswers = boxOfFour.children;
-            QuestionsAnswers[0].remove(); // reputation
-            QuestionsAnswers[0].remove(); // impact
-            rightSide.append(boxOfFour);
-        } else {
-            // urgh! ..we'll need to create them then
-            const noAnswers = document.createElement("div");
-            noAnswers.classList.add("fs-body3", "fc-dark");
-            noAnswers.textContent = "0";
-
-            const noAnswersContainer = document.createElement("div");
-            noAnswersContainer.classList.add("flex--item");
-            noAnswersContainer.append(noAnswers);
-
-            const noQuestionsContainer = noAnswersContainer.cloneNode([true]);
-            noAnswersContainer.append("answers");
-            noQuestionsContainer.append("questions");
-
-            const none = document.createElement("div");
-            none.classList.add("d-flex", "flex__allcells6", "fw-wrap", "gs4", "fc-light", "px4", "wmx2");
-            none.append(noAnswersContainer, noQuestionsContainer);
-            rightSide.append(none);
+        if (stats.classList.contains("grid--item")) {
+            const realstats = stats.firstElementChild;
+            stats = realstats;
+            stats.className = "flex--item fl-shrink0 ws2 mr24 md:mr0 md:mb24 md:w100 d-flex";
         }
 
-        if (userProfileText) {
-            userProfileText.classList.remove("mt24");
-            userProfileText.classList.add("mt12");
-            userProfileText.style.maxHeight = userHeader ? "211px" : "235px";
-            userProfileText.style.paddingRight = "15px";
-            userProfileText.style.marginRight = "-15px";
-            leftSide.append(userProfileText);
+        const splitStats = stats.children;
+        const title = splitStats[0];
+        const box = splitStats[1];
+        box.style.alignSelf = "center";
+        box.style.border = "none";
+
+
+        const userStats = box.firstElementChild.children;
+        const reputation = userStats[0];
+        const reached    = userStats[1];
+        const answers    = userStats[2];
+        const questions  = userStats[3];
+        answers.style.marginRight = "30px";
+        reached.remove();
+
+
+        const top = box.querySelector(".js-rank-container");
+        if (top) {
+            top.firstElementChild?.remove();
+            top.firstElementChild?.classList.add("d-flex");
+            bricks.userName.append(top);
         }
 
-        // the listed items.
-        if (userStuff) {
-            const userStuffItems = userStuff.children;
-            const userStuffItemsLength = userStuffItems.length;
+        const QuestionsAnswers = document.createElement("div");
+        QuestionsAnswers.className = "d-flex";
+        QuestionsAnswers.style.marginBottom = "20px"
+        QuestionsAnswers.append(answers, questions);
 
-            const listStuffLeft  = (userStuffItemsLength > 0) ? userStuffItems[0] : null;
-            const listStuffRight = (userStuffItemsLength > 1) ? userStuffItems[1] : null;
+        bricks.rightSide.append(QuestionsAnswers, bricks.userFirstList);
 
-            if (listStuffLeft) {
-                listStuffLeft.classList.remove("mr48");
+        reputation.classList.remove("flex--item");
+        reputation.classList.add("d-flex");
+        reputation.firstElementChild.style.paddingRight = "5px";
+        reputation.firstElementChild.style.marginTop = "-2px";
 
-                const listElement = listStuffLeft.querySelector("ul");
-                if (listStuffRight) {
-                    listElement.append(...listStuffRight.querySelectorAll("li"));
-                    listStuffRight.remove();
-                }
+        const image = bricks.avatar.querySelector("img");
+        image.removeAttribute("width");
+        image.removeAttribute("height");
+        image.style.width = "100%"
 
-                rightSide.append(userStuff);
-            }
-        }
+        bricks.avatar.style.padding = "10px"
+        title.replaceWith(bricks.avatar);
 
-        const sideWrapper = document.createElement("div");
-        sideWrapper.classList.add("d-flex");
-        leftSide.classList.add("flex--item");
-        rightSide.classList.add("flex--item");
-        sideWrapper.append(leftSide, rightSide);
+        stats.classList.add("d-flex");
+        stats.style.flexDirection = "column";
+        stats.append(theThreeBadges());
 
-        userInfo.classList.remove("mt16");
-        userInfo.append(sideWrapper);
-
-        return { elementToAppend : rightSide, headerPresent : !!userHeader, elementToAdjust : userProfileText};
     }
 
-    // -----------------------------------------------------------------
-    function fixSpacing() {
-        ["badges", "top-tags", "top-posts"]
-            .forEach(id => {
-                         const element = document.getElementById(id);
-                         if (!element)
-                             return;
-                         element.classList.remove("mb48");
-                         element.classList.add("mb32");
-                         if (id === "badges") {// just the one
-                             const grandParent = element.parentElement?.parentElement;
-                             if (grandParent) {
-                                 grandParent.style.width = "revert";
-                                 grandParent.style.maxWidth = "revert";
+    // ---- makeChanges --------------------------------------------------------------------------
+    function makeChanges(bricks) {
+        const { airOfMysteryContainer, contributions, profileButtonClone,
+                profileTextArea, prose, stats, userFirstList
+              } = bricks;
+
+        // Put the avatar and username on the top right
+        bricks.avatarClone.style.marginRight = "10px";
+        bricks.avatar.querySelectorAll(".d-none")
+                     .forEach(none => none.remove());
+        bricks.avatarCloneImage.querySelectorAll(".d-none")
+                               .forEach(none => none.remove());
+        bricks.avatarCloneImage.width = bricks.avatarCloneImage.height = 30;
+
+        bricks.userNameCloneElement.classList.remove("mb12", "fs-headline2");
+        bricks.userNameCloneElement.style.fontSize = "1.61538461rem"
+        bricks.userNameClone.style.marginRight = "10px";
+
+        if (profileButtonClone.firstElementChild?.textContent.trim() === "Edit profile")
+            profileButtonClone.firstElementChild.remove();
+
+        profileButtonClone.classList.remove("ps-absolute");
+        bricks.tabs.append(bricks.avatarClone, bricks.userNameClone, profileButtonClone);
+
+        // Rearrange the top part of the profile.
+        if (bricks.page === "Profile") {
+            bricks.topMainContent.className = "d-flex mb32 md:fd-column";
+
+            profileTextArea.firstElementChild.replaceWith(bricks.userDetails);
+            // bricks.userDetails.style.marginBottom = "5px";
+
+            if (prose) {
+                const { classList, style } = prose;
+                classList.remove("overflow-hidden", "v-truncate-fade", "hmx3");
+                classList.add("overflow-y-scroll");
+                style.marginRight = "-5px";
+                style.paddingRight = "5px";
+                style.maxHeight = bricks.headerExists ? "211px" : "235px";
+
+                const readMore = prose.nextElementSibling;
+                if (readMore)
+                    readMore.remove();
+            } else {
+                bricks.userDetails.append(airOfMysteryContainer);
+                airOfMysteryContainer.classList.remove("flex-center");
+                airOfMysteryContainer.style.marginRight = "50px";
+            }
+
+            const profileContainer = document.createElement("div");
+            profileContainer.classList.add("d-flex", "fl-grow1");
+            profileTextArea.replaceWith(profileContainer);
+
+            userFirstList.style.flexDirection = "column";
+            for (let i = 1; i < bricks.userLists.length; i++) {
+                userFirstList.append(...bricks.userLists[i].querySelectorAll("li:not(#groups-popover li)"));
+                bricks.userLists[i].remove();
+            }
+
+            [...userFirstList.children]
+                .forEach(element => {
+                             if (!element.textContent.trim()) {
+                                 const link = element.querySelector("a");
+                                 const text = link.cloneNode(true)
+                                 text.textContent = link.href.toString().replace("https://", "");
+                                 element.append(text);
                              }
-                         }
-             });
+                 });
 
-        document
-            .querySelectorAll(".ta-right")
-            .forEach(element => {
-                         element.classList.remove("mb24");
-             });
+            userFirstList.style.whiteSpace = "nowrap";
+
+            const rightSide = document.createElement("div");
+            rightSide.append(userFirstList);
+            bricks.rightSide = rightSide;
+
+            profileTextArea.style.marginRight = "20px";
+            profileTextArea.classList.add("fl-grow1");
+            profileContainer.append(profileTextArea, rightSide);
+
+            const notEmpty = contributions?.children?.length > 1;
+            if (notEmpty) {
+                bricks.bottomMainContent?.classList.remove("gs24");
+                contributions.classList.add("ml24", "d-flex", "fd-column");
+                [...contributions.children]
+                    .forEach(block => {
+                                 block.classList.remove("mb32", "mb48", "mt64", "pt32");
+                                 block.classList.add("mb24");
+                     });
+            } else {
+                document.querySelector(".profile-placeholder--image")?.parentNode?.classList.remove("mt64", "pt32");
+            }
+
+            userAvatar(bricks);
+        }
+
+        bricks.hugeUselessTopBar.remove();
+
+    }
+
+    // ---- theThreeBadges --------------------------------------------------------------------------
+    function theThreeBadges () {
+        const container = document.createElement("div");
+        container.classList.add("d-flex", "gs4", "flex__fl-equal");
+
+        const badges = document.querySelector("#badges");
+        let profileBadges;
+        if (badges) {
+
+             profileBadges = [...badges.querySelectorAll(".fs-caption")]
+                                 .map(badge => {
+                                          const text = badge.textContent
+                                                            .trim()
+                                                            .replace(" badges","")
+                                                            .replace(" badge","");
+                                          const amount = badge.previousElementSibling?.textContent.trim();
+                                          if (amount)
+                                              return bling(text, amount);
+                                  });
+        } else {
+            profileBadges = [bling("bronze", 0)];
+        }
+
+        container.append(...profileBadges);
+        container.style.padding = "10px";
+
+        return container;
+
+        function bling(colour, amount) {
+
+            const span1 = document.createElement("span");
+            span1.classList.add("flex--item");
+            const span2 = document.createElement("span");
+            span2.classList.add("d-flex", "flex__center", "fl1");
+            span2.textContent = amount;
+
+            const blingHolder = document.createElement("div");
+            blingHolder.classList.add("d-flex", "ai-center", "s-badge");
+
+            switch (colour) {
+                    case "gold":   blingHolder.classList.add("s-badge__gold");
+                                   blingHolder.title = amount + " gold badges";
+                                   span1.classList.add("badge1");
+                    break;
+                    case 'silver': blingHolder.classList.add("s-badge__silver");
+                                   blingHolder.title = amount + " silver badges";
+                                   span1.classList.add("badge2");
+                    break;
+                    case "bronze": blingHolder.classList.add("s-badge__bronze");
+                                   blingHolder.title = amount + " bronze badges";
+                                   span1.classList.add("badge3");
+                    break;
+            }
+
+            blingHolder.append(span1, span2);
+
+            const blingContainer = document.createElement("div");
+            blingContainer.classList.add("flex--item");
+            blingContainer.append(blingHolder);
+
+            return blingContainer;
+        }
+
+    }
+
+
+    // ---- putTopTagsonTop -------------------------------------------------------------------------
+    function putTopTagsonTop () {
+        // Originally imspired by TylerH's Answer: https://meta.stackoverflow.com/a/408625
+        // Then kindly modfied by Oleg Valter (https://stackoverflow.com/users/11407695)
+        const fixItCSS = `
+            .flex--item.fl1 #top-tags {
+                order: 1;
+            }
+            .flex--item.fl1 #top-posts {
+                order: 2;
+            }
+            .flex--item.fl1 #badges {
+                order: 3;
+            }
+
+            .profile-badges .fl1:nth-child(2) {
+                display: flex;
+                align-items: center;
+            }
+
+            .profile-badges .fs-title {
+                float: left;
+                margin-right: 4px;
+            }
+
+            .spotAward {
+                transform: scale(0.75,0.75);`;
+
+            const styleSheet = document.createElement("style");
+            styleSheet.innerText = fixItCSS;
+            document.head.appendChild(styleSheet);
     }
 
     // now as a string in Stack representation -------------------------
@@ -197,6 +373,15 @@
         if (title)
             return title;
         return element.querySelector(".date_brick")?.title;
+    }
+
+    // -----------------------------------------------------------------
+    function makeListItem(type, text, tooltip) {
+        const item = document.createElement("li");
+        item.textContent = text;
+        item.style.listStyleType = `"${type} "`;
+        item.title = tooltip;
+        return item;
     }
 
     // -----------------------------------------------------------------
@@ -221,19 +406,11 @@
 
         const container = document.createElement("div");
         container.style.marginLeft = "2px";
+        container.style.marginTop = "20px";
         container.style.whiteSpace = "nowrap";
         container.append(header, items);
 
         return container;
-    }
-
-    // -----------------------------------------------------------------
-    function makeListItem(type, text, tooltip) {
-        const item = document.createElement("li");
-        item.textContent = text;
-        item.style.listStyleType = `"${type} "`;
-        item.title = tooltip;
-        return item;
     }
 
     // -----------------------------------------------------------------
@@ -276,9 +453,10 @@
             elementToAppend.append(createList(lastActivity, firstActivity));
             // readjust the height of the profile text prose
 
+            const currentHeight = +elementToAdjust.style.maxHeight.replace("px","");
             const height = parseInt(window.getComputedStyle(elementToAppend).height);
             if (elementToAdjust)
-                elementToAdjust.style.maxHeight = (height - 88 + (headerPresent ? 0 : 30)) + "px";
+                elementToAdjust.style.maxHeight = Math.max(currentHeight, (height - 92 + (headerPresent ? 0 : 20))) + "px";
         }
 
         let page = 1;
@@ -322,81 +500,15 @@
         insertAndAdjust(lastActivity, firstActivity);
     }
 
-    // -----------------------------------------------------------------
-    function fixPlaceHolder() {
-        const placeHolderImage = document.querySelector(".profile-placeholder--image");
-        const parent = placeHolderImage && placeHolderImage.parentElement;
-        if (!parent)
-            return;
+    // ---- DoIt -------------------------------------------------------------------------
 
-        parent.classList.remove("mt64", "pt32");
-        parent.classList.add("mb24");
-    }
-
-    // -----------------------------------------------------------------
-    function putTopTagsonTop () {
-        // Originally imspired by TylerH's Answer: https://meta.stackoverflow.com/a/408625
-        // Then kindly modfied by Oleg Valter (https://stackoverflow.com/users/11407695)
-        const fixItCSS = `
-            body.user-page #user-card + div > div.flex--item.fl1:nth-child(2) {
-                display: flex;
-                flex-direction: column;
-            }
-
-            body.user-page #top-tags {
-                order: 1;
-            }
-            body.user-page #top-posts {
-                order: 2;
-            }
-            body.user-page #badges {
-                order: 3;
-            }
-
-            .profile-badges .fl1:nth-child(2) {
-                display: flex;
-                align-items: center;
-            }
-
-            .profile-badges .fs-title {
-                float: left;
-                margin-right: 4px;
-            }
-
-            .spotAward {
-                transform: scale(0.75,0.75);`;
-
-            const styleSheet = document.createElement("style");
-            styleSheet.innerText = fixItCSS;
-            document.head.appendChild(styleSheet);
-    }
-
-
-    // -----------------------------------------------------------------
-    // ----------- Do it -----------------------------------------------
-
-    const userCard = document.getElementById("user-card");
-    if (!userCard)
-        return;
-    userCard.classList.remove("mb48");
-    userCard.classList.add("mb32");
-
-    const userCardItems = userCard.children;
-    if (userCardItems.length < 2)
-        return;
-
-    const userAvatar = userCardItems[0];
-    const userInfo = userCardItems[1];
-
-    // fix the userAvatarBox and get the boxOfFour
-    const boxOfFour = fixUserAvatarBox(userAvatar);
-
-    // the userinfo and get the rightside bar
-    const rightSideBarNuserProfileText = fixUserInfoStuff(userInfo, boxOfFour);
-
-    fixSpacing();
+    const bricks = fetchBricks();
+    makeChanges(bricks);
+    scrapeActivity({
+                      elementToAppend : bricks.rightSide,
+                      headerPresent   : bricks.headerExists,
+                      elementToAdjust : bricks.prose
+                   });
     putTopTagsonTop();
-    fixPlaceHolder(); // there's no posts & no tags
-    scrapeActivity(rightSideBarNuserProfileText);
 
 })();

@@ -17,6 +17,11 @@ Courtesy of [Vickel](https://stackoverflow.com/users/2275490/vickel), this is:
 ### After (roughly)
 <img src="https://i.stack.imgur.com/wjgaO.png" width="400">
 
+Due to "responsiveness", the script was reworked, and this is now the top part of profile:
+
+### After
+<img src="https://i.stack.imgur.com/GBRnR.png" width="400">
+
 ---
 
 **Stack Apps:** [Make better use of the space in profiles, like profiles used to be](https://stackapps.com/questions/9080/make-better-use-of-the-space-in-profiles-like-profiles-used-to-be)
