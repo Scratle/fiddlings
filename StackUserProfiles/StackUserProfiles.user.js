@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
-// @version      2.0
+// @version      2.1
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -218,6 +218,7 @@
 
             [...userFirstList.children]
                 .forEach(element => {
+                             element.querySelector(".v-visible-sr")?.remove();
                              if (!element.textContent.trim()) {
                                  const link = element.querySelector("a");
                                  const text = link.cloneNode(true)
@@ -504,11 +505,12 @@
 
     const bricks = fetchBricks();
     makeChanges(bricks);
-    scrapeActivity({
-                      elementToAppend : bricks.rightSide,
-                      headerPresent   : bricks.headerExists,
-                      elementToAdjust : bricks.prose
-                   });
+    if (bricks.page === "Profile")
+        scrapeActivity({
+                         elementToAppend : bricks.rightSide,
+                         headerPresent   : bricks.headerExists,
+                         elementToAdjust : bricks.prose
+                      });
     putTopTagsonTop();
 
 })();

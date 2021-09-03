@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1.7
+// @version      1.1.9
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -1078,7 +1078,8 @@
         let userLinkWrapper = element.querySelector(userClasses.userLink);
         if (!userLinkWrapper)
             return { };
-        const userLink = userLinkWrapper.querySelector("a");
+        // const userLink = userLinkWrapper.querySelector("a");
+        const userLink = userLinkWrapper.querySelector("a:not(span > a)");
 
         if (!userLink) {
             // trick for deleted or anonymous users
@@ -2017,7 +2018,8 @@
 
             postInfo.user = extractUserInfo(existingUser,
                                             {
-                                               userLink       : "." + cardLink,         // ".s-user-card--link",
+                                               // userLink       : "." + cardLink,         // "s-user-card--link",
+                                               userLink       : "." + card,             // "s-user-card"
                                                userAvatar     : "." + avatar,           // ".s-avatar"
                                                userAwards     : "." + cardAwards,       // ".s-user-card--awards"
                                                userReputation : users.userReputation,   // ".reputation-score"
@@ -3311,7 +3313,11 @@
         // ----------------------------------------------------------------------------------------
         // ----------------------------------------------------------------------------------------
         const imgHOST = "https://i.stack.imgur.com/";
-        const isLIGHT = getCSSVariableValue(siteBACKGROUNDcolour) === "#ffffff";
+        // const isLIGHT = getCSSVariableValue(siteBACKGROUNDcolour) === "#ffffff";
+        // const isLIGHT = getComputedStyle(document.body)
+        //                    .getPropertyValue(siteBACKGROUNDcolour.replace("var(","").replace(")"),"")
+        //                === "#ffffff";
+        const isLIGHT = !document.body.classList.contains("theme-dark");
 
         const PREFIXMODAL = PREFIX + "-modal-";
 
