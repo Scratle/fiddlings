@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Moderators & Staff
 // @namespace    scratte-fiddlings
-// @version      0.4
+// @version      0.5
 // @description  Indicate less that a user is moderator or staff
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @include      https://meta.stackoverflow.com*
@@ -25,6 +25,15 @@
          });
 
     function swap() {
+        doc.querySelectorAll(".s-badge__moderator")
+            .forEach(element => {
+                         element.className = "";
+                         element.textContent = "♦";
+                         element.style.fontSize = "125%";
+                         element.style.color = "#0077cc";
+                         element.previousElementSibling?.classList.add("mr2");
+                });
+
         doc.querySelectorAll(".s-badge__staff")
             .forEach(element => {
                          element.className = "";
@@ -32,14 +41,6 @@
                          element.title = "Stack Exchange Inc Employee";
                          element.append(Svg.LogoGlyphXxs().get(0));
                          element.style.color = "var(--orange-400)";
-                });
-
-        doc.querySelectorAll(".s-badge__moderator")
-            .forEach(element => {
-                         element.className = "";
-                         element.textContent = " ♦";
-                         element.style.fontSize = "125%";
-                         element.style.color = "#0077cc";
                 });
     }
 

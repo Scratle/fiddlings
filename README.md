@@ -14,6 +14,17 @@ Based on:
 - [Beta release of Collectives™ on Stack Overflow](https://meta.stackoverflow.com/questions/408585/beta-release-of-collectives-on-stack-overflow)
 
 
+## Stack Flag Dialog
+
+Brings back the little blue number box and put the buttons on the right side.
+
+Relevant:
+
+- [Use the same location for Submit button in the comment flag dialog as in the post flag dialog](https://meta.stackexchange.com/questions/316903/use-the-same-location-for-submit-button-in-the-comment-flag-dialog-as-in-the-pos)
+- [Question Close Updates: Phase 1](https://meta.stackoverflow.com/questions/396754/question-close-updates-phase-1)
+- [Please move the Flag Button back to the right side](https://meta.stackoverflow.com/questions/396585/please-move-the-flag-button-back-to-the-right-side)
+
+
 ## Stack Moderators & Staff
 
 Replaces boxed moderator & staff flairs with icons.
