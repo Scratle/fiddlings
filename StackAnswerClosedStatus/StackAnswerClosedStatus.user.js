@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Answer closedStatus
 // @description  Get the closed status directly on Answers too
-// @version      1.2
+// @version      1.3
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte
@@ -9,7 +9,7 @@
 // @include      /^https://(?:meta\.)?askubuntu\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
 // @include      /^https://(?:meta\.)?mathoverflow\.net/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
 // @include      /^https://(?:meta\.)?serverfault\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
-// @include      /^https://(?:meta\.)?stackoverflow\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
+// @include      /^https://(?:[^/]+\.)?stackoverflow\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
 // @include      /^https://(?:meta\.)?superuser\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
 // @include      /^https://stackapps\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/
 // @include      /^https://[^/]+\.stackexchange\.com/users/(?:-)?\d+/[^/?]+(?:\?tab=(?:answers.*|summary|profile|topactivity))?$/

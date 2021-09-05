@@ -1,16 +1,16 @@
 // ==UserScript==
 // @name         Stack User profiles
 // @description  Make use of the space like before.
-// @version      2.1
+// @version      2.2
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
-// @include      /^https://(meta\.)?askubuntu\.com/users//
-// @include      /^https://(meta\.)?mathoverflow\.net/users//
-// @include      /^https://(meta\.)?stackoverflow\.com/users//
-// @include      /^https://(meta\.)?superuser\.com/users//
-// @include      /^https://(meta\.)?serverfault\.com/users//
+// @include      /^https://(?:meta\.)?askubuntu\.com/users//
+// @include      /^https://(?:meta\.)?mathoverflow\.net/users//
+// @include      /^https://(?:[^/]+\.)?stackoverflow\.com/users//
+// @include      /^https://(?:meta\.)?superuser\.com/users//
+// @include      /^https://(?:meta\.)?serverfault\.com/users//
 // @include      /^https://stackapps\.com/users//
 // @include      /^https://[^/]+\.stackexchange\.com/users//
 // @exclude      *://api.stackexchange.com/*
@@ -26,6 +26,8 @@
 
 (function() {
     'use strict';
+
+    const profileTABNAMES = ["Profile","Профиль","Perfil"];
 
     // ---- userAvatar --------------------------------------------------------------------------
     function fetchBricks() {
@@ -75,7 +77,7 @@
         bricks.page = tabs.querySelector(".is-selected")?.textContent;
 
         // Elements on the profile:
-        if (bricks.page === "Profile") {
+        if (profileTABNAMES.includes(bricks.page)) {
             const mainContent = contentSplit[2];
             const splitMainContent = mainContent.children;
             const topMainContent = splitMainContent[0];
@@ -114,7 +116,6 @@
         const box = splitStats[1];
         box.style.alignSelf = "center";
         box.style.border = "none";
-
 
         const userStats = box.firstElementChild.children;
         const reputation = userStats[0];
@@ -155,7 +156,6 @@
         stats.classList.add("d-flex");
         stats.style.flexDirection = "column";
         stats.append(theThreeBadges());
-
     }
 
     // ---- makeChanges --------------------------------------------------------------------------
@@ -183,7 +183,7 @@
         bricks.tabs.append(bricks.avatarClone, bricks.userNameClone, profileButtonClone);
 
         // Rearrange the top part of the profile.
-        if (bricks.page === "Profile") {
+        if (profileTABNAMES.includes(bricks.page)) {
             bricks.topMainContent.className = "d-flex mb32 md:fd-column";
 
             profileTextArea.firstElementChild.replaceWith(bricks.userDetails);
@@ -505,7 +505,7 @@
 
     const bricks = fetchBricks();
     makeChanges(bricks);
-    if (bricks.page === "Profile")
+    if (profileTABNAMES.includes(bricks.page))
         scrapeActivity({
                          elementToAppend : bricks.rightSide,
                          headerPresent   : bricks.headerExists,

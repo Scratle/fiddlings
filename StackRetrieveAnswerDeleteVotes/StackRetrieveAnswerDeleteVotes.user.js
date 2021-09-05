@@ -1,18 +1,23 @@
 // ==UserScript==
 // @name         Stack Retrieve Answer delete votes
 // @description  Show the delete votes on Answers
-// @version      2.0
+// @version      2.1
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
-// @include      /^https://(?:[^/]+\.)?stackoverflow.com/questions/\d+/
-// @include      /^https://(?:[^/]+\.)?serverfault.com/questions/\d+/
-// @include      /^https://(?:[^/]+\.)?superuser.com/questions/\d+/
-// @include      /^https://(?:[^/]+\.)?askubuntu.com/questions/\d+/
-// @include      /^https://(?:[^/]+\.)?mathoverflow.net/questions/\d+/
-// @include      /^https://stackapps.com/questions/\d+/
-// @include      /^https://[^/]+\.stackexchange.com/questions/\d+/
-// @include      /^https://(?:(?:stackoverflow|serverfault|superuser|askubuntu|stackapps|[^/]+\.stackexchange)\.com|mathoverflow\.net)/review/.*/
-// @exclude      /^https://(?:(?:stackoverflow|serverfault|superuser|askubuntu|stackapps|[^/]+\.stackexchange)\.com|mathoverflow\.net)/review/[^/]+/(stats|history)/
+// @include      /^https://(?:[^/]+\.)?stackoverflow.com/(questions/\d+|review/.*)/
+// @exclude      /^https://(?:[^/]+\.)?stackoverflow.com/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://(?:meta\.)?serverfault.com/(questions/\d+|review/.*)/
+// @exclude      /^https://(?:meta\.)?serverfault.com/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://(?:meta\.)?superuser.com/(questions/\d+|review/.*)/
+// @exclude      /^https://(?:meta\.)?superuser.com/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://(?:meta\.)?askubuntu.com/(questions/\d+|review/.*)/
+// @exclude      /^https://(?:meta\.)?askubuntu.com/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://(?:meta\.)?mathoverflow.net/(questions/\d+|review/.*)/
+// @exclude      /^https://(?:meta\.)?mathoverflow.net/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://stackapps.com/(questions/\d+|review/.*)/
+// @exclude      /^https://stackapps.com/review/(?:[^/]+/)?(stats|history)/
+// @include      /^https://[^/]+\.stackexchange.com/(questions/\d+|review/.*)/
+// @exclude      /^https://[^/]+\.stackexchange.com/review/(?:[^/]+/)?(stats|history)/
 //
 // @grant        none
 // @run-at       document-end
