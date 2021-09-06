@@ -51,6 +51,15 @@ Relevant:
 - [API returns delete vote count for questions, but not for answers](https://stackapps.com/questions/6206/api-returns-delete-vote-count-for-questions-but-not-for-answers)
 
 
+## Stack Review Queue Overview
+
+Makes use of the white space by making text and avatars bigger.
+
+Related:
+
+- [Visual design changes to the review queues](https://meta.stackexchange.com/questions/360198/visual-design-changes-to-the-review-queues)
+
+
 ## Stack Review Suggested Edits Rework
 
 Primarily makes the Suggested Edits review tasks wider and it contains a lot of user option to improve the review experience.
