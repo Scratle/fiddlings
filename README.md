@@ -25,6 +25,14 @@ Relevant:
 - [Please move the Flag Button back to the right side](https://meta.stackoverflow.com/questions/396585/please-move-the-flag-button-back-to-the-right-side)
 
 
+## Stack Meta Off
+
+Removes all traces of a site meta.
+
+Based on:
+- [Is there any way I can turn Stack Overflow Meta off?](https://meta.stackoverflow.com/questions/407035/is-there-any-way-i-can-turn-stack-overflow-meta-off)
+
+
 ## Stack Moderators & Staff
 
 Replaces boxed moderator & staff flairs with icons.
