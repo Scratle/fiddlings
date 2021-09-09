@@ -1,3 +1,11 @@
+## Stack Accepted Answer Button
+
+Adds an indicator with a link if there is an accepted Answer on a Question.
+
+Based on:
+- [Outdated Answers: accepted answer is now unpinned on Stack Overflow](https://meta.stackoverflow.com/questions/411352/outdated-answers-accepted-answer-is-now-unpinned-on-stack-overflow)
+
+
 ## Stack Answer closedStatus
 
 Adds Question closed status to post titles of Answer links.
