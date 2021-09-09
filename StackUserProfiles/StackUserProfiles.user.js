@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Stack User profiles
+// @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.2
+// @version      2.4
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -27,11 +27,18 @@
 (function() {
     'use strict';
 
-    const profileTABNAMES = ["Profile","Профиль","Perfil"];
+    const getActivity   = true;
+    const getCreepyData = true;
+
+    // ------------------------------------------------------------------------------------------
+
+    const profileTABNAMES = ["Profile","Профиль","Perfil","プロフィール"];
 
     // ---- userAvatar --------------------------------------------------------------------------
-    function fetchBricks() {
+    const fetchBricks = () => {
         const bricks = { }; // Keep it all here.
+
+        bricks.userId = document.location.pathname.match(/\/(\d+)(?:\/|$)/)?.[1];
 
         // The full page (expect the top bar and margins)
         const content = document.querySelector("#mainbar-full");
@@ -102,7 +109,7 @@
     }
 
     // ---- userAvatar --------------------------------------------------------------------------
-    function userAvatar(bricks) {
+    const userAvatar = (bricks) => {
         let { stats } = bricks;
 
         if (stats.classList.contains("grid--item")) {
@@ -144,6 +151,7 @@
         reputation.classList.add("d-flex");
         reputation.firstElementChild.style.paddingRight = "5px";
         reputation.firstElementChild.style.marginTop = "-2px";
+        reputation.parentElement?.classList.remove("flex__allcells6");
 
         const image = bricks.avatar.querySelector("img");
         image.removeAttribute("width");
@@ -159,7 +167,7 @@
     }
 
     // ---- makeChanges --------------------------------------------------------------------------
-    function makeChanges(bricks) {
+    const makeChanges = (bricks) => {
         const { airOfMysteryContainer, contributions, profileButtonClone,
                 profileTextArea, prose, stats, userFirstList
               } = bricks;
@@ -187,7 +195,6 @@
             bricks.topMainContent.className = "d-flex mb32 md:fd-column";
 
             profileTextArea.firstElementChild.replaceWith(bricks.userDetails);
-            // bricks.userDetails.style.marginBottom = "5px";
 
             if (prose) {
                 const { classList, style } = prose;
@@ -258,35 +265,9 @@
     }
 
     // ---- theThreeBadges --------------------------------------------------------------------------
-    function theThreeBadges () {
-        const container = document.createElement("div");
-        container.classList.add("d-flex", "gs4", "flex__fl-equal");
+    const theThreeBadges = () => {
 
-        const badges = document.querySelector("#badges");
-        let profileBadges;
-        if (badges) {
-
-             profileBadges = [...badges.querySelectorAll(".fs-caption")]
-                                 .map(badge => {
-                                          const text = badge.textContent
-                                                            .trim()
-                                                            .replace(" badges","")
-                                                            .replace(" badge","");
-                                          const amount = badge.previousElementSibling?.textContent.trim();
-                                          if (amount)
-                                              return bling(text, amount);
-                                  });
-        } else {
-            profileBadges = [bling("bronze", 0)];
-        }
-
-        container.append(...profileBadges);
-        container.style.padding = "10px";
-
-        return container;
-
-        function bling(colour, amount) {
-
+        const bling = (colour, amount) => {
             const span1 = document.createElement("span");
             span1.classList.add("flex--item");
             const span2 = document.createElement("span");
@@ -297,17 +278,28 @@
             blingHolder.classList.add("d-flex", "ai-center", "s-badge");
 
             switch (colour) {
-                    case "gold":   blingHolder.classList.add("s-badge__gold");
-                                   blingHolder.title = amount + " gold badges";
-                                   span1.classList.add("badge1");
+                    case "gold":
+                    case "oro":     // spanish
+                    case "ouro":    // portuguese
+                    case "золотых":
+                    case "золотой":    blingHolder.classList.add("s-badge__gold");
+                                       blingHolder.title = amount + " gold badges";
+                                       span1.classList.add("badge1");
                     break;
-                    case 'silver': blingHolder.classList.add("s-badge__silver");
-                                   blingHolder.title = amount + " silver badges";
-                                   span1.classList.add("badge2");
+                    case 'silver':
+                    case "plata":   // spanish
+                    case "prata":   // portuguese
+                    case "серебряных":
+                    case "серебряный": blingHolder.classList.add("s-badge__silver");
+                                       blingHolder.title = amount + " silver badges";
+                                       span1.classList.add("badge2");
                     break;
-                    case "bronze": blingHolder.classList.add("s-badge__bronze");
-                                   blingHolder.title = amount + " bronze badges";
-                                   span1.classList.add("badge3");
+                    case "bronze":
+                    case "bronce":  // spanish
+                    case "бронзовых":
+                    case "бронзовый":  blingHolder.classList.add("s-badge__bronze");
+                                       blingHolder.title = amount + " bronze badges";
+                                       span1.classList.add("badge3");
                     break;
             }
 
@@ -320,11 +312,41 @@
             return blingContainer;
         }
 
+        const container = document.createElement("div");
+        container.classList.add("d-flex", "gs4", "flex__fl-equal");
+
+        const badges = document.querySelector("#badges");
+        let profileBadges;
+        if (badges) {
+             profileBadges = [...badges.querySelectorAll(".fs-caption")]
+                                 .map(badge => {
+                                          const text = badge.textContent
+                                                            .trim()
+                                                            .replace(" badges","")
+                                                            .replace(" badge","")
+                                                            .replace("medallas de ","") // spanish
+                                                            .replace("medalla de ","")  // spanish
+                                                            .replace("medalhas de ","") // portuguese
+                                                            .replace(" знаков","")
+                                                            .replace(" знака","")
+                                                            .replace(" знак", "");
+                                          const amount = badge.previousElementSibling?.textContent.trim();
+                                          if (amount)
+                                              return bling(text, amount);
+                                  });
+        } else {
+            profileBadges = [bling("bronze", 0)];
+        }
+
+        container.append(...profileBadges);
+        container.style.padding = "10px";
+
+        return container;
     }
 
 
     // ---- putTopTagsonTop -------------------------------------------------------------------------
-    function putTopTagsonTop () {
+    const putTopTagsonTop = () => {
         // Originally imspired by TylerH's Answer: https://meta.stackoverflow.com/a/408625
         // Then kindly modfied by Oleg Valter (https://stackoverflow.com/users/11407695)
         const fixItCSS = `
@@ -357,7 +379,8 @@
     }
 
     // now as a string in Stack representation -------------------------
-    function getNow() {
+    const getNow = () => {
+        // alternatively use absoluteTime()..
         const now = (new Date).toISOString();
         return now.substr(0, 10)
                    + " " // substitute the T
@@ -366,7 +389,7 @@
     }
 
     // -----------------------------------------------------------------
-    function getDate(element) {
+    const getDate = (element) => {
         let title = element.title;
         if (title)
             return title;
@@ -377,7 +400,7 @@
     }
 
     // -----------------------------------------------------------------
-    function makeListItem(type, text, tooltip) {
+    const makeListItem = (type, text, tooltip) => {
         const item = document.createElement("li");
         item.textContent = text;
         item.style.listStyleType = `"${type} "`;
@@ -386,7 +409,7 @@
     }
 
     // -----------------------------------------------------------------
-    function createList(last, first) {
+    const createList = (last, first) => {
         const header = document.createElement("h3");
         header.textContent = "Activity";
         header.style.color = "var(--theme-primary-400)";
@@ -415,7 +438,7 @@
     }
 
     // -----------------------------------------------------------------
-    async function fetchActivity(page) {
+    const fetchActivity = async (page) => {
         const { location } = window;
 
         const url = location.pathname;
@@ -426,7 +449,7 @@
     }
 
     // -----------------------------------------------------------------
-    async function scrapeActivity({ elementToAppend, headerPresent, elementToAdjust }) {
+    const scrapeActivity = async ({ elementToAppend, headerPresent, elementToAdjust }) => {
 
         // delay by Oleg Valter (https://stackoverflow.com/users/11407695/oleg-valter)
         // https://chat.stackoverflow.com/transcript/message/52207931#52207931
@@ -454,7 +477,7 @@
             elementToAppend.append(createList(lastActivity, firstActivity));
             // readjust the height of the profile text prose
 
-            const currentHeight = +elementToAdjust.style.maxHeight.replace("px","");
+            const currentHeight = +elementToAdjust?.style.maxHeight.replace("px","");
             const height = parseInt(window.getComputedStyle(elementToAppend).height);
             if (elementToAdjust)
                 elementToAdjust.style.maxHeight = Math.max(currentHeight, (height - 92 + (headerPresent ? 0 : 20))) + "px";
@@ -501,16 +524,155 @@
         insertAndAdjust(lastActivity, firstActivity);
     }
 
+    // -----------------------------------------------------------------
+    const fetchCreepyData = async ({ userId, userFirstList }) => {
+        const fetchUser = async (userId) => {
+            const apiUrl = `https://api.stackexchange.com/2.2/users/`;
+            const userFilter = '!bWWrYUhX0a2k7x';
+            const site = window.location.hostname;
+            const key = 'Ql5)rGNzh1JB8xiEjeYQmQ((';
+
+            const response = await fetch(`${apiUrl}${userId}?filter=${userFilter}&site=${site}&key=${key}`);
+            const result = await response.json();
+
+            return result?.items[0];
+        }
+
+        // https://dev.stackoverflow.com/content/Js/full.en.js
+        const customPrettyDateDiff = (epocSeconds, months = false) => {
+            if (!epocSeconds) return;
+
+            const diff = (((new Date()).getTime() / 1000) - epocSeconds)
+                              + StackExchange.options.serverTimeOffsetSec;
+
+            if (isNaN(diff) || diff < 0)
+                return;
+
+            return (
+                !months && diff < 2 && "just now"                         ||
+                !months && diff < 60 &&
+                    (function(n){return n.seconds === 1
+                                          ? n.seconds + " sec ago"
+                                          : n.seconds + " secs ago"
+                    })({seconds: Math.floor(diff)})                       ||
+                !months && diff < 120 && "1 min ago"                      ||
+                !months && diff < 3600 &&
+                    (function(n){return n.minutes === 1
+                                          ? n.minutes + " min ago"
+                                          : n.minutes + " mins ago"
+                    })({minutes: Math.floor(diff / 60)})                  ||
+                !months && diff < 7200 && "1 hour ago"                    ||
+                !months && diff < (86400 / 2) &&
+                    (function(n){return n.hours === 1
+                                          ? n.hours + " hour ago"
+                                          : n.hours + " hours ago"
+                    })({hours: Math.floor(diff / 3600)})                  ||
+                !months && diff < 86400 && "today"                        ||
+                !months && diff < (86400 * 2) && "yesterday"              ||
+                !months && diff < (86400 * 7) &&
+                    (function(n){return n.days + " days ago"
+                    })({days: Math.floor(diff / 86400)})                  ||
+                !months && diff < (86400 * 30) &&
+                    (function(n){return n.weeks === 1
+                                          ? n.weeks + " week ago"
+                                          : n.weeks + " weeks ago"
+                    })({weeks: Math.floor(diff / (86400 * 7))})           ||
+                diff < (86400 * 365) &&
+                    (function(n){return n.months === 0
+                                          ? "" // this is false
+                                          : n.months === 1
+                                              ? n.months + " month ago"
+                                              : n.months + " months ago"
+                    })({months: Math.floor(diff / (86400 * 30.5))})       ||
+                !months && (function(n){
+                              const months =
+                                        customPrettyDateDiff(epocSeconds +       // add the years
+                                                               Math.floor(diff / (86400 * 365)) * (86400 * 365),
+                                                             true);
+                              return ((n.years === 1 ? n.years + " year" : n.years + " years")
+                                       + (months ? ", " + months : " ago"));
+                           })({years: Math.floor(diff / (86400 * 365))})
+            );
+        }
+
+        // https://dev.stackoverflow.com/content/Js/full.en.js
+        const absoluteTime = (epocSeconds) => {
+            var date = new Date();
+            date.setTime(epocSeconds * 1000);
+
+            return [
+                date.getUTCFullYear(),
+                "-", pad(date.getUTCMonth() + 1),
+                "-", pad(date.getUTCDate()),
+                " ", pad(date.getUTCHours()),
+                ":", pad(date.getUTCMinutes()),
+                ":", pad(date.getUTCSeconds()),
+                "Z"
+            ].join("");
+
+            function pad(n) {
+                return n < 10 ? "0" + n : n;
+            }
+        }
+
+        const splitViews = (viewCount) => {
+            return viewCount.toLocaleString("en-US");
+            // const splitViewCount = viewCount.toString().split(/(?=(?:(?:\d{3})*$))/); // every 3rd from the end
+            // return splitViewCount.join(); // "," id default
+        }
+
+        const createListItem = (type, userDetails) => {
+            const listItemContent = document.createElement("div");
+            let listItemIcon;
+            if (type === "view") {
+                listItemContent.textContent = `${splitViews(userDetails.view_count)} profile views`;
+                listItemIcon = Svg?.Eye().get(0);
+            } else {
+                listItemContent.title = absoluteTime(userDetails.last_access_date);
+                listItemContent.textContent = `Last seen ${customPrettyDateDiff(userDetails.last_access_date)}`;
+                listItemIcon = Svg?.Clock().get(0);
+            }
+
+            const listItemContentContainer = document.createElement("div");
+            listItemContentContainer.className = "flex--item";
+            listItemContentContainer.append(listItemContent);
+
+            const listItemIconContainer = document.createElement("div");
+            listItemIconContainer.className = "flex--item fc-black-350";
+            listItemIconContainer.append(listItemIcon);
+
+            const listItemContainer = document.createElement("div");
+            listItemContainer.className = "d-flex gs4 gsx ai-center";
+            listItemContainer.append(listItemIconContainer,listItemContentContainer);
+
+            const listItem = document.createElement("li");
+            listItem.className = "flex--item";
+            listItem.append(listItemContainer);
+
+            return listItem;
+        }
+
+        const userDetails = await fetchUser(userId);
+        userFirstList.append(createListItem("view", userDetails), createListItem("last", userDetails));
+    }
+
+
     // ---- DoIt -------------------------------------------------------------------------
 
     const bricks = fetchBricks();
+
     makeChanges(bricks);
-    if (profileTABNAMES.includes(bricks.page))
+
+    if (getActivity && profileTABNAMES.includes(bricks.page))
         scrapeActivity({
                          elementToAppend : bricks.rightSide,
                          headerPresent   : bricks.headerExists,
                          elementToAdjust : bricks.prose
                       });
+
     putTopTagsonTop();
+
+    if (getCreepyData)
+        fetchCreepyData(bricks);
 
 })();
