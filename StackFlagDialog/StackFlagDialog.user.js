@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Flag dialog
 // @description  Make the dialogs consistent and intuitive.
-// @version      0.5
+// @version      0.6
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -97,6 +97,10 @@
             .cvrgCVPopupSDAndNatoWithFake{
                 margin-left: -5px;
             }
+
+            form.js-modal-dialog[action='/suggested-edits/reject'] > div:not(s-modal--body){
+               justify-content: flex-end;
+            }
             `;
 
             const styleSheet = document.createElement("style");
@@ -127,7 +131,18 @@
     }
 
     // ---- fixLablesBox -------------------------------------------------------------------------
-    const fixLablesBox = () => {
+    const fixLablesBox = (edit = false) => {
+
+        if (edit) {
+            // suggested edit "Reject" modal gets loaded by a click
+            // Put this in the back of the queue
+            setTimeout(() => document.querySelectorAll("div.s-modal--body .s-label, h1.s-modal--header, #rejection-modal-title")
+                                     .forEach(element => {
+                                                  element.classList.remove("fw-normal", "fw-bold", "fs-headline1");
+                                      }));
+            return;
+        }
+
         const changeText = (element) => {
             const text = element.textContent.trim();
 
@@ -158,7 +173,6 @@
         $(document)
             .ajaxComplete((event, request, settings) => {
                           const { url } = settings;
-
                           if (firstClickRegex.test(url)) {
                               theBlueBox("div#popup-flag-post form div.popup-actions span:not(span > span)");
                               document.querySelectorAll("div#popup-flag-post form ul.action-list li label .action-name")
@@ -194,6 +208,14 @@
                                .forEach(element => element
                                                        .addEventListener("click", () => fixLablesBox(), {once : true})
                                );
+
+                          // suggested edit "Reject" modal is loaded by a click and is generated every time
+                          const reviewRegex = /^\/review\/next-task\/\d+/;
+                          if (reviewRegex.test(settings.url)) {
+                              [...document.querySelectorAll(".js-review-submit, .js-action-button[value='3']")]
+                                   .forEach(element => element
+                                                           .addEventListener("click", () => fixLablesBox(true)));
+                          }
          });
 
     fixCSS();

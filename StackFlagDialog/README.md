@@ -7,6 +7,7 @@ Changes the dialogs for flag and close voting, to:
 - Add ellipsis to the options that will open op a new dialog.
 - Make the apperance of radios, text, and size consistent.
 - Applies to post flag, comment flag, and close vote dialogs both in and outside of reviews.
+- Also includes the "Reject" dialog in "Suggested edits" review tasks.
 
 #### Before
 <img src="https://i.stack.imgur.com/foRiB.png" width="450" alt="Before" />

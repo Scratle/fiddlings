@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.4
+// @version      2.5
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -34,20 +34,47 @@
 
     const profileTABNAMES = ["Profile","Профиль","Perfil","プロフィール"];
 
+    // ---- waitForSelector --------------------------------------------------------------------------
+    // https://chat.stackoverflow.com/transcript/message/53020918#53020918
+    const waitForSelector = (selector) => {
+        const initial = document.querySelectorAll(selector);
+        if (initial.length)
+            return Promise.resolve(initial);
+
+
+        return new Promise((resolve) => {
+            const observer = new MutationObserver(() => {
+                const target = document.querySelectorAll(selector);
+                if (!target.length)
+                    return;
+
+                observer.disconnect();
+                resolve(target);
+            });
+
+            observer.observe(document, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+            });
+        });
+    };
+
     // ---- userAvatar --------------------------------------------------------------------------
-    const fetchBricks = () => {
+    const fetchBricks = async () => {
         const bricks = { }; // Keep it all here.
 
         bricks.userId = document.location.pathname.match(/\/(\d+)(?:\/|$)/)?.[1];
 
-        // The full page (expect the top bar and margins)
-        const content = document.querySelector("#mainbar-full");
+        // The full page (except the top bar and margins)
+        const [ content ] = await waitForSelector("#mainbar-full");
         if (!content)
             return;
         const contentSplit = content.children;
+        const offset = contentSplit[0]?.classList.contains("js-cursor-container") ? 1 : 0;
 
         // The huge top area:
-        const hugeUselessTopBar = contentSplit[0];
+        const hugeUselessTopBar = contentSplit[offset + 0];
         bricks.hugeUselessTopBar = hugeUselessTopBar;
         const splitHugeUselessTopBar = hugeUselessTopBar.children;
         const profile = splitHugeUselessTopBar[0];
@@ -78,14 +105,14 @@
         const buttons = splitHugeUselessTopBar[1];
         bricks.profileButtonClone = buttons.cloneNode(true);
 
-        const tabs = contentSplit[1];
+        const tabs = contentSplit[offset + 1];
         bricks.tabs = tabs;
 
         bricks.page = tabs.querySelector(".is-selected")?.textContent;
 
         // Elements on the profile:
         if (profileTABNAMES.includes(bricks.page)) {
-            const mainContent = contentSplit[2];
+            const mainContent = contentSplit[offset + 2];
             const splitMainContent = mainContent.children;
             const topMainContent = splitMainContent[0];
             bricks.topMainContent = topMainContent;
@@ -371,7 +398,23 @@
             }
 
             .spotAward {
-                transform: scale(0.75,0.75);`;
+                transform: scale(0.75,0.75);
+            }
+
+            /* make the background transparent on the tag badge medal */
+            .badge1-alternate.badge-tag,
+            .badge2-alternate.badge-tag,
+            .badge3-alternate.badge-tag {
+                background-color: transparent !important;
+            }
+
+            /* center the tag badge medal */
+            .profile-top-tags > div:first-child .badge1-alternate.badge-tag > span,
+            .profile-top-tags > div:first-child .badge2-alternate.badge-tag > span,
+            .profile-top-tags > div:first-child .badge3-alternate.badge-tag > span {
+                vertical-align: initial !important;
+            }
+            `;
 
             const styleSheet = document.createElement("style");
             styleSheet.innerText = fixItCSS;
@@ -659,20 +702,24 @@
 
     // ---- DoIt -------------------------------------------------------------------------
 
-    const bricks = fetchBricks();
+    const doIt = async () => {
+        const bricks = await fetchBricks();
 
-    makeChanges(bricks);
+        makeChanges(bricks);
 
-    if (getActivity && profileTABNAMES.includes(bricks.page))
-        scrapeActivity({
-                         elementToAppend : bricks.rightSide,
-                         headerPresent   : bricks.headerExists,
-                         elementToAdjust : bricks.prose
-                      });
+        if (getActivity && profileTABNAMES.includes(bricks.page))
+            scrapeActivity({
+                             elementToAppend : bricks.rightSide,
+                             headerPresent   : bricks.headerExists,
+                             elementToAdjust : bricks.prose
+                          });
 
-    putTopTagsonTop();
+        putTopTagsonTop();
 
-    if (getCreepyData)
-        fetchCreepyData(bricks);
+        if (getCreepyData)
+            fetchCreepyData(bricks);
+    }
+
+    doIt();
 
 })();
