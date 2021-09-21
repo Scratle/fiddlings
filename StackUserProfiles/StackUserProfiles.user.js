@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.5
+// @version      2.6
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -71,7 +71,11 @@
         if (!content)
             return;
         const contentSplit = content.children;
-        const offset = contentSplit[0]?.classList.contains("js-cursor-container") ? 1 : 0;
+        const firstElementClassList = contentSplit[0]?.classList;
+        let offset = (firstElementClassList.contains("js-cursor-container")
+                      || firstElementClassList.contains("system-alert")) // "suspended" notice
+                          ? 1
+                          : 0;
 
         // The huge top area:
         const hugeUselessTopBar = contentSplit[offset + 0];

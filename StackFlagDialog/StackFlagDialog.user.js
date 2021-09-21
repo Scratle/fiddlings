@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Flag dialog
 // @description  Make the dialogs consistent and intuitive.
-// @version      0.6
+// @version      0.7
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -202,6 +202,8 @@
 
     // ---- DoIt -------------------------------------------------------------------------
 
+    const pageUrl = window.location.pathname;
+
     $(document)
         .ajaxComplete((event, request, settings) => {
                           [...document.querySelectorAll(".js-flag-post-link, .js-comment-flag, .js-close-question-link")]
@@ -209,12 +211,21 @@
                                                        .addEventListener("click", () => fixLablesBox(), {once : true})
                                );
 
-                          // suggested edit "Reject" modal is loaded by a click and is generated every time
-                          const reviewRegex = /^\/review\/next-task\/\d+/;
-                          if (reviewRegex.test(settings.url)) {
-                              [...document.querySelectorAll(".js-review-submit, .js-action-button[value='3']")]
+                          // Suggested edit "Reject" modal is loaded by a click and is generated every time
+                          if (pageUrl.indexOf("/review/suggested-edits") === 0 || (pageUrl.indexOf("/questions/") === 0)) {
+                              const reviewRegex = /^\/review\/next-task\/\d+/;
+                              if (reviewRegex.test(settings.url)) {
+                                  [...document.querySelectorAll(".js-review-submit, .js-action-button[value='3']")]
+                                       .forEach(element => element
+                                                               .addEventListener("click", () => fixLablesBox(true)));
+                              }
+                          }
+
+                          // Triage also has pop-up modals
+                          if (pageUrl.indexOf("/review/triage") === 0) {
+                              [...document.querySelectorAll(".js-review-submit")]
                                    .forEach(element => element
-                                                           .addEventListener("click", () => fixLablesBox(true)));
+                                                           .addEventListener("click", () => fixLablesBox()), {once : true});
                           }
          });
 

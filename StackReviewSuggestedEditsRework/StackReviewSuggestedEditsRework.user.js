@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1.9
+// @version      1.1.10
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -410,7 +410,7 @@
 
     // -------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------
-    function moveRadio() { // must wait for ajax
+    function moveRadio(unFocusedTab) { // must wait for ajax
         // https://chat.stackoverflow.com/transcript/message/52205284#52205284 (code-review)
 
         const { ids: { custom : { actionRadios : actionRadiosId } },
@@ -442,7 +442,7 @@
 
         // Need to happen after removal of the "oldActions" to account for audits
         // ..and non-reviews, such as Tag Wiki's for low reputation users.
-        if (!isReviewActive()) {
+        if (!isReviewActive() && !unFocusedTab) {
             return;
         }
                                                   // ".s-sidebarwidget.js-review-actions"
@@ -830,7 +830,7 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
-    async function shadowRadiosToButtons() { // must wait for ajax
+    async function shadowRadiosToButtons(unFocusedTab) { // must wait for ajax
         const tooltips = deepGet(userConfig, "options.radioVsButtons.tooltips") === "Yes";
 
         const state = {
@@ -842,7 +842,7 @@
             NOOP    : "no-op",
         };
 
-        if (!isReviewActive()) {     // Do not show buttons on inactive reviews.
+        if (!isReviewActive() && !unFocusedTab) { // Do not show buttons on inactive reviews.
             changeState(state.HIDE); // Note: Audits will change from active to inactive.
             return;
         }
@@ -2180,9 +2180,7 @@
         function createAnswers({ isAnswered, hasAcceptedAnswer, text }) {
             const answers = document.createElement("div");
             answers.classList.add(item);
-            if (isAnswered) {
-                answers.classList.add(hasAnswers);
-            }
+
             if (hasAcceptedAnswer) {
                 answers.classList.add(hasAnswers, hasAccepted);
                 if (typeof Svg !== "undefined") {
@@ -2190,9 +2188,17 @@
                 } else {
                     answers.textContent = "✓"; // https://codepoints.net/U+2713 CHECK MARK
                 }
+
+                // do NOT use answers.textContent when having an svg appended.
+                answers.append(EMPTY + text);
+                return answers;
+
+            } else if (isAnswered) {
+                answers.classList.add(hasAnswers);
             }
-            // do NOT use answers.textContent when having an svg appended.
-            answers.append(EMPTY + text);
+
+            answers.textContent = text;
+            // answers.textContent = " " + text; // https://codepoints.net/U+200A HAIR SPACE
             return answers;
         }
 
@@ -2961,7 +2967,7 @@
             // this covers tag wiki edits where tags are present.
             if (posttype)
                 wikiedit = posttype.previousElementSibling;
-            const isWikiH2 = wikiedit.tagName === "H2"; // if this isn't an h2 header, it's NOT a tag wiki.
+            const isWikiH2 = wikiedit?.tagName === "H2"; // if this isn't an h2 header, it's NOT a tag wiki.
 
             if (isWikiH2 && posttype) {
                 wikiedit.remove();      // we don't need to see "Review the following tag wiki.."
@@ -3267,7 +3273,13 @@
 
     // https://chat.stackoverflow.com/transcript/message/52214837#52214837 (code-review)
 
-    const almostAll = () => {
+    const almostAll = (unFocusedTab = false) => {
+
+        // Has this particular review already been loaded and handled?
+        const [ reviewId ] = window.location.pathname.split("/").slice(-1);
+        if (window[PREFIX + "-reviewID"] === reviewId)
+            return;
+        window[PREFIX + "-reviewID"] = reviewId;
 
         // Hides the Big Box with review radio options..
         const radioVsButtons = deepGet(userConfig, "options.radioVsButtons");
@@ -3275,9 +3287,9 @@
         const keepRadios   = radioVsButtons?.keepRadios;
         if (moveRadioBox === "Yes") {
             if (keepRadios !== "Yes") {
-                shadowRadiosToButtons();  // ..and replaces them with buttons on the Filter button level.
+                shadowRadiosToButtons(unFocusedTab);  // ..and replaces them with buttons on the Filter button level.
             } else {
-                moveRadio();              // ..and moves the items (still as radios) on the Filter button level.
+                moveRadio(unFocusedTab);              // ..and moves the items (still as radios) on the Filter button level.
             }
         }
 
@@ -3300,6 +3312,9 @@
     removeLineThrough();       // Removes the strike through of text that is already highlighted in red
 
     ajaxCompleteWrapper(almostAll);
+
+    // So it still works when the review is opened up in a different tab.
+    document.addEventListener("visibilitychange", () => almostAll(true));
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
@@ -3415,6 +3430,7 @@
                         height: "66px",
                     },
                     labels: {
+                        fontSizeToggles: "1.15384615rem",
                         fontSizeSmaller: "1.10rem",
                         fontWeightSmaller: "525",
                     },
@@ -4834,7 +4850,9 @@
         // -------------------------------
         function createStackToggle(labelText, toggleId, option, indents = 0) {
             const { display: { cell } } = config.classes;
-            const { classes: { toggle: { sweetch, indicator } } } = modalConfig;
+            const { classes: { toggle: { sweetch, indicator } },
+                    sizes: { labels: {fontSizeToggles} }
+                  } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
             // https://stackoverflow.design/product/components/toggle-switch/
@@ -4842,7 +4860,7 @@
             const toggleContainer = createContainer();
             toggleContainer.style.justifyContent = "space-between";
 
-            const label = createLabel(labelText, toggleId, { indents });
+            const label = createLabel(labelText, toggleId, { indents, fontSize : fontSizeToggles });
 
             const toggle = document.createElement("div");
             toggle.classList.add(cell, sweetch);

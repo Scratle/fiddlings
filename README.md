@@ -67,6 +67,11 @@ Relevant:
 - [API returns delete vote count for questions, but not for answers](https://stackapps.com/questions/6206/api-returns-delete-vote-count-for-questions-but-not-for-answers)
 
 
+## Stack Retrieve Question CloseReopenDelete votes
+
+Adds close, reopen, and delete vote count to the left sidebar under the timeline link.
+
+
 ## Stack Review Queue Overview
 
 Makes use of the white space by making text and avatars bigger.
