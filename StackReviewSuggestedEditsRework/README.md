@@ -10,6 +10,7 @@
 - Add diff-choices on title/tag only edits.
 - Move the daily review progress to the "Review task"-button
 - Add back the user cards of both the author and previous editor.
+- Show the post author as highlighed in the post notice.
 - Get the statistics of the editor.
 - Change the size and colour of the edit "comment", which is renamed to "summary".
 - Make notifications more prominent.
@@ -19,6 +20,7 @@
 - Use Stack Desing post summary that include tags.
 - Put a link on all post titles.
 - Pick an API threshold before seeing a notice.
+- Adds a 🞚 to Community user by default.
 
 
 

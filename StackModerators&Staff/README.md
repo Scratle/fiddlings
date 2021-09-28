@@ -1,4 +1,4 @@
-### Removes the boxed moderator and staff flair on meta sites
+### Removes the boxed moderator, staff, and Community user's bot flair
 
 ..and puts in an icon instead.
 
@@ -9,6 +9,9 @@ The script excludes user profiles, where boxed flairs will still appear.
 
 ### After
 <img src="https://i.stack.imgur.com/5BdNV.png" width="450">
+
+### Community
+<img src="https://i.stack.imgur.com/T6cSE.png" width="450">
 
 ---
 

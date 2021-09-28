@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.6
+// @version      2.7
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -229,7 +229,7 @@
 
             if (prose) {
                 const { classList, style } = prose;
-                classList.remove("overflow-hidden", "v-truncate-fade", "hmx3");
+                setTimeout(() => classList.remove("overflow-hidden", "v-truncate-fade", "hmx3"));
                 classList.add("overflow-y-scroll");
                 style.marginRight = "-5px";
                 style.paddingRight = "5px";

@@ -43,11 +43,12 @@ Based on:
 
 ## Stack Moderators & Staff
 
-Replaces boxed moderator & staff flairs with icons.
+Replaces boxed moderator, staff & Community user's flair with icons.
 
 Based on:
 - [New Staff and Mod Labels on site metas and Meta Stack Exchange](https://meta.stackexchange.com/questions/367899/new-staff-and-mod-labels-on-site-metas-and-meta-stack-exchange)
 - [Add an immediately visible indication that a user is a staff member or an employee of SE](https://meta.stackexchange.com/questions/344019/add-an-immediately-visible-indication-that-a-user-is-a-staff-member-or-an-employ)
+- [Please use the new Mod/Staff label tech to identify Community as a bot](https://meta.stackexchange.com/questions/369071/please-use-the-new-mod-staff-label-tech-to-identify-community-as-a-bot)
 
 
 ## Stack Protected Question Notice

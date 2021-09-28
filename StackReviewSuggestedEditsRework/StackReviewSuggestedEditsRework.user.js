@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.1.10
+// @version      1.2.2
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -33,19 +33,21 @@
 
     const defaultUserConfig = {
             colour: {
-                postType: "#d1383d",                         // Previously "var(--red)". Maybe now "var(--red-500)"
-                summary: "#f48024",                          // Previously "var(--orange)". Maybe now "var(--orange-400)"
+                postType: "#d1383d",                                         // Previously "var(--red)". Maybe now "var(--red-500)"
+                summary: "#f48024",                                          // Previously "var(--orange)". Maybe now "var(--orange-400)"
                 radioSeperator: "var(--blue-200)",
-                progressDone: "#f48024",                     // orange-y. Previously var(--theme-primary-color). Maybe now "var(--theme-primary-400)"
-                progressNotDone: "var(--black-075)",         // "#e4e6e8" gray-ish
+                progressDone: "#f48024",                                     // orange-y. Previously var(--theme-primary-color). Maybe now "var(--theme-primary-400)"
+                progressNotDone: "var(--black-075)",                         // "#e4e6e8" gray-ish
                 progressTextColour: "var(--black-600)",
-                editorHeader: "hotpink",                     // "#FF69B4" You may want to change this ;)
+                editorHeader: "hotpink",                                     // "#FF69B4" You may want to change this ;)
                 editorApproved: "var(--green-600)",
                 editorRejected: "var(--red-600)",
-                editorTotal: "var(--powder-700)",            // blue-ish
+                editorTotal: "var(--powder-700)",                            // blue-ish
                 message: "var(--yellow-700)",
-                messageBackground: "var(--powder-200)",      // use --powder-100 to "get rid of it"
-                diffChoices: "orchid",                       // #DA70D6
+                messageBackground: "var(--powder-200)",                      // use --powder-100 to "get rid of it"
+                diffChoices: "orchid",                                       // #DA70D6
+                ownerBorder: "var(--theme-secondary-200)",                   // #7ab7e4
+                ownerBackground: "var(--theme-post-owner-background-color)", // #d9eaf7
             },
             size: {
                 editorStatistics: "96%",
@@ -89,6 +91,7 @@
                 },
                 removeLineThrough: "Yes",
                 linksOnTitles: "No",
+                highlightUserOwner: "Yes",
             },
     };
 
@@ -842,6 +845,39 @@
             NOOP    : "no-op",
         };
 
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+        const buttonsActions =
+            new Map([
+                     ["Reject", state.NOOP],                      // Reject will open up a modal
+                     ["", state.NOOP],                            // The X on the top right of the modal
+                     ["Submit", state.NOOP],
+                     ["Skip", state.SKIP],
+                     ["Approve", state.DISABLE],
+                     ["Improve edit", state.DISABLE],
+                     ["Reject and edit", state.DISABLE],
+                     ["Cancel", state.ENABLE],
+                     ["Reject edit", state.DISABLE],
+                     ["Save edits", state.DISABLE],
+                     ["Approve and reopen", state.DISABLE],       // For the substantial edit review tasks
+                     ["Approve and leave closed", state.DISABLE], // ^ Same
+                     ["Side-by-side Markdown", state.NOOP],
+                     ["Side-by-side", state.NOOP],
+                     ["Inline", state.NOOP],
+                     ["Revision", state.NOOP],                    // Toggling post tabs
+                     ["Question", state.NOOP],                    // ^ same
+                     ["Other answers", state.NOOP],               // ^ same
+                     ["Filter", state.NOOP],
+                     ["Apply filter", state.DISABLE],             // Changing filter options forced a new task
+                     ["Clear", state.DISABLE],                    // ^ Same.. but probably not nessecary
+                     ["Hide results", state.NOOP],                // From Stack snippets
+                     ["Next task", state.NOOP],                   // After an audit (buttons are hidden)
+                     ["Reviewer stats", state.NOOP],              // Completed reviews
+                     ["Restore tab settings", state.NOOP],        // From the GUI
+                     ["Apply & Exit", state.NOOP],                // ^ same
+                     ["✖", state.NOOP],                          // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
+                                                                  // ^ GUI and Notice if Svg is unavailable
+                   ]);
+
         if (!isReviewActive() && !unFocusedTab) { // Do not show buttons on inactive reviews.
             changeState(state.HIDE); // Note: Audits will change from active to inactive.
             return;
@@ -949,38 +985,6 @@
         await new Promise((resolve) => setTimeout(resolve, actionDelay));  // making the sidebar box catch up
         changeState(state.ENABLE);
 
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-        const buttonsActions =
-            new Map([
-                     ["Reject", state.NOOP],                      // Reject will open up a modal
-                     ["", state.NOOP],                            // The X on the top right of the modal
-                     ["Submit", state.NOOP],
-                     ["Skip", state.SKIP],
-                     ["Approve", state.DISABLE],
-                     ["Improve edit", state.DISABLE],
-                     ["Reject and edit", state.DISABLE],
-                     ["Cancel", state.ENABLE],
-                     ["Reject edit", state.DISABLE],
-                     ["Save edits", state.DISABLE],
-                     ["Approve and reopen", state.DISABLE],       // For the substantial edit review tasks
-                     ["Approve and leave closed", state.DISABLE], // ^ Same
-                     ["Side-by-side Markdown", state.NOOP],
-                     ["Side-by-side", state.NOOP],
-                     ["Inline", state.NOOP],
-                     ["Revision", state.NOOP],                    // Toggling post tabs
-                     ["Question", state.NOOP],                    // ^ same
-                     ["Other answers", state.NOOP],               // ^ same
-                     ["Filter", state.NOOP],
-                     ["Apply filter", state.DISABLE],             // Changing filter options forced a new task
-                     ["Clear", state.DISABLE],                    // ^ Same.. but probably not nessecary
-                     ["Hide results", state.NOOP],                // From Stack snippets
-                     ["Next task", state.NOOP],                   // After an audit (buttons are hidden)
-                     ["Reviewer stats", state.NOOP],              // Completed reviews
-                     ["Restore tab settings", state.NOOP],        // From the GUI
-                     ["Apply & Exit", state.NOOP],                // ^ same
-                     ["✖", state.NOOP],                          // https://codepoints.net/U+2716 HEAVY MULTIPLICATION X
-                                                                  // ^ GUI and Notice if Svg is unavailable
-                   ]);
 
         // -------    createNewDiv    --------------------
         function createNewDiv() {
@@ -1078,8 +1082,20 @@
         let userLinkWrapper = element.querySelector(userClasses.userLink);
         if (!userLinkWrapper)
             return { };
+
+        const isPostOwner = userLinkWrapper.getAttribute("itemprop") === "author";
+
         // const userLink = userLinkWrapper.querySelector("a");
         const userLink = userLinkWrapper.querySelector("a:not(span > a)");
+        const accountLink = userLink ? userLink.href : false;
+
+        let userId;
+        if (accountLink) {
+            let matchResult = accountLink.match(/\/users\/(-?\d+)\//);
+            if (matchResult) {
+                userId = +matchResult[1];
+            }
+        }
 
         if (!userLink) {
             // trick for deleted or anonymous users
@@ -1123,8 +1139,8 @@
         // FIXME! Check with a moderator where the element is on the original post!
         //        This seems to turn up empty:
         // const pii = element.querySelector(piiElement); // ".pii". Only for moderators on deleted/anonymous users
-
-        const userInfo = { accountLink    : userLink ? userLink.href : false,
+        const userInfo = { userId         : userId,
+                           accountLink    : accountLink,
                            displayName    : userLink
                                                 ? userLink.textContent
                                                 : userLinkWrapper.textContent,
@@ -1133,11 +1149,13 @@
                                                 : false,
                            isModerator    : isModerator,
                            isOwner        : isUserOwner,
+                           isPostOwner    : isPostOwner,
                            newContributor : newContributor, // the entire element.
                            // pii            : pii,            // ^ same
                            achievements };
         return userInfo;
     }
+
 
     // ----------------------------------
     // ----------------------------------
@@ -1177,13 +1195,13 @@
 
     // ----------------------------------
     // ---  just the displayName --------
-    function createUserName({ accountLink, displayName, isModerator }, cardType) {
+    function createUserName({ accountLink, displayName, isModerator, userId }, cardType) {
         // https://chat.stackoverflow.com/transcript/message/52696924#52696924
 
         const useStackUserCards = deepGet(userConfig, "options.userCards.useStackUserCards") === "Yes";
         const wantNewMod        = deepGet(userConfig, "options.wantNewModeratorFlair") === "Yes";
 
-        const { display: { container, cell, gap4px },
+        const { display: { container, cell, gap4px, baseline },
                 sUserCards: { cardLink },
                 userCards: { moderatorFlair },
                 badges: { base : badgeBase, xsmall : badgeXsmall, moderator : badgeModerator }
@@ -1197,6 +1215,8 @@
             userName.classList.add(cardLink); // "s-user-card--link"
             userName.href = accountLink;
         }
+
+        const isUserCommunity = userId === -1;
 
         switch (cardType) {
             case userCardTypes.BASE : userName.classList.add(container); // "d-flex"
@@ -1214,10 +1234,10 @@
                                       userName.append(display);
                                       userName.style.overflowWrap = "anywhere";
 
-                                      if (isModerator) {
+                                      if (isModerator || isUserCommunity) {
                                           if (wantNewMod)
                                               userName.classList.add(gap4px); // "gs4"
-                                          userName.append(moderatorBling(true, wantNewMod));
+                                          userName.append(moderatorBling(true, wantNewMod, isUserCommunity));
                                       }
                 break;
 
@@ -1226,26 +1246,40 @@
                                       userName.style.paddingLeft = "5px";
                                       userName.textContent = displayName;
 
-                                      if (isModerator)
-                                          userName.append(moderatorBling(false, wantNewMod));
+                                      if (isModerator || isUserCommunity)
+                                          userName.append(moderatorBling(false, wantNewMod, isUserCommunity));
         }
 
-        function moderatorBling (useFlexItem, wantNewMod) {
+        if (isUserCommunity && !wantNewMod)
+            userName.classList.add(baseline); //" ai-baseline"
+
+        function moderatorBling (useFlexItem, wantNewMod, communityBot) {
             const moderator = useFlexItem
                                   ? document.createElement("div")
                                   : document.createElement("span");
 
             if (!wantNewMod) {
-                moderator.style.fontSize = "135%";
-                moderator.textContent = "♦";
+                if (communityBot) {
+                    // https://codepoints.net/U+1F79A WHITE DIAMOND CONTAINING BLACK VERY SMALL DIAMOND
+                    moderator.textContent = "🞚";
+                    moderator.style.fontSize = "95%";
+                } else {
+                    moderator.textContent = "♦";
+                    moderator.style.fontSize = "135%";
+                }
                 moderator.classList.add(moderatorFlair); // "mod-flair"
-                moderator.title = "moderator";
             } else {
-                                     // "s-badge", "s-badge__moderator", "s-badge__xs"
-                moderator.classList.add(badgeBase, badgeModerator, badgeXsmall);
+
+                moderator.classList.add(badgeBase, badgeXsmall); // "s-badge", "s-badge__xs"
+                if (!communityBot) {
+                    moderator.classList.add(badgeModerator);     // "s-badge__moderator"
+                    moderator.style.color = "#fff";
+                    moderator.style.backgroundColor = "#07c";
+                }
+
                 const modText = document.createElement("span");
                 modText.style.marginBottom = "-2px";
-                modText.textContent = "Mod";
+                modText.textContent = communityBot ? "Bot" : "Mod";
                 moderator.append(modText);
                 if (useFlexItem) {
                     moderator.classList.add(cell); // "flex--item"
@@ -1254,6 +1288,10 @@
                     moderator.style.marginLeft = "5px";
                 }
             }
+
+            moderator.title = communityBot
+                                  ? "Community Bot — not a real person"
+                                  : "moderator";
 
             return moderator;
         }
@@ -1399,7 +1437,6 @@
         originalPostUserCards(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
         editorUserCard(originalEditorUserCardContainerMadeIntoOverallUserCardContainer);
 
-
         // -------    originalPostUserCards    --------------------
         async function originalPostUserCards(userCardsContainerAll) {
             //  https://chat.stackoverflow.com/transcript/message/52212993#52212993 (code-review)
@@ -1473,6 +1510,7 @@
             if (deepGet(userConfig, "options.radioVsButtons.moveRadioBox") !== "Yes")
                 userCardsContainerAll.style.width = adjustUserCardsWidth();
 
+            highlightOwnerInNotice();
 
             // -------    postUserCards    --------------------
             function postUserCards(originalUserCards) {
@@ -1481,7 +1519,8 @@
                 postUserCardContainer.classList.add(start); // "ai-start"
 
                 if (!useStackUserCards) { // just return them as is.
-                    // originalUserCards.forEach(node => postUserCardContainer.appendChild(node));
+                    // well.. almost as is.               // .user-details > span
+                    fixCommunityModFlair(originalUserCards, `.${config.classes.userCards.details} > span`);
                     postUserCardContainer.append(...originalUserCards);
                     return postUserCardContainer;
                 }
@@ -1577,6 +1616,8 @@
 
             const userInfoBox = document.createElement("div");
             userInfoBox.classList.add(info); // "s-user-card--info"
+            if (userInfo.isPostOwner)
+                userInfoBox.setAttribute("itemprop", "author");
             userInfoBox.append(userName);
 
             const user = document.createElement("div");
@@ -1781,6 +1822,7 @@
 
                 const editorUserNameModerator
                           = editorUserName.querySelector(`.${userCards.moderatorFlair}`);   //  ".mod-flair"
+                const editorCommunityBotBox = editorUserName.querySelector("span");
 
                 const editorFlair = editorReviewHover.querySelector(`.${userCards.um.flair}`);
                 if (!editorFlair)
@@ -1792,10 +1834,15 @@
                 editorFlairDiv.append(editorUserNameLink,
                                       editorUserNameModerator
                                           ? editorUserNameModerator
-                                          : "",
+                                          : (editorCommunityBotBox && editorCommunityBotBox.textContent.trim() === "Bot")
+                                                ? editorCommunityBotBox
+                                                : "",
                                       editorFlair);
                 editorCardDiv.append(actionTime, editorGravatar, editorFlairDiv);
                 editorCardContainer.appendChild(editorCardDiv);
+
+                                                          // .user-details > span
+                fixCommunityModFlair([editorCardContainer], `.${config.classes.userCards.details} > span`);
 
                 return editorCardContainer;
             } // transformUserCard
@@ -2578,6 +2625,120 @@
 
     // --------------------------------------------------------------------------------------------
     // --------------------------------------------------------------------------------------------
+
+    function highlightOwnerInNotice(notice, shortLink, colourConfig = userConfig) {
+        const { ids: { custom: { userCards : usercardsId } },
+                classes: { sUserCards: { card },
+                           userCards: { signature, owner },
+                           notice: { listReset, expandable },
+                           commentUser }
+              } = config;
+
+        if (!notice) { // not from the settings user interface
+
+            if (isReviewActive() || !(deepGet(userConfig, "options.highlightUserOwner") === "Yes"))
+                return;
+
+            const { classes: { display: { desktopHide } },
+                    selectors: { reviews: { banner } }
+                  } = config;
+
+            notice = document.querySelector(banner); // "[role=status]"
+            if (!notice || notice.classList.contains(desktopHide))
+                return;
+
+            fixCommunityModFlair([notice], `.${listReset} > li > div > span`);   // ".list-reset > li > div > span"
+            fixCommunityModFlair([notice], `.${expandable} ul > li > a`, true);  // ".s-expandable ul > li > a"
+
+            const usercards = document.getElementById(usercardsId);
+            if (!usercards)
+                return;
+                                                     // ".s-user-card div[itemprop=author] a, .post-signature div[itemprop=author] a"
+            const userLink = usercards.querySelectorAll(`.${card} div[itemprop=author] a, .${signature} div[itemprop=author] a`)[0]?.href;
+            if (!userLink)
+                return;
+
+            shortLink = userLink.substring(userLink.indexOf("/users/"));
+            if (!shortLink)
+                return;
+        }
+
+        const { colour: { ownerBorder, ownerBackground } } = colourConfig;
+
+        notice.querySelectorAll("a")
+              .forEach(link => {
+                           if (link.href.indexOf(shortLink) > -1) {
+                               link.classList.add(commentUser, owner); // "comment-user", "owner"
+                               link.style.border = "1px solid";
+                               link.style.borderColor = ownerBorder;
+                               link.style.backgroundColor = ownerBackground;
+                               link.style.margin = "3px 0px";
+                           }
+               });
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
+
+    function fixCommunityModFlair(elements, selector, add = false) {
+        if (deepGet(userConfig, "options.wantNewModeratorFlair") === "Yes")
+            return;
+
+        const { classes: { userCards: { moderatorFlair } } } = config;
+
+        const makeNonDiamond = (element) => {
+            // botBox.textContent = "♦";
+            // https://codepoints.net/U+1F79A WHITE DIAMOND CONTAINING BLACK VERY SMALL DIAMOND
+            element.textContent = "🞚";
+            element.style.fontSize = "95%";
+            element.className = moderatorFlair; // "mod-flair"
+            element.title = "Community Bot — not a real person";
+        };
+
+        if (add) {
+            const community = "/users/-1/community";
+            [...elements]
+                .forEach(card => {
+                             const bots = card.querySelectorAll(selector);
+                             bots.forEach(bot => {
+                                              if (bot.href.indexOf(community) > -1) {
+                                                  // This was already done on the element
+                                                  if (bot.querySelector("span")?.classList.contains(moderatorFlair))
+                                                      return;
+                                                  // This was already done on the element and it's a sibling
+                                                  [...bot.parentElement
+                                                     .children]
+                                                     .forEach(child => {
+                                                                  if (child.classList.contains(moderatorFlair))
+                                                                      return;
+                                                      });
+                                                  const botFlair = document.createElement("span");
+                                                  makeNonDiamond(botFlair);
+                                                  bot.append(botFlair);
+                                              }
+                             });
+            });
+            return;
+        }
+
+        [...elements]
+            .forEach(card => {
+                         const botBoxes = card.querySelectorAll(selector);
+                         botBoxes
+                             .forEach(botBox => {
+                                          if (botBox && botBox.textContent.trim() === "Bot") {
+                                              makeNonDiamond(botBox);
+                                              botBox.previousElementSibling?.append(botBox);
+                                          }
+                              });
+             });
+
+    }
+
+
+    // --------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------
     // Mostly snipped from Oleg Valter (https://stackoverflow.com/users/11407695/oleg-valter) at https://pastebin.com/YkG5R39h
     // https://chat.stackoverflow.com/transcript/message/52116388#52116388
     // https://chat.stackoverflow.com/transcript/message/52140612#52140612
@@ -2623,6 +2784,7 @@
                     cell: "flex--item",
                     center: "ai-center",
                     start: "ai-start",
+                    baseline: "ai-baseline",
                     spaceBetween: "jc-space-between",
                     // https://stackoverflow.design/product/base/flex/#gutter-classes
                     gap4px: "gs4",
@@ -2712,6 +2874,8 @@
                     base: "s-notice",
                     warning: "s-notice__warning",
                     padding: "p8",
+                    listReset: "list-reset",
+                    expandable: "s-expandable",
                 },
                 postSummary: {
                     base: "s-post-summary",
@@ -2742,6 +2906,7 @@
                 answers: "answer-hyperlink",
                 filterDiff: "js-diff-choices",
                 navigation: "s-navigation-tablist",
+                commentUser: "comment-user",
             },
             size: {
                 gravatarSmall: "32",
@@ -3387,8 +3552,8 @@
                         top: "pt16",
                     },
                     notice: {
-                        base: "s-notice",
                         info: "s-notice__info",
+                        approve: "fc-green-600",
                     },
                     title: {
                         base: "s-page-title",
@@ -3582,11 +3747,16 @@
                          (tabName) => previewStackUsercardsUpdate(
                                           tabName,
                                           "Preview Stack user cards"),
+                     ownerNotice:
+                         (tabName) => previewHighlightUserNoticeOnfUpdate(
+                                          tabName,
+                                          "Preview highlight owner"),
                  },
                  needIntiliatize: ["userCards",
                                    "StackUsercards"],
                  bottomSpace: ["Add user cards",
-                               "Stack Design user cards"],
+                               "Stack Design user cards",
+                               "Editors do not get the \"New contributor\" indicator. This is only for demonstration purpose."],
                  items: [
                      {
                       name: "All user Cards",
@@ -3607,6 +3777,12 @@
                       displayOrder: 13,
                      },
                      {
+                      name: "Preview highlight owner",
+                      type: "preview",
+                      create: () => previewHighlightUserNotice(),
+                      displayOrder: 18,
+                     },
+                     {
                       name: "Editors do not get the \"New contributor\" indicator. This is only for demonstration purpose.",
                       id: PREFIXMODAL + "newContributorNote",
                       type: "note",
@@ -3620,7 +3796,8 @@
                       type: "toggle",
                       toggleEntry: "Add user cards",
                       dependents: ["with editor statistics",
-                                   "Stack Design user cards"],
+                                   "Stack Design user cards",
+                                   "Highlight post owner in notice"],
                       refPreviewUpdates: ["userCards"],
                       displayOrder: 1,
                      },
@@ -3714,6 +3891,36 @@
                       indents: 1,
                       refPreviewUpdates: ["StackUsercards"],
                       displayOrder: 12,
+                     },
+                     {
+                      name: "Highlight post owner in notice",
+                      id: PREFIXMODAL + "ownerNotice",
+                      configKey: "options.highlightUserOwner",
+                      type: "toggle",
+                      toggleEntry: "Add user cards",
+                      dependents: ["Background colour",
+                                   "Border colour"],
+                      indents: 1,
+                      refPreviewUpdates: ["ownerNotice"],
+                      displayOrder: 15,
+                     },
+                     {
+                      name: "Background colour",
+                      id: PREFIXMODAL + "ownerNoticeBackColour",
+                      configKey: "colour.ownerBackground",
+                      type: "colour",
+                      indents: 2,
+                      refPreviewUpdates: ["ownerNotice"],
+                      displayOrder: 16,
+                     },
+                     {
+                      name: "Border colour",
+                      id: PREFIXMODAL + "ownerNoticeBorderColour",
+                      configKey: "colour.ownerBorder",
+                      type: "colour",
+                      indents: 2,
+                      refPreviewUpdates: ["ownerNotice"],
+                      displayOrder: 17,
                      },
                  ],
                },
@@ -4072,7 +4279,7 @@
                       displayOrder: 17,
                      },
                      {
-                      name: "Applies to \"Stack Design user cards\" and \"Stack Design post summary\"",
+                      name: "Applies to \"Stack Design user cards\", \"Stack Design post summary\", and Community user.",
                       id: PREFIXMODAL + "onlyStackDesignNote",
                       type: "note",
                       indents: 1,
@@ -4789,7 +4996,9 @@
         // -------------------------------
         function createOptionHeader(labelText, headerId, indents = 0) {
             const { display: { cell } } = config.classes;
-            const { classes: { label } } = modalConfig;
+            const { classes: { label },
+                    sizes: { labels: { fontSizeToggles } }
+                  } = modalConfig;
 
             const optionHeaderContainer = createContainer();
 
@@ -4797,6 +5006,7 @@
             optionHeader.classList.add(cell, label);
             optionHeader.id = headerId;
             optionHeader.textContent = labelText;
+            optionHeader.style.fontSize = fontSizeToggles;
             optionHeader.style.marginBottom = "10px";
             optionHeader.style.marginLeft = (indents * indentPIXELS) + "px";
             optionHeaderContainer.append(optionHeader);
@@ -4819,10 +5029,13 @@
 
             const noteSup = document.createElement("sup");
             noteSup.style.marginLeft = (indents * indentPIXELS) + "px";
-            noteSup.id = noteId
             noteSup.textContent = "Note: " + noteText;
 
-            return noteSup;
+            const noteDiv = document.createElement("div");
+            noteDiv.id = noteId
+            noteDiv.append(noteSup);
+
+            return noteDiv;
         }
 
 
@@ -4851,7 +5064,7 @@
         function createStackToggle(labelText, toggleId, option, indents = 0) {
             const { display: { cell } } = config.classes;
             const { classes: { toggle: { sweetch, indicator } },
-                    sizes: { labels: {fontSizeToggles} }
+                    sizes: { labels: { fontSizeToggles } }
                   } = modalConfig;
 
             // https://stackoverflow.design/product/components/labels/
@@ -4940,16 +5153,6 @@
             if (variable.startsWith("#"))
                 return variable;
 
-            const matchResult = variable.match(/^var\((--[\w-]*)\)/);
-            if (matchResult) {
-                // https://davidwalsh.name/css-variables-javascript
-                const result = getComputedStyle(document.body).getPropertyValue(matchResult[1]);
-                if (result.startsWith("hsl")) {
-                    return hslToHex(result);
-                }
-                return result;
-            }
-
             // https://stackoverflow.com/questions/1573053/javascript-function-to-convert-color-names-to-hex-codes/1573154#1573154
             // by https://stackoverflow.com/users/190106/tim
             const dummy = document.createElement("div");
@@ -4958,23 +5161,6 @@
             const colour = window.getComputedStyle(dummy).color; //Color in RGB
             dummy.remove();
             return rgbToHex(colour);
-
-            // https://stackoverflow.com/questions/36721830/convert-hsl-to-rgb-and-hex/44134328#44134328
-            // by https://stackoverflow.com/users/1376947/icl7126
-            function hslToHex(hsl) {
-                // const matchHSL = hsl.match(/^hsl\(([\d\.]+),\s?([\d\.]+)%,\s?([\d\.]+)%\)$/i);
-                const matchHSL = hsl.match(/^hsl\(([\d.]+),\s?([\d.]+)%,\s?([\d.]+)%\)$/i);
-                if (!matchHSL)
-                    return;
-                const [h, s, l] = [matchHSL[1], matchHSL[2], matchHSL[3] /= 100];
-                const a = s * Math.min(l, 1 - l) / 100;
-                const f = (n) => {
-                    const k = (n + h / 30) % 12;
-                    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                    return Math.round(255 * color).toString(16).padStart(2, "0"); // convert to Hex and prefix "0" if needed
-                };
-                return `#${f(0)}${f(8)}${f(4)}`;
-            }
 
             // https://www.html-code-generator.com/javascript/color-converter-script
             function rgbToHex(rgb) {
@@ -5916,9 +6102,10 @@
         // -------------------------------
         function previewMessage() {
             const { display: { container, cell },
-                    buttons: { button, primary }
+                    buttons: { button, primary },
+                    notice: { base : noticeBase }
                   } = config.classes;
-            const { notice: { base : noticeBase, info : noticeInfo },
+            const { notice: { info : noticeInfo },
                     padding: { top : paddingTop },
                     margins: { negative : negativeMargin },
                     pointerEventsNone
@@ -6123,6 +6310,66 @@
                                  lightOff: "7NThn.png",
                                  darkOn:   "TrBPp.png",
                                  darkOff:  "2KvL5.png" });
+        }
+
+        // -------------------------------
+        function previewHighlightUserNotice() {
+            const { classes: { notice: { info, approve },
+                               margins: { top } }
+                  } = modalConfig;
+
+            const { classes: { notice: { base, listReset } }
+                  } = config;
+
+            const previewContainer = createPreviewContainer();
+
+            const spanApproved = document.createElement("span");
+            spanApproved.classList.add(approve); // "fc-green-600"
+            spanApproved.textContent = "Approved";
+            const spanTime = document.createElement("span");
+            spanTime.textContent = " 5 hours ago";
+            const strong = document.createElement("strong");
+            strong.append(spanApproved, spanTime, ":");
+
+            const userLink = document.createElement("a");
+            userLink.href = "/users/-1/Community";
+            userLink.textContent = "Old Grumpy";
+            const bold = document.createElement("b");
+            bold.textContent = "Approve";
+            const reviewerContainer = document.createElement("div");
+            reviewerContainer.append(userLink,
+                                     " reviewed this ",
+                                     spanTime.cloneNode(true),
+                                     ": ",
+                                     bold);
+            const listItem = document.createElement("li");
+            listItem.append(reviewerContainer);
+            const unorderedList = document.createElement("ul");
+            unorderedList.classList.add(top, listReset) // "mt8", "list-reset"
+            unorderedList.append(listItem);
+
+            const notice = document.createElement("div");
+            notice.classList.add(base, info); // "s-notice", "s-notice__info"
+            notice.append(strong,unorderedList);
+
+            previewContainer.append(notice);
+
+            previewHighlightUserNoticeOnfUpdate(null, null, previewContainer);
+            return previewContainer;
+        }
+
+        // -------------------------------
+        function previewHighlightUserNoticeOnfUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
+            const notice = element.lastElementChild;
+            const on = deepGet(tempUserConfig, "options.highlightUserOwner") === "Yes";
+
+            if (on) {
+                highlightOwnerInNotice(notice, "/users/-1/Community", tempUserConfig);
+            } else {
+                const link = notice.querySelector("a");
+                link.removeAttribute("style");
+                link.className = "";
+            }
         }
 
     }
