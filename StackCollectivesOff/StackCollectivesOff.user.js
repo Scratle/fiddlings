@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Collectives Off
 // @namespace    scratte-fiddlings
-// @version      0.5
+// @version      0.6
 // @description  Pretending Collectives don't exist
 // @author       Scratte (stackoverflow.com/users/12695027)
 // @include      https://stackoverflow.com/*
@@ -30,10 +30,12 @@
 
     const postCollectivesStuff =
               [
-                  //  orange affiliation banner from user profiles on posts
+                  // orange affiliation banner from user profiles on posts
                   ".affiliate-badge",
                   // "Answer recommended by ..."
-                  ".js-endorsements"
+                  ".js-endorsements",
+                  // recognized member icon in comments.
+                  "div.comment-body span[title='Recognized Member']"
               ];
 
     document.querySelectorAll(mostCollectivesStuff.concat(postCollectivesStuff).join()) // "," is default

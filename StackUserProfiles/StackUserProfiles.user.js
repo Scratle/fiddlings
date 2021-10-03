@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.7
+// @version      2.9
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -185,6 +185,12 @@
         reputation.parentElement?.classList.remove("flex__allcells6");
 
         const image = bricks.avatar.querySelector("img");
+        bricks.avatar.querySelector(".gravatar-wrapper-128")
+                    ?.classList
+                    ?.remove("gravatar-wrapper-128");
+        // https://chat.stackoverflow.com/transcript/message/53146009#53146009
+        const imageContainer = bricks.avatar.querySelector("[class~='md:d-none']");
+        if (imageContainer) imageContainer.className = "";
         image.removeAttribute("width");
         image.removeAttribute("height");
         image.style.width = "100%"
@@ -203,10 +209,18 @@
                 profileTextArea, prose, stats, userFirstList
               } = bricks;
 
-        // Put the avatar and username on the top right
-        bricks.avatarClone.style.marginRight = "10px";
         bricks.avatar.querySelectorAll(".d-none")
                      .forEach(none => none.remove());
+
+        // Put the avatar and username on the top right
+        bricks.avatarClone.style.marginRight = "10px";
+        bricks.avatarClone.querySelectorAll(".d-none")
+                     .forEach(none => none.remove());
+        bricks.avatarClone.querySelector(".gravatar-wrapper-128")
+                         ?.classList
+                         ?.remove("gravatar-wrapper-128");
+        const imageContainer = bricks.avatarClone.querySelector("[class~='md:d-none']");
+        if (imageContainer) imageContainer.className = "";
         bricks.avatarCloneImage.querySelectorAll(".d-none")
                                .forEach(none => none.remove());
         bricks.avatarCloneImage.width = bricks.avatarCloneImage.height = 30;
@@ -229,7 +243,7 @@
 
             if (prose) {
                 const { classList, style } = prose;
-                setTimeout(() => classList.remove("overflow-hidden", "v-truncate-fade", "hmx3"));
+                setTimeout(() => classList.remove("overflow-hidden", "v-truncate-fade", "hmx3"),100);
                 classList.add("overflow-y-scroll");
                 style.marginRight = "-5px";
                 style.paddingRight = "5px";
@@ -571,6 +585,34 @@
         insertAndAdjust(lastActivity, firstActivity);
     }
 
+    // ---- In case there's no global Svg  -----------------------------
+    const createSvg = (type) => {
+        // https://chat.stackoverflow.com/transcript/message/53149584#53149584
+        // https://github.com/userscripters/stacks-helpers/blob/master/src/icons/index.ts
+        const svg     = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+        switch (type) {
+            case "eye":
+                svg.classList.add("svg-icon", "iconEye");
+                svgPath.setAttribute("d", "M9.06 3C4 3 1 9 1 9s3 6 8.06 6C14 15 17 9 17 9s-3-6-7.94-6ZM9 13a4 4 0 "
+                                           + "110-8 4 4 0 010 8Zm0-2a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2Z");
+                break;
+            case "clock":
+                svg.classList.add("svg-icon", "iconClock");
+                svgPath.setAttribute("d", "M9 17c-4.36 0-8-3.64-8-8 0-4.36 3.64-8 8-8 4.36 0 8 3.64 8 8 0 4.36-3.64 8-8 8Zm0-2c3.27 "
+                                          + "0 6-2.73 6-6s-2.73-6-6-6-6 2.73-6 6 2.73 6 6 6ZM8 5h1.01L9 9.36l3.22 2.1-.6.93L8 10V5Z");
+        }
+
+        svg.append(svgPath);
+        svg.ariaHidden = "true";
+        svg.setAttribute("width", "18");
+        svg.setAttribute("height", "18");
+        svg.setAttribute("viewBox", "0 0 18 18");
+
+        return svg;
+    }
+
     // -----------------------------------------------------------------
     const fetchCreepyData = async ({ userId, userFirstList }) => {
         const fetchUser = async (userId) => {
@@ -581,7 +623,6 @@
 
             const response = await fetch(`${apiUrl}${userId}?filter=${userFilter}&site=${site}&key=${key}`);
             const result = await response.json();
-
             return result?.items[0];
         }
 
@@ -673,11 +714,15 @@
             let listItemIcon;
             if (type === "view") {
                 listItemContent.textContent = `${splitViews(userDetails.view_count)} profile views`;
-                listItemIcon = Svg?.Eye().get(0);
+                listItemIcon = (typeof Svg !== "undefined")
+                                   ? Svg.Eye()?.get(0)
+                                   : createSvg("eye");
             } else {
                 listItemContent.title = absoluteTime(userDetails.last_access_date);
                 listItemContent.textContent = `Last seen ${customPrettyDateDiff(userDetails.last_access_date)}`;
-                listItemIcon = Svg?.Clock().get(0);
+                listItemIcon = (typeof Svg !== "undefined")
+                                   ? Svg.Clock()?.get(0)
+                                   : createSvg("clock");
             }
 
             const listItemContentContainer = document.createElement("div");
@@ -720,7 +765,7 @@
 
         putTopTagsonTop();
 
-        if (getCreepyData)
+        if (getCreepyData && profileTABNAMES.includes(bricks.page))
             fetchCreepyData(bricks);
     }
 
