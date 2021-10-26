@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Collectives Off
 // @namespace    scratte-fiddlings
-// @version      0.6
+// @version      0.7
 // @description  Pretending Collectives don't exist
 // @author       Scratte (stackoverflow.com/users/12695027)
 // @include      https://stackoverflow.com/*
@@ -48,7 +48,7 @@
     document.querySelector("a[href*=collectives].s-card")
            // Another optimization suggested by Oleg Valter
            // https://chat.stackoverflow.com/transcript/message/52657512#52657512
-           ?.closest("div.flex--item")
+           ?.closest("div.grid--item")
            ?.remove();
 
     // And the list item saying "X user groups" from user profiles

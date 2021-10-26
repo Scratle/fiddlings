@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      2.9
+// @version      3.0
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -60,7 +60,7 @@
         });
     };
 
-    // ---- userAvatar --------------------------------------------------------------------------
+    // ---- fetchBricks --------------------------------------------------------------------------
     const fetchBricks = async () => {
         const bricks = { }; // Keep it all here.
 
@@ -97,7 +97,9 @@
         const splitUserDetails = userDetails.children;
         const userName = userDetails.firstElementChild;
         bricks.userName = userName;
-        bricks.headerExists = !!userDetails.querySelector(".fs-title");
+        bricks.header = userDetails.querySelector(".fs-title");
+        bricks.headerExists = !!bricks.header;
+
         // bricks.userLists = userDetails.querySelectorAll("ul:not(.list-ls-none)");
         bricks.userLists = userDetails.querySelectorAll("ul:not(#groups-popover > ul)");
         bricks.userFirstList = bricks.userLists[0];
@@ -117,23 +119,110 @@
         // Elements on the profile:
         if (profileTABNAMES.includes(bricks.page)) {
             const mainContent = contentSplit[offset + 2];
-            const splitMainContent = mainContent.children;
-            const topMainContent = splitMainContent[0];
-            bricks.topMainContent = topMainContent;
+            bricks.mainContent = mainContent;
+            const splitMainContent = mainContent.children[0]?.children;
 
-            const splitTopMainContent = topMainContent.children;
-            bricks.stats = splitTopMainContent[0];
+            const leftMainContent = splitMainContent[0].firstElementChild;
+            const rightMainContent = splitMainContent[1].firstElementChild;
 
-            const profileTextArea = splitTopMainContent[1];
-            bricks.airOfMysteryContainer = profileTextArea.firstElementChild?.lastElementChild?.cloneNode(true);;
+            bricks.leftMainContent = leftMainContent;
 
-            bricks.profileTextArea = profileTextArea;
-            bricks.prose = profileTextArea.children[1];
+            [...leftMainContent.children]
+                .forEach(child => {
+                             const text = child.querySelector(".fs-title")?.textContent?.trim();
+                             switch (text) {
+                                 case "Stats":
+                                 case "Статистика":   // ru
+                                 case "Estadísticas": // es
+                                 case "Estatística":  // pt
+                                 case "統計":         // ja
+                                     bricks.stats = child;
+                                     break;
+                                 case "Communities":
+                                 case "Сообщества":   // ru
+                                 case "Comunidades":  // es & pt
+                                 case "コミュニティ":  // ja
+                                     bricks.communities = child;
+                                     break;
+                             }
+                 });
 
-            const bottomMainContent = splitMainContent[1];
-            bricks.bottomMainContent = bottomMainContent;
-            const splitbottomMainContent = bottomMainContent.children;
-            bricks.contributions = splitbottomMainContent[1];
+
+            bricks.rightMainContent = rightMainContent;
+            [...rightMainContent.children]
+                .forEach(child => {
+                             const text = child.querySelector(".fs-title")?.textContent?.trim();
+                             switch (text) {
+                                 case "About":
+                                 case "О метке":   // ru
+                                 case "Acerca de": // es
+                                 case "Sobre":     // pt
+                                 case "概要":      // ja
+                                     bricks.prose = child;
+                                     break;
+                                 case "Badges":
+                                 case "Знаки":    // ru
+                                 case "Medallas": // es
+                                 case "Medalhas": // pt
+                                 case "バッジ":   // ja
+                                     bricks.badges = child;
+                                     break;
+                                 case "Top tags":
+                                 case "Лучшие метки":          // ru
+                                 case "Etiquetas principales": // es
+                                 case "Principais tags":       // pt
+                                 case "上位のタグ":             // ja
+                                     bricks.tags = child;
+                                     break;
+                                 case "Newest posts":
+                                 case "Top posts":
+                                 case "Newest answers":
+                                 case "Newest questions":
+                                 case "Top answers":
+                                 case "Top questions":
+                                 case "Posts":
+                                 case "Лучшие сообщения":          // ru
+                                 case "Лучшие ответы":
+                                 case "Лучшие вопросы":
+                                 case "Новые сообщения":
+                                 case "Новые вопросы":
+                                 case "Новые ответы":
+                                 case "Сообщения":
+                                 case "Publicaciones principales": // es
+                                 case "Preguntas principales":
+                                 case "Respuestas principales":
+                                 case "Publicaciones más nuevas":
+                                 case "Preguntas más nuevas":
+                                 case "Respuestas más nuevas":
+                                 case "Publicaciones":
+                                 case "Melhores publicações":      // pt
+                                 case "Publicações recentes":
+                                 case "Perguntas recentes":
+                                 case "Respostas recentes":
+                                 case "Principais perguntas":
+                                 case "Principais respostas":
+                                 case "Principais perguntas":
+                                 case "Publicações":
+                                 case "上位の投稿":                 // ja
+                                 case "上位の質問":
+                                 case "上位の回答":
+                                 case "新着の投稿":
+                                 case "新着の質問":
+                                 case "新着の回答":
+                                 case "投稿":
+                                     bricks.posts = child;
+                                     break;
+                                 case "Top Meta posts":
+                                     bricks.meta = child;
+                                     break;
+                                 case "Top network posts":
+                                 case "Лучшие сообщения сети":             // ru
+                                 case "Publicaciones populares en la red": // es
+                                 case "Melhores publicações da rede":      // pt
+                                 case "ネットワークでのトップ投稿":          // ja
+                                     bricks.network = child;
+                             }
+                 });
         }
 
         return bricks;
@@ -141,13 +230,7 @@
 
     // ---- userAvatar --------------------------------------------------------------------------
     const userAvatar = (bricks) => {
-        let { stats } = bricks;
-
-        if (stats.classList.contains("grid--item")) {
-            const realstats = stats.firstElementChild;
-            stats = realstats;
-            stats.className = "flex--item fl-shrink0 ws2 mr24 md:mr0 md:mb24 md:w100 d-flex";
-        }
+        let { stats, badges } = bricks;
 
         const splitStats = stats.children;
         const title = splitStats[0];
@@ -176,7 +259,7 @@
         QuestionsAnswers.style.marginBottom = "20px"
         QuestionsAnswers.append(answers, questions);
 
-        bricks.rightSide.append(QuestionsAnswers, bricks.userFirstList);
+        bricks.infoArea.append(QuestionsAnswers, bricks.userFirstList);
 
         reputation.classList.remove("flex--item");
         reputation.classList.add("d-flex");
@@ -200,14 +283,13 @@
 
         stats.classList.add("d-flex");
         stats.style.flexDirection = "column";
-        stats.append(theThreeBadges());
+        if (badges) stats.append(theThreeBadges(badges));
     }
 
     // ---- makeChanges --------------------------------------------------------------------------
     const makeChanges = (bricks) => {
-        const { airOfMysteryContainer, contributions, profileButtonClone,
-                profileTextArea, prose, stats, userFirstList
-              } = bricks;
+        const { profileButtonClone, stats, userFirstList } = bricks;
+        let { prose } = bricks;
 
         bricks.avatar.querySelectorAll(".d-none")
                      .forEach(none => none.remove());
@@ -233,34 +315,88 @@
             profileButtonClone.firstElementChild.remove();
 
         profileButtonClone.classList.remove("ps-absolute");
+
         bricks.tabs.append(bricks.avatarClone, bricks.userNameClone, profileButtonClone);
+
+        // meta/main links
+        const buttonLink = profileButtonClone.querySelector("a");
+        if (buttonLink && buttonLink.classList.contains("s-btn")) {
+            // Get rid of that squary sized button
+            buttonLink.className = "s-btn s-btn__outlined s-btn__muted s-btn__icon s-btn__sm d-flex ai-center";
+            // buttonLink.className = "s-block-link d-flex ai-center ws-nowrap"; // <-- no border
+        } else {
+            const host = window.location.hostname;
+            let search = "";
+
+            const position = host.indexOf("meta.");
+            if (position > -1) {// we're on meta
+                search = host.replace("meta.","");
+            } else {
+                const splitHost = host.split(".");
+                const afterMeta = splitHost[splitHost.length - 2];
+                search = host.replace(afterMeta,"meta." + afterMeta);
+            }
+            const metaMainLink = profileButtonClone
+                                 .querySelector(`a[href*="${search}"]`)
+                                ?.cloneNode(true);
+            if (metaMainLink) {
+                metaMainLink.className = "s-btn s-btn__muted s-btn__icon s-btn__sm d-flex ai-center mr16";
+                profileButtonClone.before(metaMainLink);
+            }
+        }
 
         // Rearrange the top part of the profile.
         if (profileTABNAMES.includes(bricks.page)) {
-            bricks.topMainContent.className = "d-flex mb32 md:fd-column";
-
-            profileTextArea.firstElementChild.replaceWith(bricks.userDetails);
 
             if (prose) {
-                const { classList, style } = prose;
-                setTimeout(() => classList.remove("overflow-hidden", "v-truncate-fade", "hmx3"),100);
+                prose.className = "flex--item fl-grow1";
+
+                const proseText = prose.children[1];
+                bricks.proseText = proseText;
+                const { classList, style, firstElementChild } = proseText;
+
+                firstElementChild.classList.add("d-grid");  // So it doesn't go off into the sunset
+
+                classList.remove("overflow-hidden", "v-truncate-fade", "hmx3");
                 classList.add("overflow-y-scroll");
+
                 style.marginRight = "-5px";
                 style.paddingRight = "5px";
                 style.maxHeight = bricks.headerExists ? "211px" : "235px";
 
-                const readMore = prose.nextElementSibling;
+                const readMore = proseText.nextElementSibling;
                 if (readMore)
                     readMore.remove();
+
+                const about = prose.children[0];
+                about.replaceWith(bricks.userName);
+
+                // Because Stack seems to insert for example the "v-truncate-fade" quite late bringing it "back":
+                const observerConfig = {
+                    attributes : true,
+                    attributeFilter : ['style', 'class']
+                };
+                const targetNode = proseText;
+                const observer = new MutationObserver((mutations, observer) => {
+                    // https://chat.stackoverflow.com/transcript/message/53192304#53192304
+                    observer.disconnect(); // Do not go into an endless loop!
+                    mutations.forEach((mutation) => classList.remove("overflow-hidden", "v-truncate-fade", "hmx3"));
+                    observer.observe(targetNode, observerConfig); // re-connect.
+                });
+                observer.observe(targetNode, observerConfig);
+
             } else {
-                bricks.userDetails.append(airOfMysteryContainer);
-                airOfMysteryContainer.classList.remove("flex-center");
-                airOfMysteryContainer.style.marginRight = "50px";
+
+                bricks.prose = prose = document.createElement("div");
+                prose.className = "flex--item fl-grow1";
+                prose.append(bricks.userName);
+                if (bricks.headerExists) bricks.userName.after(bricks.header);
+                bricks.rightMainContent.firstElementChild.before(prose);
+
             }
 
-            const profileContainer = document.createElement("div");
-            profileContainer.classList.add("d-flex", "fl-grow1");
-            profileTextArea.replaceWith(profileContainer);
+            if (bricks.headerExists)
+                bricks.userName.after(bricks.header);
 
             userFirstList.style.flexDirection = "column";
             for (let i = 1; i < bricks.userLists.length; i++) {
@@ -281,26 +417,15 @@
 
             userFirstList.style.whiteSpace = "nowrap";
 
-            const rightSide = document.createElement("div");
-            rightSide.append(userFirstList);
-            bricks.rightSide = rightSide;
+            const infoArea = document.createElement("div");
+            infoArea.className = "flex--item3";
+            bricks.infoArea = infoArea;
 
-            profileTextArea.style.marginRight = "20px";
-            profileTextArea.classList.add("fl-grow1");
-            profileContainer.append(profileTextArea, rightSide);
+            const profileContainer = document.createElement("div");
+            profileContainer.className = "d-flex md:fd-column g16";
 
-            const notEmpty = contributions?.children?.length > 1;
-            if (notEmpty) {
-                bricks.bottomMainContent?.classList.remove("gs24");
-                contributions.classList.add("ml24", "d-flex", "fd-column");
-                [...contributions.children]
-                    .forEach(block => {
-                                 block.classList.remove("mb32", "mb48", "mt64", "pt32");
-                                 block.classList.add("mb24");
-                     });
-            } else {
-                document.querySelector(".profile-placeholder--image")?.parentNode?.classList.remove("mt64", "pt32");
-            }
+            prose.replaceWith(profileContainer);
+            profileContainer.append(prose, infoArea);
 
             userAvatar(bricks);
         }
@@ -310,7 +435,7 @@
     }
 
     // ---- theThreeBadges --------------------------------------------------------------------------
-    const theThreeBadges = () => {
+    const theThreeBadges = (badges) => {
 
         const bling = (colour, amount) => {
             const span1 = document.createElement("span");
@@ -360,7 +485,6 @@
         const container = document.createElement("div");
         container.classList.add("d-flex", "gs4", "flex__fl-equal");
 
-        const badges = document.querySelector("#badges");
         let profileBadges;
         if (badges) {
              profileBadges = [...badges.querySelectorAll(".fs-caption")]
@@ -389,28 +513,113 @@
         return container;
     }
 
+    // ---- fixTags -------------------------------------------------------------------------
+    const fixTags = ({ tags }) => {
+        if (!tags)
+            return;
+
+        const reAlignTwo = (element) => {
+            element.classList.remove("bb", "bc-black-075")
+            element.classList.add("flex--item");
+
+            const tag = element.querySelector("a.s-tag");
+            tag.style.fontSize = "1.2em";
+
+            element.firstElementChild.style.fontSize = "1.0em";
+            [...element.querySelectorAll(".fs-body3.mr4")]
+                .forEach(font => font.classList.remove("fs-body3"));
+
+            const flex = element.querySelector(".d-flex.gsx.gs16");
+
+            const newFlex = document.createElement("div");
+            newFlex.style.flexDirection = "column";
+            newFlex.className = "d-flex gsx gs16";
+
+            const posts = flex.firstElementChild.nextElementSibling;
+            const percent = flex.lastElementChild;
+            posts.replaceWith(newFlex);
+            newFlex.append(posts);
+            newFlex.append(percent);
+
+            const wrap = element.querySelector(".d-flex.ai-center.gs12.fw-wrap");
+            wrap.classList.remove("fw-wrap");
+        }
+
+        const reAlignThree = (element) => {
+            element.classList.remove("bb", "bc-black-075")
+            element.classList.add("flex--item");
+
+            element.firstElementChild.style.fontSize = "0.9em";
+            [...element.querySelectorAll(".fs-body3.mr4")]
+                .forEach(font => font.classList.remove("fs-body3"));
+
+            const flex = element.querySelector(".d-flex.gsx.gs16");
+            flex.style.flexDirection = "column";
+            const wrap = element.querySelector(".d-flex.ai-center.gs12.fw-wrap");
+            wrap.classList.remove("fw-wrap");
+        }
+
+        const tagsElements = tags.lastElementChild?.children;
+        const length = tagsElements.length;
+
+        [...tags.querySelectorAll(".d-flex.ai-center.gs12")]
+            .forEach(elem => elem.style.backgroundColor = "var(--black-025)");
+
+        const firstTag = tags.querySelector("a.s-tag");
+        firstTag.style.fontSize = "1.6em";
+
+        if (length > 1) {
+            const secondRow = document.createElement("div");
+            secondRow.className = "d-flex bb bc-black-075 flex__fl-equal";
+            const second = tagsElements[1];
+            second.replaceWith(secondRow);
+            reAlignTwo(second);
+            secondRow.append(second);
+            if (tagsElements[2]) {
+                reAlignTwo(tagsElements[2])
+                secondRow.append(tagsElements[2]);
+            }
+        }
+
+        if (length > 3) {
+            const thirdRow = document.createElement("div");
+            thirdRow.className = "d-flex flex__fl-equal";
+            thirdRow.style.justifyContent = "space-between";
+            thirdRow.style.alignItems = "flex-end";
+            const forth = tagsElements[2];
+            forth.replaceWith(thirdRow);
+            reAlignThree(forth);
+            thirdRow.append(forth);
+            while (tagsElements[3]) { // does it twice
+                reAlignThree(tagsElements[3]);
+                thirdRow.append(tagsElements[3]);
+            }
+        }
+
+        [...tags.querySelectorAll(".fc-light.tt-lowercase")]
+            .forEach(textElement => {
+                         if ("Score" === textElement.textContent.trim()) {
+                             textElement.classList.remove("fc-light");
+                             textElement.style.color = "var(--green-400)";
+                             textElement.style.fontWeight = "bold";
+                         }
+             });
+    }
 
     // ---- putTopTagsonTop -------------------------------------------------------------------------
-    const putTopTagsonTop = () => {
+    const putTopTagsonTop = ({ posts, badges }) => {
+        if (posts && badges)
+            posts.after(badges);
+
         // Originally imspired by TylerH's Answer: https://meta.stackoverflow.com/a/408625
         // Then kindly modfied by Oleg Valter (https://stackoverflow.com/users/11407695)
         const fixItCSS = `
-            .flex--item.fl1 #top-tags {
-                order: 1;
-            }
-            .flex--item.fl1 #top-posts {
-                order: 2;
-            }
-            .flex--item.fl1 #badges {
-                order: 3;
-            }
-
-            .profile-badges .fl1:nth-child(2) {
+            #badges .fl1:nth-child(2) {
                 display: flex;
                 align-items: center;
             }
 
-            .profile-badges .fs-title {
+            #badges .fs-title {
                 float: left;
                 margin-right: 4px;
             }
@@ -418,25 +627,56 @@
             .spotAward {
                 transform: scale(0.75,0.75);
             }
-
-            /* make the background transparent on the tag badge medal */
-            .badge1-alternate.badge-tag,
-            .badge2-alternate.badge-tag,
-            .badge3-alternate.badge-tag {
-                background-color: transparent !important;
-            }
-
-            /* center the tag badge medal */
-            .profile-top-tags > div:first-child .badge1-alternate.badge-tag > span,
-            .profile-top-tags > div:first-child .badge2-alternate.badge-tag > span,
-            .profile-top-tags > div:first-child .badge3-alternate.badge-tag > span {
-                vertical-align: initial !important;
-            }
             `;
 
             const styleSheet = document.createElement("style");
             styleSheet.innerText = fixItCSS;
             document.head.appendChild(styleSheet);
+    }
+
+    // ---- moveMeta -------------------------------------------------------------------------
+    const moveMeta = ({ meta, leftMainContent }) => {
+        if (!meta)
+            return;
+
+        [...meta.querySelectorAll(".flex--item.px1")]
+           .forEach(icon => icon.remove());
+
+        [...meta.querySelectorAll("a")]
+           .forEach(a => a.style.fontSize = "100%");
+
+        leftMainContent.append(meta);
+    }
+
+    // ---- fixCommunity -------------------------------------------------------------------------
+    const fixCommunities = ({ communities, networkId }) => {
+        if (!communities)
+            return;
+
+        const header = communities.firstElementChild;
+        const networkLink = header.querySelector("a");
+
+        if (!networkLink) {
+            const link = document.createElement("a");
+            link.href = `https://stackexchange.com/users/${networkId}`;
+            const icon = createSvg("network");
+            link.append(icon);
+            header.append(link);
+        }
+
+        const networkModeratorFlair = header.nextElementSibling?.querySelectorAll(".mod-flair");
+        [...networkModeratorFlair]
+            .forEach(flair => {
+                         const site = flair.closest("a");
+                         site.title = site.title + " ♦";
+                         flair // move the diamond to the site instead of the reputation
+                             .parentElement
+                            ?.previousElementSibling
+                            ?.firstElementChild
+                            ?.append(flair)
+                         // siteName.insertBefore(flair, siteName.firstChild);
+             });
+
     }
 
     // now as a string in Stack representation -------------------------
@@ -536,12 +776,14 @@
 
         const insertAndAdjust = (lastActivity, firstActivity) => {
             elementToAppend.append(createList(lastActivity, firstActivity));
-            // readjust the height of the profile text prose
 
+            // readjust the height of the profile text prose
             const currentHeight = +elementToAdjust?.style.maxHeight.replace("px","");
             const height = parseInt(window.getComputedStyle(elementToAppend).height);
-            if (elementToAdjust)
-                elementToAdjust.style.maxHeight = Math.max(currentHeight, (height - 92 + (headerPresent ? 0 : 20))) + "px";
+            if (elementToAdjust) {
+                const newHeight = Math.max(currentHeight, (height - 55 - (headerPresent ? 30 : 0)));
+                elementToAdjust.style.maxHeight = newHeight + "px";
+            }
         }
 
         let page = 1;
@@ -590,21 +832,37 @@
         // https://chat.stackoverflow.com/transcript/message/53149584#53149584
         // https://github.com/userscripters/stacks-helpers/blob/master/src/icons/index.ts
         const svg     = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        const svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const svgPath = [];
+
+        const createSvgPath = ({ fill, d }) => {
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            if (fill)
+                path.setAttribute("fill", fill);
+            if (d)
+                path.setAttribute("d", d);
+            return path;
+        }
 
         switch (type) {
             case "eye":
                 svg.classList.add("svg-icon", "iconEye");
-                svgPath.setAttribute("d", "M9.06 3C4 3 1 9 1 9s3 6 8.06 6C14 15 17 9 17 9s-3-6-7.94-6ZM9 13a4 4 0 "
-                                           + "110-8 4 4 0 010 8Zm0-2a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2Z");
+                svgPath.push(createSvgPath({ d : "M9.06 3C4 3 1 9 1 9s3 6 8.06 6C14 15 17 9 17 9s-3-6-7.94-6ZM9 13a4 4 0 "
+                                           + "110-8 4 4 0 010 8Zm0-2a2 2 0 002-2 2 2 0 00-2-2 2 2 0 00-2 2 2 2 0 002 2Z" }));
                 break;
             case "clock":
                 svg.classList.add("svg-icon", "iconClock");
-                svgPath.setAttribute("d", "M9 17c-4.36 0-8-3.64-8-8 0-4.36 3.64-8 8-8 4.36 0 8 3.64 8 8 0 4.36-3.64 8-8 8Zm0-2c3.27 "
-                                          + "0 6-2.73 6-6s-2.73-6-6-6-6 2.73-6 6 2.73 6 6 6ZM8 5h1.01L9 9.36l3.22 2.1-.6.93L8 10V5Z");
+                svgPath.push(createSvgPath({ d: "M9 17c-4.36 0-8-3.64-8-8 0-4.36 3.64-8 8-8 4.36 0 8 3.64 8 8 0 4.36-3.64 8-8 8Zm0-2c3.27 "
+                                          + "0 6-2.73 6-6s-2.73-6-6-6-6 2.73-6 6 2.73 6 6 6ZM8 5h1.01L9 9.36l3.22 2.1-.6.93L8 10V5Z" }));
+                break;
+            case "network":
+                svg.classList.add("svg-icon", "iconLogoSEXxs", "native");
+                svgPath.push(createSvgPath({ fill: "#8FD8F7", d: "M3 4c0-1.1.9-2 2-2h8a2 2 0 012 2H3Z" }));
+                svgPath.push(createSvgPath({ fill: "#155397", d: "M15 11H3c0 1.1.9 2 2 2h5v3l3-3a2 2 0 002-2Z" }));
+                svgPath.push(createSvgPath({ fill: "#46A2D9", d: "M3 5h12v2H3z" }));
+                svgPath.push(createSvgPath({ fill: "#2D6DB5", d: "M3 8h12v2H3z" }));
         }
 
-        svg.append(svgPath);
+        svg.append(...svgPath);
         svg.ariaHidden = "true";
         svg.setAttribute("width", "18");
         svg.setAttribute("height", "18");
@@ -614,15 +872,16 @@
     }
 
     // -----------------------------------------------------------------
-    const fetchCreepyData = async ({ userId, userFirstList }) => {
+    const fetchCreepyData = async (bricks) => {
         const fetchUser = async (userId) => {
             const apiUrl = `https://api.stackexchange.com/2.2/users/`;
-            const userFilter = '!bWWrYUhX0a2k7x';
+            const userFilter = '!40D72gVEExFusrVxd';
             const site = window.location.hostname;
             const key = 'Ql5)rGNzh1JB8xiEjeYQmQ((';
 
             const response = await fetch(`${apiUrl}${userId}?filter=${userFilter}&site=${site}&key=${key}`);
             const result = await response.json();
+
             return result?.items[0];
         }
 
@@ -744,7 +1003,9 @@
             return listItem;
         }
 
+        const { userId, userFirstList } = bricks;
         const userDetails = await fetchUser(userId);
+        bricks.networkId = userDetails.account_id;
         userFirstList.append(createListItem("view", userDetails), createListItem("last", userDetails));
     }
 
@@ -756,17 +1017,23 @@
 
         makeChanges(bricks);
 
-        if (getActivity && profileTABNAMES.includes(bricks.page))
-            scrapeActivity({
-                             elementToAppend : bricks.rightSide,
-                             headerPresent   : bricks.headerExists,
-                             elementToAdjust : bricks.prose
-                          });
+        if (profileTABNAMES.includes(bricks.page)) {
+            if (getActivity)
+                scrapeActivity({
+                                 elementToAppend : bricks.infoArea,
+                                 headerPresent   : bricks.headerExists,
+                                 elementToAdjust : bricks.proseText
+                              });
 
-        putTopTagsonTop();
+            putTopTagsonTop(bricks);
+            fixTags(bricks);
+            moveMeta(bricks);
 
-        if (getCreepyData && profileTABNAMES.includes(bricks.page))
-            fetchCreepyData(bricks);
+            if (getCreepyData) {
+                await fetchCreepyData(bricks);
+                fixCommunities(bricks);
+            }
+        }
     }
 
     doIt();

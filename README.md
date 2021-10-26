@@ -102,3 +102,4 @@ Based on:
 - [What is the new badge UI on the Profile page?](https://meta.stackoverflow.com/questions/408611/what-is-the-new-badge-ui-on-the-profile-page)
 - [Additional profile refinements](https://meta.stackexchange.com/questions/368661/additional-profile-refinements)
 - [We’ve shipped some changes to the user profile navigation](https://meta.stackexchange.com/questions/369276/we-ve-shipped-some-changes-to-the-user-profile-navigation)
+- [Now live: A fully responsive profile](https://meta.stackexchange.com/questions/370964/now-live-a-fully-responsive-profile)

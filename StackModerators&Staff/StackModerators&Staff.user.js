@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         Stack Moderators & Staff
 // @namespace    scratte-fiddlings
-// @version      0.6
+// @version      0.9
 // @description  Indicate less that a user is moderator or staff
 // @author       Scratte (https://stackoverflow.com/users/12695027)
-// @include      /^https://(?:meta\.)?stackoverflow\.com/
-// @exclude      /^https://(?:meta\.)?stackoverflow\.com/users/
+// @include      /^https://(?:[^/]+\.)?stackoverflow\.com/
+// @exclude      /^https://(?:[^/]+\.)?stackoverflow\.com/users/
+// @include      /^https://stackapps\.com/
+// @exclude      /^https://stackapps\.com/users/
 // @include      /^https://meta\.stackexchange\.com/
 // @exclude      /^https://meta\.stackexchange\.com/users/
 // @grant        none
@@ -24,14 +26,15 @@
             add();
          });
 
+    const botNames = ["Bot", "Бот"];
+
+    // Suggested by Oleg Valter (https://stackoverflow.com/users/11407695)
+    // https://chat.stackoverflow.com/transcript/message/53157675#53157675
     const communityApperences =
               [
-                  ".user-details > span",
-                  ".comment-body > div > span",
-                  ".comment-user > span",
-                  ".summary > div > div > span",   // front page
-                  ".list-reset > li > div > span", // review notice
-              ];
+                "a[href*='/users/-1'] + .s-badge",  // comments & timelines & front page & review notice & editor
+                "a[href*='/users/-1'] > .s-badge",  // Suggested review editor
+              ]
 
     const fixCommunity = (element) => {
         // https://codepoints.net/U+1F79A WHITE DIAMOND CONTAINING BLACK VERY SMALL DIAMOND
@@ -66,20 +69,30 @@
 
     // just swap the box with an icon
     function swap() {
-        // Change the Community bot-box to the old diamond.
+        // Change the Community bot-box to a 🞚.
         doc.querySelectorAll(communityApperences.join())
             .forEach(botBox => {
-                             if (botBox && botBox.textContent.trim() === "Bot") {
-                                 fixCommunity(botBox);
-                                 const classList = botBox.parentElement?.classList;
-                                 if (classList) {
-                                     classList.remove("ai-center");
-                                     classList.add("ai-baseline");
-                                 }
-
+                         const { textContent, parentElement } = botBox;
+                         if (!textContent || !parentElement)
+                             return;
+                         if (botNames.includes(textContent.trim())) {
+                             const { firstChild } = parentElement;
+                             // Because Community as a suggested editor has a trailling space :/
+                             // And here the bot-Box is inside the link, not a sibling
+                             if (parentElement.nodeName === "A" && firstChild && firstChild.nodeType === Node.TEXT_NODE) {
+                                 firstChild.nodeValue = firstChild.nodeValue.trimEnd();
                              }
+
+                             fixCommunity(botBox);
+                             const classList = botBox.parentElement?.classList;
+                             if (classList) {
+                                 classList.remove("ai-center");
+                                 classList.add("ai-baseline");
+                             }
+                         }
              });
 
+        // Change the moderator mod-box to a ♦.
         doc.querySelectorAll(".s-badge__moderator")
             .forEach(element => {
                          element.className = "";
@@ -89,6 +102,7 @@
                          element.previousElementSibling?.classList.add("mr2");
                 });
 
+        // Change the staff-box to a Stack logo.
         doc.querySelectorAll(".s-badge__staff")
             .forEach(element => {
                          element.className = "";

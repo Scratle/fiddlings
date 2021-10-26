@@ -2,9 +2,11 @@
 
 ..and:
 
-- Removes a lot of padding and margins.
-- Puts the trophies on the bottom of the page.
-- Removes the background and centers the "dot" on top tag.
+- Puts the badges/trophies under the "Posts".
+- Reduces the row on tags to the old 1 : 2 : 3 look.
+- Adds a link to the network profile on the Community box.
+- Moves meta posts to the left side column.
+- Puts the meta/main link on the top bar.
 - Optional: 
   - Fetches the "profile views" and "Last seen" from the [Stack Exchange API](https://api.stackexchange.com/).
   - Scrapes the user activity pages (first and last page) and adds in UTC (ISO 8601 Formatted):
@@ -15,18 +17,21 @@
 Courtesy of [Vickel](https://stackoverflow.com/users/2275490/vickel), this is:
 
 ### Before
-<img src="https://i.stack.imgur.com/0zbI6.png" width="400">
-
-### After (roughly)
-<img src="https://i.stack.imgur.com/wjgaO.png" width="400">
-
-Due to "responsiveness", the script was reworked, and this is now the top part of profile:
+<img src="https://i.stack.imgur.com/2m39S.png" width="400">
 
 ### After
-<img src="https://i.stack.imgur.com/fuFPK.png" width="400"> 
+<img src="https://i.stack.imgur.com/28WqZ.png" width="400">
 
-### Tag badge dots before/after as seen in dark mode:
-<img src="https://i.stack.imgur.com/4azWH.png" width="150"> <img src="https://i.stack.imgur.com/GcZPB.png" width="150"> 
+### Link to network user
+
+If there's no "View all" link in the "Communities" header, like this one:
+
+<img src="https://i.stack.imgur.com/mWm5H.png" width="250">
+
+
+the script will insert one:
+
+<img src="https://i.stack.imgur.com/4Uoxv.png" width="250">
 
 
 ### Options
@@ -38,7 +43,6 @@ There are two variables at the top of the script that controls:
   Turn if off by setting this variable to false: `const getActivity   = false;`
 
 <img src="https://i.stack.imgur.com/h4ohX.png" width="250">
-
 
 
 ---
