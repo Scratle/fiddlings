@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Collectives Off
 // @namespace    scratte-fiddlings
-// @version      0.7
+// @version      0.8
 // @description  Pretending Collectives don't exist
 // @author       Scratte (stackoverflow.com/users/12695027)
 // @include      https://stackoverflow.com/*
@@ -15,6 +15,13 @@
 (function() {
     'use strict';
 
+    // Start with user profiles (since Stack removed the defining class on the links).
+    document.querySelector("a[href*='\/collectives\/']")
+           // Another optimization suggested by Oleg Valter
+           // https://chat.stackoverflow.com/transcript/message/52657512#52657512
+           ?.closest("div.grid--item")
+           ?.remove();
+
     // Suggested by Oleg Valter (https://stackoverflow.com/users/11407695)
     // https://chat.stackoverflow.com/transcript/message/52657173#52657173
     const mostCollectivesStuff =
@@ -23,7 +30,7 @@
                   ".js-join-leave-container",
                   // both 1: the collective icons from posts on the home page
                   //      2: the award icons from user cards on posts
-                  "a[href*='\/collectives\/']:not(#nav-collective-discover):not(.s-card)",
+                  "a[href*='\/collectives\/']:not(#nav-collective-discover)",
                   // the particular collective in the sidebar on posts
                   ".sidebar-subcommunity",
               ];
@@ -43,13 +50,6 @@
 
     const removePostCollectives = () => document.querySelectorAll(postCollectivesStuff.join()) // "," is default
             .forEach(e => e.remove());
-
-    // Additionally remove the entire collective box from user profiles
-    document.querySelector("a[href*=collectives].s-card")
-           // Another optimization suggested by Oleg Valter
-           // https://chat.stackoverflow.com/transcript/message/52657512#52657512
-           ?.closest("div.grid--item")
-           ?.remove();
 
     // And the list item saying "X user groups" from user profiles
     document.querySelector("ul div[aria-describedby=groups-popover]")
