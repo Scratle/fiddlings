@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Retrieve Answer delete votes
 // @description  Show the delete votes on Answers
-// @version      2.1
+// @version      2.3
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
 // @include      /^https://(?:[^/]+\.)?stackoverflow.com/(questions/\d+|review/.*)/
@@ -64,8 +64,9 @@
         const events = parsedHTML.querySelector(".event-rows");
 
         const searchFor = "Delete: ";
-        const length = searchFor.length;
+        const searchForLength = searchFor.length;
         let deleteVoteCount = 0;
+        let deleteEntries = 0;
 
         for (const element of [...events.children]) {
             // https://chat.stackoverflow.com/transcript/message/52579867#52579867
@@ -74,24 +75,33 @@
                 element.querySelectorAll('.summary-entry')
                        .forEach(function(entry) {
                                     const text = entry.innerHTML;
-
                                     // Optimization by Cody Gray (https://stackoverflow.com/users/366904)
                                     // https://chat.stackoverflow.com/transcript/message/52578177#52578177
-                                    let pos = text.indexOf(searchFor);
+                                    const pos = text.indexOf(searchFor);
                                     if (pos != -1) {
-                                        deleteVoteCount += +text[pos + length];
+                                        deleteVoteCount += +text[pos + searchForLength];
                                     }
                         });
             } else if (eventType === "history"){
-                // element.firstElementChild.nextElementSibling.nextElementSibling.firstElementChild.textContent.trim()
-                if (element.querySelector(".wmn1").textContent.trim() === "undeleted") {
-                    break;
+                const event = element.querySelector(".wmn1").textContent.trim();
+                if (event === "undeleted" && deleteVoteCount === 0) {
+                    // the post was undeleted and no delete votes have since accumulated
+                    return;
+                } else if (event === "deleted") {
+                    // Count the entries in the delete event.
+                    // This is necessary due to this type of scenario:
+                        // Tuesday summary: Delete: 2, Undelete: 1
+                        // Tuesday event: undeleted
+                        // Tuesday event: deleted
+                        // Monday summary: Delete: 2
+                    deleteEntries += element.querySelectorAll("a")?.length;
                 }
             }
         };
 
-        if (deleteVoteCount > 0) {
-            appendDeleteVotesInAnswer(post, deleteVoteCount);
+        const deleteVotesSurplus =  deleteVoteCount - deleteEntries;
+        if (deleteVotesSurplus > 0) {
+            appendDeleteVotesInAnswer(post, deleteVotesSurplus);
         }
     }
 
