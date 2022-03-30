@@ -2,7 +2,7 @@
 // @name         Stack Review Suggested Edits Rework
 // @description  Make reviewing nice again!
 // @namespace    scratte-fiddlings
-// @version      1.2.2
+// @version      1.2.7
 //
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 // @contributor  Oleg Valter (https://stackoverflow.com/users/11407695)
@@ -1243,7 +1243,7 @@
 
             default                 : // userCardTypes.MINIMAL
                                       userName.style.fontSize = "100%";
-                                      userName.style.paddingLeft = "5px";
+                                      userName.style.paddingLeft = "10px";
                                       userName.textContent = displayName;
 
                                       if (isModerator || isUserCommunity)
@@ -2040,7 +2040,8 @@
                                 text              : existingAnswers.textContent.trim()
                               };
 
-            postInfo.postScore = existingVotes.textContent.trim().replace(" votes","").replace(" vote","");
+            postInfo.postScore = existingVotes.textContent.trim().replace(" votes","").replace(" vote","")
+                                                                 .replace("Score of", "");
 
             postInfo.viewCount = existingViews.textContent.trim().replace(" views","").replace(" view","");
 
@@ -2263,7 +2264,7 @@
 
             const score = document.createElement("div");
             score.classList.add(item);
-            score.textContent = "score ";
+            score.textContent = "score" + EMPTY;
             score.append(scoreBox);
             return score;
         }
@@ -2296,7 +2297,7 @@
             leftContainer.style.flexDirection = "column";
             leftContainer.style.flexWrap = "wrap";
             leftContainer.style.alignItems = "flex-end";
-            leftContainer.style.marginTop = "8px";
+            leftContainer.style.marginTop = "4px";
             leftContainer.style.paddingRight = "10px";
             leftContainer.append(answers, score, view);
             return leftContainer;
@@ -3521,9 +3522,9 @@
                     quotaNotice:       PREFIXMODAL + "quotaNotice",
                 },
                 classes: {
-                    icon: {
-                        iconItem: "-item",
-                        iconLink: "-link",
+                    topMenu: {
+                        selector: ".s-topbar--content",
+                        icon: "s-topbar--item",
                     },
                     smodals: {
                         modal: "s-modal",
@@ -3588,6 +3589,7 @@
                     active: "var(--fc-dark)",
                     seperator: "var(--black-200)",
                     border: "var(--black-075)",
+                    icon: "var(--theme-topbar-item-color)",
                 },
                 sizes: {
                     editorAvatar: {
@@ -3603,7 +3605,6 @@
                 hide: "s-modal#hide",
                 show: "s-modal#show",
                 draggable: "se-draggable",
-                topMenuSelector:  "ol.user-logged-in",
         };
 
 
@@ -4462,18 +4463,18 @@
 
         function insertIcon() {
             const { show,
-                    topMenuSelector,
                     headerNtooltip,
                     ids: { icon : iconId },
-                    classes: { icon, smodals: { modal } }
+                    classes: { topMenu: { selector : topMenuSelector, icon : topMenuIcon },
+                               smodals: { modal } },
+                    colours: { icon : iconColour }
                   } = modalConfig;
 
-            if (document.querySelector(`${topMenuSelector} #${iconId}`))
+            if (document.querySelector(`${topMenuSelector} #${iconId}`))  // .s-topbar--content
                 return;  // Don't add another
 
             // The icon inside the item on the top bar
             const settingsLink = document.createElement("a");
-            settingsLink.classList.add(icon.iconLink); // unrelated to links, just a class.
 
             // https://chat.stackoverflow.com/transcript/message/52315572#52315572
             // https://chat.stackoverflow.com/transcript/message/52315623#52315623
@@ -4485,14 +4486,15 @@
                 settingsLink.style.fontSize = "125%";
             }
             settingsLink.title = headerNtooltip; // tooltip
+            settingsLink.style.color = iconColour; // "var(--theme-topbar-item-color)"
 
             // The settings-item on the top bar
             const settingsItem = document.createElement("li");
-            settingsItem.classList.add(icon.iconItem);
+            settingsItem.classList.add(topMenuIcon); // "s-topbar--item"
             settingsItem.id = iconId;
             settingsItem.append(settingsLink);
 
-            const topBar = document.querySelector(topMenuSelector);
+            let topBar = document.querySelector(topMenuSelector); // .s-topbar--content
             topBar?.append(settingsItem);
 
             // loads the GUI for the settings
@@ -5334,10 +5336,29 @@
 
 
         // -------------------------------
+        function getWrappedImage(image) {
+            if (image.tagName === "A" && image.classList.contains("image-lightbox")) {
+                // Samuel Liew's "Lightbox Images" script at
+                // https://github.com/samliew/SO-mod-userscripts/blob/master/LightboxImages.user.js
+                // puts all images into a link tag. But it's an awesome script, so..
+                const parent = image;
+                image = parent.getElementsByTagName("IMG")[0];
+
+                // it doesn't seem possible to get the image to fancybox the new image.
+                // it keep loading the old.
+                parent.replaceWith(image);
+            }
+
+            return image;
+        }
+
+        // -------------------------------
         function previewUpdateImage(image, onf, images) {
-            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             const { lightOn, lightOff, darkOn, darkOff } = images;
 
+            image = getWrappedImage(image);
+
+            // https://chat.stackoverflow.com/transcript/message/52332481#52332481
             if (isLIGHT) {
                 image.src = onf
                     ? `${imgHOST}${lightOn}`
@@ -5458,9 +5479,9 @@
                     lastElementChild  : actionsImage
                   } = actionsContent;
 
-            const moveImage    = moveElement.lastElementChild;
-            const clickImage   = clickElement.lastElementChild;
-            const tooltipImage = tooltipElement.lastElementChild;
+            const moveImage    = getWrappedImage(moveElement.lastElementChild);
+            const clickImage   = getWrappedImage(clickElement.lastElementChild);
+            const tooltipImage = getWrappedImage(tooltipElement.lastElementChild);
 
             const radioVsButtons = deepGet(tempUserConfig, "options.radioVsButtons");
             const moveRadioBox     = radioVsButtons?.moveRadioBox === "Yes";
@@ -5665,7 +5686,7 @@
             const editorElement    = getElement(tabMenu, editorElementName);
 
             // https://chat.stackoverflow.com/transcript/message/52332615#52332615
-            const userCardImage = userCardsElement.lastElementChild; // from the preview element
+            const userCardImage = getWrappedImage(userCardsElement.lastElementChild); // from the preview element
             const editorBox   = editorElement.lastElementChild;      // from the preview element
             const editorImage = editorElement.querySelector("img");
 
@@ -5741,7 +5762,7 @@
 
         // -------------------------------
         function previewStackUsercardsUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            const image = element.lastElementChild;
+            const image = getWrappedImage(element.lastElementChild);
 
             // original images from:
             // http://pngimg.com/uploads/broccoli/broccoli_PNG72874.png
@@ -6265,7 +6286,7 @@
 
         // -------------------------------
         function previewFilterListUpdate(tabMenu, elementName, element = getElement(tabMenu, elementName)) {
-            const image = element.lastElementChild;
+            const image = getWrappedImage(element.lastElementChild);
 
             const reviewFilters = deepGet(tempUserConfig, "options.reviewFilters");
             const removeTextFilters = reviewFilters?.removeTextFilters === "Yes";

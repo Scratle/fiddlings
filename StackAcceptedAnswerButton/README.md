@@ -13,7 +13,7 @@ the script will instead add a button next to the sorting filters, as marked in p
 Clicking on the checkmark / button will take you directly to the Answer.
 
 ### Screen shot
-<img src="https://i.stack.imgur.com/yAaMv.png" width="600">
+<img src="https://i.stack.imgur.com/j4kTB.png" width="600">
 
 ---
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack Accepted Answer Button
 // @description  Show a button that links to the accepted Answer.
-// @version      0.3
+// @version      0.4
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
@@ -23,8 +23,8 @@
     // https://chat.stackoverflow.com/transcript/message/52991681#52991681
     const addToTitle = true;
 
-    const answerFilters = document.querySelector("#answers #answers-header .js-filter-btn");
-    if (!answerFilters)
+    const answerFilters = document.querySelector("#answers #answers-header .answers-subheader");
+    if (!answerFilters && !addToTitle)
         return;
 
     const isAnswerOnPage = (answerId) => {
@@ -58,7 +58,7 @@
             buttonLink.style.color = "white";
             buttonLink.textContent = "Accepted";
 
-            answerFilters.parentElement?.before(buttonLink);
+            answerFilters.append(buttonLink);
         }
     }
 

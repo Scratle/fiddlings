@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      3.0
+// @version      3.4
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
@@ -407,11 +407,15 @@
             [...userFirstList.children]
                 .forEach(element => {
                              element.querySelector(".v-visible-sr")?.remove();
-                             if (!element.textContent.trim()) {
+                             const content = element.textContent.trim()
+                             if (!content) {
                                  const link = element.querySelector("a");
                                  const text = link.cloneNode(true)
                                  text.textContent = link.href.toString().replace("https://", "");
                                  element.append(text);
+                             } else if (content.startsWith("Last seen")) {
+                                 // remove the low granularity Last seen element
+                                 element.remove();
                              }
                  });
 
@@ -562,11 +566,13 @@
         const tagsElements = tags.lastElementChild?.children;
         const length = tagsElements.length;
 
+        const firstTag = tags.querySelector("a.s-tag");
+        if (!firstTag)
+            return;
+        firstTag.style.fontSize = "1.6em";
+
         [...tags.querySelectorAll(".d-flex.ai-center.gs12")]
             .forEach(elem => elem.style.backgroundColor = "var(--black-025)");
-
-        const firstTag = tags.querySelector("a.s-tag");
-        firstTag.style.fontSize = "1.6em";
 
         if (length > 1) {
             const secondRow = document.createElement("div");
@@ -697,7 +703,7 @@
         title = element.firstElementChild?.title;
         if (title)
             return title;
-        return element.querySelector(".date_brick")?.title;
+        return "Oops.. :(" // when there's no date
     }
 
     // -----------------------------------------------------------------
@@ -758,19 +764,20 @@
 
         const getLastItem = (parsedHTM) => {
             // if that's an award it's fine.
-            const activities = parsedHTM.querySelectorAll(".date");
+            const activities = parsedHTM.querySelectorAll("time");
             if (activities)
                 return activities[activities.length -1];
         }
 
         const getRecentItem = (parsedHTM) => {
-            const historyElements = parsedHTM.querySelectorAll(".history-table tr");
+            const historyElements = parsedHTM.querySelectorAll(".js-expandable-posts > .p8.py6.bb.bc-black-075");
             for (const element of historyElements) {
-                const childElements = element.children;
-                if (childElements.length > 1 && childElements[1].textContent !== "awarded") {
-                    return childElements[0];
+              const action = element.querySelector(".d-flex.fd-column.g4.ai-end.fc-black-500.wmn1 > div");
+                if (action && action.textContent !== "awarded") {
+                    return element.querySelector("time");
                 }
             }
+
             return;
         }
 
