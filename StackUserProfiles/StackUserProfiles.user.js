@@ -1,18 +1,20 @@
 // ==UserScript==
 // @name         Stack User Profiles
 // @description  Make use of the space like before.
-// @version      3.4
+// @version      3.8
 //
 // @namespace    scratte-fiddlings
 // @author       Scratte (https://stackoverflow.com/users/12695027)
 //
-// @include      /^https://(?:meta\.)?askubuntu\.com/users//
-// @include      /^https://(?:meta\.)?mathoverflow\.net/users//
-// @include      /^https://(?:[^/]+\.)?stackoverflow\.com/users//
-// @include      /^https://(?:meta\.)?superuser\.com/users//
-// @include      /^https://(?:meta\.)?serverfault\.com/users//
-// @include      /^https://stackapps\.com/users//
-// @include      /^https://[^/]+\.stackexchange\.com/users//
+// @match        https://*.askubuntu.com/users/*
+// @match        https://*.mathoverflow.net/users/*
+// @match        https://*.stackoverflow.com/users/*
+// @match        https://*.superuser.com/users/*
+// @match        https://*.serverfault.com/users/*
+// @match        https://stackapps.com/users/*
+// @match        https://*.stackexchange.com/users/*
+//
+// @exclude      *://stackexchange.com/users/*
 // @exclude      *://api.stackexchange.com/*
 // @exclude      *://data.stackexchange.com/*
 // @exclude      *://elections.stackexchange.com/*
@@ -146,7 +148,6 @@
                                      break;
                              }
                  });
-
 
             bricks.rightMainContent = rightMainContent;
             [...rightMainContent.children]
@@ -770,9 +771,9 @@
         }
 
         const getRecentItem = (parsedHTM) => {
-            const historyElements = parsedHTM.querySelectorAll(".js-expandable-posts > .p8.py6.bb.bc-black-075");
+            const historyElements = parsedHTM.querySelectorAll(".js-expandable-posts > .p8.py6.bb");
             for (const element of historyElements) {
-              const action = element.querySelector(".d-flex.fd-column.g4.ai-end.fc-black-500.wmn1 > div");
+              const action = element.querySelector(".d-flex.fd-column.g4.ai-end.wmn1 > div");
                 if (action && action.textContent !== "awarded") {
                     return element.querySelector("time");
                 }
@@ -978,15 +979,16 @@
         const createListItem = (type, userDetails) => {
             const listItemContent = document.createElement("div");
             let listItemIcon;
+
             if (type === "view") {
                 listItemContent.textContent = `${splitViews(userDetails.view_count)} profile views`;
-                listItemIcon = (typeof Svg !== "undefined")
+                listItemIcon = (typeof Svg !== "undefined" && typeof Svg.Eye === "function")
                                    ? Svg.Eye()?.get(0)
                                    : createSvg("eye");
             } else {
                 listItemContent.title = absoluteTime(userDetails.last_access_date);
                 listItemContent.textContent = `Last seen ${customPrettyDateDiff(userDetails.last_access_date)}`;
-                listItemIcon = (typeof Svg !== "undefined")
+                listItemIcon = (typeof Svg !== "undefined" && typeof Svg.Clock === "function")
                                    ? Svg.Clock()?.get(0)
                                    : createSvg("clock");
             }
